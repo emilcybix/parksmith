@@ -514,6 +514,17 @@ export const ParkPulse = (): React.JSX.Element => {
   );
 };
 
+/** The bulldozer tool's icon: a small dozer with its blade, drawn in the button's text colour. */
+const BulldozerIcon = (): React.JSX.Element => (
+  <svg className="bulldozer-icon" viewBox="0 0 20 16" width="18" height="15" aria-hidden="true" focusable="false">
+    <rect x="9" y="2" width="5" height="4" rx="0.8" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="5.5" y="6" width="10" height="4.5" rx="0.8" fill="currentColor" />
+    <rect x="4.5" y="11" width="12" height="4" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M5.5 8.5 H3" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M1.2 5.5 Q3.4 9.25 1.2 13 H3 V5.5 Z" fill="currentColor" />
+  </svg>
+);
+
 export const BuildDock = (): React.JSX.Element => {
   const keys = useKeybindings();
   const activeCategory = useUiStore((state) => state.activeCategory);
@@ -631,8 +642,8 @@ export const BuildDock = (): React.JSX.Element => {
           onClick={selectBulldozer}
           aria-pressed={tool === 'bulldoze'}
           aria-keyshortcuts={ariaKeyShortcuts('bulldozer', keys)}
-          title={withKeyHint('Bulldozer', 'bulldozer', keys)}
-        ><span aria-hidden="true">⌫</span>Clear</button>
+          title={withKeyHint('Bulldozer: drag over paths, buildings or props to demolish them', 'bulldozer', keys)}
+        ><span aria-hidden="true"><BulldozerIcon /></span>Demolish</button>
         {/* Phase 21: only an estate (land for sale) offers the Land tool; a wholly owned park keeps today's toolbar. */}
         {land !== null && (
           <button
@@ -661,7 +672,7 @@ export const BuildDock = (): React.JSX.Element => {
           {tool === 'pointer'
             ? <><span aria-hidden="true">⌖</span> Select — click a ride, stall or guest to inspect it</>
             : tool === 'bulldoze'
-              ? <><span className="armed" aria-hidden="true">⌫</span> Clear armed — drag to demolish</>
+              ? <><span className="armed" aria-hidden="true"><BulldozerIcon /></span> Bulldozer armed — drag to demolish</>
               : tool === 'paint'
                 ? <><span className="armed" aria-hidden="true">◐</span> {paint.paintLine}</>
                 : tool === 'land'
@@ -839,7 +850,7 @@ export const CursorReadout = (): React.JSX.Element | null => {
   const themeLine = definition?.theme && previewTheme?.theme === definition.theme ? placementThemeLine(previewTheme) : null;
   return (
     <div className={`cursor-readout ${previewValid ? '' : 'invalid'}`}>
-      <strong>{tool === 'bulldoze' ? previewTitle ?? 'Clear' : tool === 'land' ? previewTitle ?? 'Land' : definition?.name}</strong>
+      <strong>{tool === 'bulldoze' ? previewTitle ?? 'Demolish' : tool === 'land' ? previewTitle ?? 'Land' : definition?.name}</strong>
       {previewCost > 0 && previewTitle === null && <span>−${previewCost.toLocaleString()}</span>}
       {/* The exact reason, in the same words the click toast would use — never both at once. A block that only repeats
           the title (the armed coaster, Phase 11) is said once: the small line keeps the cell. */}

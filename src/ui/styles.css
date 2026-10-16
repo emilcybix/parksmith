@@ -645,6 +645,7 @@ button.clock-chip:hover, button.clock-chip[aria-expanded="true"] { background: #
 .category-tabs .pointer-tab:hover { color: #26506b; background: #e7f2fa; }
 .category-tabs .pointer-tab.active { color: #1d4d6b; background: #e2f0fa; box-shadow: inset 0 -3px 0 #4ea8de; }
 .category-tabs .bulldoze-tab { color: #9b5a65; }
+.bulldozer-icon { display: inline-block; vertical-align: -2px; }
 .category-tabs .bulldoze-tab.active { color: #b92f4a; background: #ffe9ed; box-shadow: inset 0 -3px 0 var(--coral); }
 .category-tabs .undo-tab { color: #7a6a95; }
 .category-tabs .undo-tab:hover { color: #53427a; background: #f0ecfa; }

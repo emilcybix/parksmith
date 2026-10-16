@@ -2728,6 +2728,314 @@ steer around the obstacle without letting go.
   the way to the first cell leaves a one-cell draft; the hover cost follows the cut; blocked cells are drawn apart from
   the valid ones in both renderers; a mid-drag Ctrl+Z still empties the draft.
 
+## Phase 38 — Coaster Track Over and Under (planned, not started)
+
+**Problem.** A coaster cannot cross itself or anything else at a different height. `validateCoasterLayout` refuses any
+cell a layout visits twice (`overlapping`, "The track crosses itself."), whatever the heights. The world holds one
+occupant per cell (`World.occupancy`, a cell key to one id; `coasterHeights`, one height per cell). The only crossing
+that works today is track at `pathClearanceHeight` (2) or higher over a path.
+
+**Goal.** A coaster can run over or under its own track, another coaster, and low objects, when the two are far enough
+apart in height. The same rule that already lets track pass over a path decides it.
+
+**Rule (decide first).**
+- [ ] **Clearance in levels.** Two track pieces may share a cell when their heights differ by at least
+  `GAME_CONFIG.coaster.trackClearanceLevels`. Recommended: 2, the same as `pathClearanceHeight`, so a train fits under
+  track the way a guest fits under it. With today's type heights (2, 3, 4; absolute 4), a crossing then needs a
+  ground-level piece under a level 2+ piece. That is enough for a figure eight on the taller types. Raising the height
+  caps is a separate balance question.
+- [ ] **Over objects.** Every build definition gets a gameplay height in levels (`clearanceLevels`): for example 1 for
+  benches, bins, lamps and flower beds, and "full" (never crossable) for rides, stalls and the entrance. Track may pass
+  over an object when its height is at least the object's height plus 1. Never under: an object cannot be built on a
+  cell where track runs above it unless the same rule holds, checked from the object's side. Props and water keep
+  their current rules.
+- [ ] **Stations and specials stay alone.** A station piece, a loop and a boost keep their cell (and their Phase 27
+  breathing room) to themselves: nothing crosses them, above or below.
+
+**Simulation and save.**
+- [ ] Occupancy per cell becomes layered: a cell holds at most one ground occupant plus track layers, each with its
+  height. `canPlaceCoasterPiece` checks clearance against every layer; `occupantAt` / picking returns the top-most item
+  under the pointer (with a modifier or a repeat click to reach the one below).
+- [ ] `validateCoasterLayout` allows a repeated cell only at the clearance; `overlapping` stays for a closer repeat. The
+  message says why ("Too close to the track below: 2 levels needed").
+- [ ] Bulldoze and demolition take the item hit, not every layer of the cell. Undo is unchanged (one entry per build).
+- [ ] Saves: if the layered occupancy is rebuilt from the saved pieces at load (to be checked), no schema bump. Otherwise
+  bump the schema with a migration. Determinism pins only move for layouts that could not be built before.
+- [ ] Stats: a crossing counts toward excitement (a small "near miss" bonus per crossing, capped), tuned in
+  BALANCE_NOTES. Optional and can come later.
+
+**Draft and feedback.**
+- [ ] The coaster draft may re-enter a cell it already uses when the height rule holds. The draft shows a too-close
+  cell in red and names the clearance it needs in the hover message, like the path draft (see Phase 37).
+- [ ] Height is visible while building: the hover card shows the piece's level and the level of what is below.
+
+**Rendering (both renderers; voxel first).**
+- [ ] Supports: a support under an upper piece stops on the lower track's structure or is offset beside it, and never
+  runs through a train's path. The footing on a path tile keeps the Phase 27 rule.
+- [ ] Draw order and see-through: a lower track under an upper one stays readable (the cutaway already used for
+  buildings behind buildings), and the train under a crossing is drawn correctly in all four view rotations.
+- [ ] The train-clearance review (`coasterTrainReview.fuzz.test.ts`, today marked `it.fails`) must pass for crossing
+  layouts.
+
+**Tests.** A figure eight with a level-0/level-2 crossing validates and builds; a level-0/level-1 crossing is refused
+with the clearance message; track over a bench is allowed and over a stall is refused; a bench cannot be placed under
+track that is too low; bulldozing the upper track leaves the lower one; save, load and the determinism fixtures
+round-trip a crossing coaster; the crossing renders in all four view rotations without a support through the lower
+track.
+
+## Phase 39 — More Coaster Types (planned, not started)
+
+**Today.** There are three coaster types (`comet-trail`, `star-chaser`, `skyline-serpent` in `src/game/coaster/content.ts`).
+They are the same steel coaster with different numbers: maximum height, train size, reliability, prices, and which of
+`loop` / `boost` are allowed. They share one track look and one ride model.
+
+**Goal.** Coaster families that look, build and ride differently, so choosing one is a real decision. Each family is a
+`CoasterTypeDefinition` with a new `family` field that selects the track and car art, the build rules and the ride
+model. Within a family, types still differ by numbers (a small and a large wooden coaster).
+
+**Families (proposed, simplest first).**
+- [ ] **Wild mouse.** Single four-seat cars, a low maximum height (3), tight flat hairpin turns (a one-cell turn that
+  other families may not take), and no specials. Cheap and compact, with high lateral intensity and low nausea. Fits
+  small parks and early unlocks.
+- [ ] **Wooden.** Lattice supports in wood, no inversions (no `loop`), and a rougher ride: more intensity per drop and an
+  airtime bonus on hills. Lower piece cost, lower reliability and faster wear, so it needs more mechanic time. A
+  classic look that draws guests who like thrills.
+- [ ] **Launch.** A new special, `launch`: a launch track right after the station replaces the chain lift and sends the
+  train out at speed (`speedModel` gains a launch segment; `lift.ts` treats a launched run as powered). It allows a
+  tall "top hat" (height cap raised for this family only, to be decided in balance). Expensive, with very high
+  excitement and intensity.
+- [ ] **Inverted.** The train hangs under the track, and the supports reach down from above. Every piece outside the
+  station must be at least `pathClearanceHeight` + 1 high so the cars clear the ground. Guests may walk under it
+  from level 3. Allows `loop`. Depends on Phase 38 (layered cells and clearance) for its height checks and its
+  crossings.
+- [ ] **Candidates after these:** mine train (low and long, following the ground), spinning coaster (cars turn on the
+  track), bobsled (a trough with no rails and no lift after the first hill), flying coaster, water coaster (a splash
+  section, which links to the water ideas under Future Candidates).
+
+**Per family.**
+- [ ] Content: one or more types with their numbers, a catalog card, a research unlock (Phase 7) and a place in
+  scenarios and cards where it fits. Content version bump.
+- [ ] Rules: validation hooks per family (minimum turn radius, minimum height outside the station, allowed specials),
+  with player-facing failure messages like the existing ones.
+- [ ] Ride model: excitement, intensity and nausea weighting per family in `deriveCoasterStats`; launch in
+  `speedModel`. A balance pass in BALANCE_NOTES, so no family is simply better than another.
+- [ ] Art (voxel first, classic as a plain fallback): track profile, supports, station and cars per family, in all four
+  view rotations and in the Phase 28 colour slots. Covered by the Phase 27 visual matrix.
+- [ ] Sound: a lift or launch sound per family (Phase 15 synth).
+- [ ] Saves: a coaster already stores its type id, so new ids load without a migration. Old saves are unaffected.
+  Determinism fixtures gain one coaster per family.
+
+**Order and dependencies.** Wild mouse, then wooden, then launch, then inverted (after Phase 38). Each family ships on
+its own: content, rules, ride model, art, tests.
+
+**Tests.** Each family has a valid sample layout that builds and runs; each family-specific rule refuses its bad case
+with the right message; the launch reaches its target speed without a chain; an inverted piece too low is refused;
+stats stay inside the balance bands; save, load and determinism round-trip one coaster of each family; each family
+renders in all four view rotations.
+
+## Phase 40 — Building Fronts: Four Directions and Front-Only Access (planned, not started)
+
+**Problem.** A building can only face two ways. The build rotation (R) runs 0–3 and is saved that way, but it is
+treated as a footprint orientation only: `footprintSize` swaps width and depth on odd turns, and the voxel models turn
+with `visualQuarterTurn = rotation % 2` (`rendering/voxel/contracts/space.ts`: "r and r + 2 are the same world model").
+The front of a stall therefore always faces screen lower-left or lower-right in view 0, and on a path to its north or
+west the player cannot turn its counter toward the path. Separately, the front means nothing to guests:
+`GuestSimulation` makes every path cell beside ANY side of the footprint an access cell, so a stall with its back to
+the path still sells.
+
+**Goal.** Every building can face all four ways, and the front decides access: guests buy, queue and sit only from the
+front. A shop built facing away from the path cannot be reached.
+
+**Four real directions.**
+- [ ] `visualQuarterTurn` returns 0–3 and every model is drawn in all four turns (voxel; the classic renderer mirrors or
+  reuses its two sprites, as a fallback). The ghost shows the true front, plus a small arrow on the front edge.
+- [ ] The build rotation key (R) and the on-screen button step through four directions. The hover toast names the
+  direction ("Facing north-east"), not only the size.
+- [ ] Phase 26 view rotation and the Phase 28 colour slots work in all four turns. The Phase 27 visual matrix gains the
+  two new turns.
+
+**Front-only access.**
+- [ ] Each build definition gets its front side (default: model +y). The access cells of an object are the path cells
+  in front of its front edge, not on every side. For a footprint wider than one cell, every cell along the front edge
+  counts.
+- [ ] **Decide: which kinds.** Recommended: services (food, drink, souvenirs, toilets, info) and benches front-only.
+  Rides keep every side for now, because a real queue entrance and exit belong with the "Custom queue paths" idea under
+  Future Candidates. Decorations and bins are unchanged (no access).
+- [ ] **Placement help:** when the pointer arrives beside a path, the ghost turns its front toward the path by itself
+  (the player can still turn it with R). This is the friction fix and prevents most mistakes.
+- [ ] **Feedback:** a building whose front faces no path can still be built, but the ghost shows it in a warning colour
+  with "Front faces no path: guests cannot reach it". Once built, it gets an "unreachable" badge in the inspector, and
+  Park Pulse names it with a link to the building (like the Phase 30 complaint links).
+
+**Saves and balance.**
+- [ ] **Existing parks must not break.** Old saves stored rotations 0–3, but the front was never shown that way. At
+  load, an object whose front has no path is turned to the nearest direction whose front has a path, if its
+  footprint still fits; otherwise it keeps any-side access with a `legacyAccess` flag until it is moved or rebuilt.
+  Schema bump with a migration and a test.
+- [ ] Scenario starting objects, the dev park plots and the strategy bot (`game/balance/strategyBot.ts`) face their
+  paths. The determinism fixtures and the observables are re-pinned once.
+- [ ] Re-measure: the L5 run-margin proofs are knife-edge (Phase 29 notes), so the BALANCE_NOTES sweeps are re-run and
+  any retune is an owner decision.
+
+**Tests.** All four turns draw a different model and keep picking correct; a stall facing the path sells and one
+facing away is unreachable (no access cells, warning, Pulse line); a two-wide front edge gives two access cells; the
+ghost auto-faces a path and R still overrides it; an old save loads with every service still reachable (turned or
+`legacyAccess`); save and load round-trip all four rotations.
+
+## Phase 41 — Cinematic 3D Camera (planned, not started; owner request 2026-10-16)
+
+**Why it is closer than it sounds.** The voxel renderer already holds the park as real 3D data: axis-aligned boxes (32
+voxels per tile) with heights, drawn by vertex pulling. What makes the picture isometric is the projection in the
+vertex shader, the 2:1 voxel space, the low-res target with integer upscale and the texel snapping. A different camera
+is a different projection of the same boxes; the scene, the blueprints and the simulation do not change.
+
+**What it costs (estimate, to be measured in step 0).**
+- Geometry is not the problem: the dev park is about 15,600 boxes and the worst park about 61,400 (some 190,000 to
+  740,000 triangles), small for any GPU that runs the composite today.
+- The cost moves to the GPU fill and the composite. A low camera sees to the horizon, so the low-res target fills with
+  terrain and overdraw rises; the screen-space passes (lights, shadows as decals, dither, see-through) were written for
+  one projection and must be checked or redone.
+- Main thread: unchanged per frame except a frustum cull of the chunks (the static chunks are already the unit).
+- Expected: no visible cost on the one measured desktop GPU, and a real risk on phones and Intel iGPUs (already the
+  open hardware checklist). The 3D camera therefore runs only where the isometric view does not: the menu, a view-turn
+  transition and ride-along, never while building. It can be switched off (Settings > Graphics), and reduced motion
+  turns it off.
+- The pixel-art look: a smoothly moving perspective camera shimmers on a texel grid. Options to weigh in step 0: render
+  the 3D camera at full resolution (sharper, costlier), keep the low-res target and accept some shimmer, or snap the
+  camera to texel steps.
+
+**Steps.**
+- [ ] **0. Spike (decides the rest).** A perspective/orbit projection of the existing boxes behind a dev flag
+  (`&camera3d=1`): an orbit around the dev park and a low pass along a path. Measure fps and frame ms against the
+  isometric view on the reference machine and in SwiftShader (the table under Voxel Renderer), and write down what
+  breaks (lights, shadows, dither, sky). Go or no-go for the owner.
+- [ ] **1. Sky and horizon.** Beyond the map edge: sky gradient by time of day (Phase 20 looks), a distance fog, and a
+  ground skirt, so a low camera does not look into nothing.
+- [ ] **2. Menu shots.** The start-screen sweep (2026-10-16) gets real angles: orbiting shots, a low shot down the
+  avenue, a shot rising over the coaster. Keyframed camera paths per shot with cuts or blends; reduced motion keeps the
+  still frame.
+- [ ] **3. Smooth view turns.** Q / E turns the camera in yaw continuously (about 400 ms) through the 3D projection, and
+  lands exactly on the next isometric view, where building and picking take over again. Input waits for the turn to
+  finish, as it already does for a held drag.
+- [ ] **4. Ride-along.** A "Ride" button in the ride inspector: the camera rides in the front car of a coaster (the
+  train's interpolated position and direction from `coasterTrain.ts`) or on a flat ride's moving part (the rigid ride
+  parts). Esc returns to the park at the same spot. The simulation runs on; the HUD hides except a small "Exit ride"
+  bar. A comfort option for field of view and camera shake.
+- [ ] **Later, not in this phase:** a free camera for screenshots (with the "In-game screenshots" candidate), and full
+  3D building. Building would need ray picking, the ghost and overlays in 3D and a new camera control scheme; it stays
+  under "Explicitly not now".
+
+**Owner decision (2026-10-16).** Everything else stays as it is: building, managing and normal play use the isometric
+camera only. The 3D camera is used for the menu shots, the view-turn transition and ride-along, and nowhere else.
+
+**Rules.** Presentation only: nothing reaches the simulation, the hash or the undo ring. The classic renderer gets
+none of it (frozen). If the GPU lacks something, the feature hides and the isometric view stays. Each step has its own
+performance gate against the voxel table.
+
+**Tests.** The projection maths (orbit, yaw blend landing on each isometric view exactly, ride-along camera from a train
+pose) is pure and unit-tested; the chunk frustum cull keeps every visible chunk; the menu, the turn and the ride-along
+fall back to the isometric view on a GPU without the feature and under reduced motion; a view turn refuses input until
+it lands.
+
+## Phase 42 — Staff Window and Buildings Window (planned, not started; owner request 2026-10-16)
+
+**Today.** Both live as tabs in the Management dashboard (`src/ui/ManagementDashboard.tsx`). Staff sit in the
+Operations tab as one card per role (cleaner, mechanic): hire one, fire one, training level, payroll, busy count. A
+single worker cannot be seen or chosen, although the simulation has each one (`StaffRuntime`: id, role, state,
+position, task). The Buildings tab ("Estate overview") is one flat list of every placed object with a few sort buttons
+(`SORTS`) and fixed columns (price, queue, served, revenue, satisfied, condition). It has no filter or search, and its
+rows are only refreshed while the dashboard is open.
+
+**Goal.** Two windows of their own, each opened from the HUD with its own button and key, usable while the park runs
+(no full-screen dashboard over the park), like the inspector panels.
+
+**Staff window.**
+- [ ] Opened from a new HUD button and a key (default to be chosen; it gets an entry in KEYBINDINGS.md). Draggable,
+  docked to the side by default, remembers whether it was open.
+- [ ] **Per role:** the existing hire, fire, training and payroll controls move here (Operations keeps a summary line
+  with a link "Manage staff").
+- [ ] **Per worker:** a list with a generated name, role, state (idle, walking, cleaning, repairing, on break if added),
+  current task and where ("Repairing Aurora Wheel"), and time since hired. Click: the camera follows the worker and
+  the worker is highlighted; a "Fire this one" button replaces the anonymous "fire one". Generated names are
+  presentation only, derived from the id, so no save field is needed.
+- [ ] **Overview figures:** litter waiting and its oldest age, rides waiting for a mechanic, and a simple "more
+  cleaners needed" hint from the same rules Park Pulse uses.
+- [ ] **Out of scope** (still under "Explicitly not now"): shifts, rosters and patrol zones. The window should leave room
+  for patrol zones later, should that change.
+
+**Buildings window.**
+- [ ] Opened from a new HUD button and a key. The Buildings tab in the dashboard becomes a link to it.
+- [ ] **Filters:** by group (rides, coasters, food, drink, souvenirs, facilities, scenery), by state (open, closed,
+  broken down, no path access, unreachable after Phase 40, needs inspection), and a text search on the name. Filters
+  combine; the counts show next to each filter; the last choice is remembered per player.
+- [ ] **Columns:** the existing ones plus wait time, throughput per hour, profit (revenue minus running cost), age and
+  last inspection, chosen per group (a scenery row shows appeal, not queue). Sort by clicking a column header, both
+  directions.
+- [ ] **Actions on a row:** centre the camera (as today), open the inspector, open or close, and price up or down
+  without opening the inspector. Several selected rows can be opened, closed or repriced at once.
+- [ ] **Live:** rows refresh while the window is open, at the same throttle as the dashboard (`buildingsSnapshot`
+  every 250 ms), never per frame. A row that changes state flashes once (reduced motion: no flash).
+- [ ] Reuses the Phase 29 build-filter model (`ui/buildFilterModel.ts`) where it fits, so group names and icons match
+  the build menu.
+
+**Shared.**
+- [ ] A small window frame component (title, close, drag, keep inside the screen, focus trap, Esc closes) that both use
+  and that later windows can reuse. It must not cover the HUD layout anchors, and Phase 36's HUD-aware camera insets
+  take an open window into account.
+- [ ] Lazy chunks like the Phase 34 panels, so the entry bundle stays inside its budget.
+- [ ] No simulation rule changes. The only new game-side read is a per-worker snapshot from `OperationsSimulation`
+  (plain data, like `buildingsSnapshot`).
+
+**Tests.** The filter and sort models are pure and unit-tested (combinations, counts, empty results, search); a worker
+row follows its worker's state; "Fire this one" removes exactly that worker; a bulk close closes only the selected
+rows; both windows open by button and key, Esc closes them, and the focus returns; the camera insets include an open
+window; the bundle budget test still passes.
+
+## Phase 43 — Main Menu Bar (planned, not started; owner request 2026-10-16)
+
+**Today.** The ways into the game's panels are spread out. The top bar (`TopBar` in `src/ui/Hud.tsx`) holds the park
+toggle, clock, speed, Parks / Run map, Save / Load, and the cash pill, which is the only button that opens the
+Management dashboard (on its Finances tab). The utility bar (`UtilityBar`) holds Menu, view toggles (grid, scenery
+influence, crowd heatmap, performance) and Settings. The build dock and Park Pulse are always on screen. Research,
+Operations, Activity and the Buildings list are reachable only as tabs inside the dashboard.
+
+**Goal.** One menu bar with a button for each main area of the game, so every panel has an obvious way in, and a
+player can open and close each area the same way.
+
+**The bar.**
+- [ ] Buttons (icon plus short label, the key in the tooltip): **Build** (the build dock), **Staff** and
+  **Buildings** (the Phase 42 windows), **Park Pulse**, **Finances**, **Research**, **Land** (the Phase 21 tool),
+  and **Run map** / **Parks** in the mode that has it. Order and names to be confirmed by the owner.
+- [ ] Each button toggles its panel or window and shows it as pressed while open. Open panels follow one rule:
+  windows can be open together, but only one full-screen panel at a time.
+- [ ] **Badges** on a button when something needs attention: broken rides or rides waiting for a mechanic (Staff), closed
+  or unreachable buildings (Buildings), a finished research project (Research), a new Pulse warning (Park Pulse). The
+  same rules as the existing notifications; one aria-live line, not one per badge.
+- [ ] **Keys:** every button has a default key, listed in KEYBINDINGS.md and rebindable in Settings > Keyboard. Defaults
+  must not take keys from existing actions (the Phase 26 `yieldsDefault` pattern for players who rebound).
+
+**Placement.**
+- [x] **Decided by the owner (2026-10-16): along the bottom edge.** The build dock opens above the bar when Build is
+  pressed (it stops being always visible), and Park Pulse becomes a panel that can be closed (open by default,
+  remembered). The view toggles and Settings stay in the utility bar; Menu (Esc) stays where it is.
+- [ ] The top bar keeps the park status, clock, speed, cash and Save / Load; the cash pill keeps opening Finances.
+- [ ] Phone and narrow screens: icons only, the labels in tooltips, and the bar scrolls sideways instead of wrapping.
+- [ ] The clean-view handle hides the bar like the rest of the HUD.
+
+**Layout and the First Day.**
+- [ ] The HUD layout anchors and the Phase 36 camera insets take the bar into account; nothing may cover it.
+- [ ] The First Day hints point at the bar's Build button instead of the dock where a step talks about building, and
+  the Map offer card stays clear of the bar.
+- [ ] The Management dashboard keeps its tabs for now. The bar's Finances and Research buttons open it on that tab, so
+  nothing needs moving at once. Splitting the dashboard further is a later decision.
+
+**Order.** After Phase 42, so the Staff and Buildings buttons have their windows; the bar can also land first with
+those two opening the dashboard tabs, and switch when Phase 42 lands.
+
+**Tests.** Each button opens and closes its area and shows the pressed state; the keys work and can be rebound; a
+badge appears and clears with its condition; only one full-screen panel at a time; the bar is inside the camera
+insets; the First Day build step points at the bar; the narrow layout does not wrap; the clean view hides the bar.
+
 ## Voxel Renderer (main renderer)
 
 The main renderer since 2026-10-06. The classic renderer stays the automatic fallback and is reachable with `?renderer=classic`. Architecture is under Renderers in ARCHITECTURE.md. It is a visual change on the fixed camera, not the "Full 3D" listed under not-now.
@@ -2900,7 +3208,8 @@ Deliberately out of scope. Listed so the question does not have to be re-argued.
 - Multiplayer
 - User accounts
 - Cloud saves
-- Full 3D
+- Full 3D gameplay (building, picking and the HUD on a free camera). A cinematic 3D camera on the same voxel data
+  (menu shots, smooth view turns, ride-along) is planned as Phase 41 (owner request 2026-10-16)
 - Supply chains
 - Electrical grids
 - Water pipes
