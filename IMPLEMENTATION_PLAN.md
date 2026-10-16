@@ -2755,8 +2755,8 @@ new failures), `GameWorld` (`trackLayers`, `coasterPieceConflict`, `objectsAt`, 
 - [x] Stats: +2 excitement per crossing, at most 3 counted; a layout without a crossing is unchanged.
 - [x] Draft: the designer may re-enter a cell it already uses when the height rule holds; a refused re-entry toasts
   the clearance message once per cell. The status line names the world conflict (other track, a path, a building).
-- [ ] **Not built: height in the hover card** (the piece's level and the level below). The draft already shows the
-  height it climbs toward; revisit with the Phase 41 camera work.
+- [x] Height in the hover line while laying track: "Next piece at level 0 · track here at level 2" (the draft's own
+  pieces and other coasters in that cell).
 - [x] Supports (voxel): a piece with something under it (other track, a low object, a lower piece of its own layout)
   gets no bent; its neighbours carry it. Paths under track keep the Phase 27 walkway rule.
 - [ ] **Not built: see-through for the lower track** and a classic-renderer support rule (classic is frozen). The

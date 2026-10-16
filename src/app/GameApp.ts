@@ -2890,7 +2890,7 @@ export class GameApp implements GameCommands, RunCommands {
       // its limit, a special it cannot fit — is reported by validation instead of thrown away.
       this.coasterTypeId = definition.id;
       this.renderer?.clearPreview();
-      state.setHover(cell, 0, true);
+      state.setHover(cell, 0, true, this.coasterHeightLine(cell));
       this.refreshCoasterPreview();
       return;
     }
@@ -3375,6 +3375,22 @@ export class GameApp implements GameCommands, RunCommands {
     last.special = last.special === kind ? undefined : kind;
     normaliseLiftFlags(this.coasterDraft);
     this.refreshCoasterPreview();
+  }
+
+  /**
+   * Phase 38: the hover line while laying track: the level the next piece would take, and what is already in this cell
+   * (track of this layout or another coaster, at its levels), so a crossing can be planned before it is refused.
+   */
+  private coasterHeightLine(cell: Cell): string | null {
+    const last = this.coasterDraft[this.coasterDraft.length - 1];
+    const target = Math.min(this.coasterHeight, this.currentCoasterType()?.maximumHeight ?? 0);
+    const next = last === undefined ? 0 : last.height + Math.sign(target - last.height);
+    const here = [
+      ...this.coasterDraft.filter((piece) => sameCell(piece.cell, cell)).map((piece) => piece.height),
+      ...this.world.trackHeightsAt(cell),
+    ].sort((a, b) => a - b);
+    const below = here.length > 0 ? ` · track here at level ${[...new Set(here)].join(' and ')}` : '';
+    return `Next piece at level ${next}${below}`;
   }
 
   /** The draft piece under the cursor, or null. */

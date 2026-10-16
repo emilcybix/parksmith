@@ -293,6 +293,14 @@ describe('Phase 38: the designer lets the track cross itself at clearance', () =
     game.destroy();
   });
 
+  it('the hover line names the next level and the track already in the cell', async () => {
+    const game = await openDesigner([], 'comet-trail');
+    lay(game, route.slice(0, 12), { 0: 0, 3: 2, 7: 0 });
+    inputHandlers!.hover({ x: 6, y: 5 });
+    expect(useUiStore.getState().previewBlock).toBe('Next piece at level 0 · track here at level 2');
+    game.destroy();
+  });
+
   it('re-entering it one level below is refused, with the clearance message', async () => {
     const game = await openDesigner([], 'comet-trail');
     lay(game, route, { 0: 0, 3: 1, 7: 0 });
