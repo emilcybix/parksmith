@@ -114,3 +114,13 @@
 }
 /* The message band (toasts, notifications) moves right of an open window. */
 .ui-layer:has(.game-window) { --band-l: 460px; }
+
+/* Phase 41 step 4: riding along: the exit bar, and the inspector's button. */
+.ride-along-bar {
+  position: absolute; z-index: 9; left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 14px; border-radius: 14px;
+  background: #fbf9f1; box-shadow: var(--shadow); pointer-events: auto; color: var(--ink);
+}
+.ride-along-bar button { padding: 5px 10px; border-radius: 9px; border: 1px solid rgba(19,58,51,.2); background: transparent; cursor: pointer; font-weight: 700; }
+.ride-along-bar .ride-along-exit { background: #183f3a; color: #fff; border-color: #183f3a; }
+.ride-along-button { margin: 4px 0 6px; padding: 5px 10px; border-radius: 9px; border: 1px solid rgba(55,189,145,.5); background: rgba(55,189,145,.12); cursor: pointer; font-weight: 700; }

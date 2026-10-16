@@ -251,6 +251,9 @@ const playRefusalText = (reason: Extract<PlayCardResult, { ok: false }>['reason'
   }
 };
 
+/** Phase 41 step 4: the ride-along field of view: wide (80°) or the calmer 60°. */
+const rideFov = (wide: boolean): number => ((wide ? 80 : 60) * Math.PI) / 180;
+
 /** Phase 40: the hover line of a building whose front looks onto no path (it can still be built). */
 export const FRONT_FACES_NO_PATH = 'Front faces no path: guests cannot reach it. Press R to turn it.';
 
@@ -1478,6 +1481,31 @@ export class GameApp implements GameCommands, RunCommands {
     }
     this.syncUi();
     this.toast(`${role === 'cleaner' ? 'Cleaner' : 'Mechanic'} dismissed`, 'routine');
+  }
+
+  startRideAlong(objectId: number): void {
+    const renderer = this.renderer;
+    const object = this.world.objects.get(objectId);
+    if (!object || !renderer?.setRideAlong || !useUiStore.getState().cinematicAvailable) {
+      this.toast('Riding along needs Full graphics and motion switched on');
+      return;
+    }
+    const wide = useUiStore.getState().rideAlong?.wide ?? true;
+    this.closeInspector();
+    renderer.setRideAlong(objectId, rideFov(wide));
+    updateUiSnapshot({ rideAlong: { objectId, name: BUILD_BY_ID.get(object.definitionId)?.name ?? 'Ride', wide } });
+  }
+
+  stopRideAlong(): void {
+    this.renderer?.setRideAlong?.(null);
+    if (useUiStore.getState().rideAlong !== null) updateUiSnapshot({ rideAlong: null });
+  }
+
+  setRideAlongWide(wide: boolean): void {
+    const ride = useUiStore.getState().rideAlong;
+    if (ride === null) return;
+    this.renderer?.setRideAlong?.(ride.objectId, rideFov(wide));
+    updateUiSnapshot({ rideAlong: { ...ride, wide } });
   }
 
   fireWorker(workerId: number): void {
@@ -2753,6 +2781,11 @@ export class GameApp implements GameCommands, RunCommands {
         ? this.session.buildingsSnapshot()
         : undefined;
       const workers = ui.openWindows.includes('staff') ? this.operations.workersSnapshot() : undefined;
+      // Phase 41: the cinematic camera is offered only where it draws, with Full graphics and motion allowed; a ride
+      // that is gone (demolished, a new park) or a switch to Lite or reduced motion ends a ride-along.
+      const cinematicAvailable = this.renderer?.setRideAlong !== undefined && this.renderer.cinematicSupported !== false
+        && getSettings().graphicsDetail !== 'lite' && !reducedMotion();
+      if (ui.rideAlong !== null && (!this.world.objects.has(ui.rideAlong.objectId) || !cinematicAvailable)) this.stopRideAlong();
       updateUiSnapshot({
         tick: this.world.tick,
         ...this.calendarUi(),
@@ -2768,6 +2801,7 @@ export class GameApp implements GameCommands, RunCommands {
         management: this.management.snapshot(),
         ...(buildings ? { buildings } : {}),
         ...(workers ? { workers } : {}),
+        ...(cinematicAvailable !== ui.cinematicAvailable ? { cinematicAvailable } : {}),
         progression: this.progression.snapshot(),
         onboarding: this.session.onboardingSnapshot(),
         gateFacing: this.world.entranceFacing,
@@ -4723,6 +4757,11 @@ export class GameApp implements GameCommands, RunCommands {
     // Other browser and OS combinations are never game shortcuts.
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === 'Escape') {
+      // Phase 41: riding along hides every other layer, so Escape ends the ride whatever the context says.
+      if (useUiStore.getState().rideAlong !== null) {
+        if (!event.repeat) this.stopRideAlong();
+        return;
+      }
       // Holding Escape must not open the pause menu and close it again on the key repeat.
       if (event.repeat && (context === 'world' || context === 'menu')) return;
       this.popInputContext(context);

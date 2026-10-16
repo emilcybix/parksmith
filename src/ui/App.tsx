@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameApp } from '../app/GameApp';
-import { BuildDock, ViewControls, CoasterPanel, CursorReadout, GuestInspector, HelpHint, ParkPulse, PerformanceOverlay, RideInspector, ServiceInspector, Toast, TopBar, UtilityBar } from './Hud';
+import { BuildDock, RideAlongBar, ViewControls, CoasterPanel, CursorReadout, GuestInspector, HelpHint, ParkPulse, PerformanceOverlay, RideInspector, ServiceInspector, Toast, TopBar, UtilityBar } from './Hud';
 import { MainMenu } from './MainMenu';
 import { MenuBar } from './MenuBar';
 import { ManagementDashboard, ManagementNotifications } from './ManagementDashboard';
@@ -38,7 +38,9 @@ export const App = (): React.JSX.Element => {
   const pulseOpen = useUiStore((state) => state.pulseOpen);
   // Behind the start screen the park is only a backdrop: no HUD at all. Behind the pause menu it stays
   // visible but inert, so neither the mouse nor Tab can reach it.
-  const hudHidden = cleanView || menuKind === 'start';
+  // Phase 41: riding along hides the HUD too; only its exit bar stays.
+  const riding = useUiStore((state) => state.rideAlong !== null);
+  const hudHidden = cleanView || menuKind === 'start' || riding;
   const saveBannerVisible = useSaveBannerVisible();
 
   useEffect(() => {
@@ -92,7 +94,8 @@ export const App = (): React.JSX.Element => {
             {dockOpen && <BuildDock />}
             <MenuBar />
           </div>
-          <ViewControls />
+          {!riding && <ViewControls />}
+          <RideAlongBar />
         </div>
       )}
     </main>

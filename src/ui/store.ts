@@ -377,6 +377,10 @@ export interface UiState {
   /** Phase 22: what the last scenario result granted (null while running). */
   scenarioRewards: ScenarioRewardResult | null;
   managementOpen: boolean;
+  /** Phase 41 step 4: the ride being ridden along (the HUD hides except the exit bar), or null. */
+  rideAlong: { objectId: number; name: string; wide: boolean } | null;
+  /** Phase 41: whether the cinematic camera can be offered (a GPU that draws it, Full graphics, motion allowed). */
+  cinematicAvailable: boolean;
   /** Phase 42: the open windows (Staff, Buildings), oldest first: the last is on top and the first Esc closes it. */
   openWindows: WindowId[];
   /** Phase 42: every worker, published while the Staff window is open. */
@@ -565,6 +569,8 @@ export const useUiStore = create<UiState>((set) => ({
   profileLocks: {},
   scenarioRewards: null,
   managementOpen: false,
+  rideAlong: null,
+  cinematicAvailable: false,
   openWindows: INITIAL_WINDOW_PREFS.open,
   workers: [],
   buildingsView: INITIAL_WINDOW_PREFS.buildings,

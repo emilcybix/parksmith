@@ -2873,7 +2873,7 @@ cells; a stall facing the path is a destination and one facing away is not, a tw
 non-player placement turns, the player's is exact; every starting park faces its paths; every dev park service sells),
 `app/GameApp.fronts.test.ts` (auto-facing, R override with the warning, rides not turned), migration 15→16.
 
-## Phase 41 — Cinematic 3D Camera (owner go 2026-10-16; steps 0-3 built)
+## Phase 41 — Cinematic 3D Camera (built 2026-10-16 after the owner's go)
 
 **Why it is closer than it sounds.** The voxel renderer already holds the park as real 3D data: axis-aligned boxes (32
 voxels per tile) with heights, drawn by vertex pulling. What makes the picture isometric is the projection in the
@@ -2939,10 +2939,14 @@ is a different projection of the same boxes; the scene, the blueprints and the s
   (`RendererPort.viewTurning`). Reduced motion, Lite graphics and loads snap as before. **Found on the way:** the
   isometric picture is the mirror image of a physical camera (+x runs right and toward the viewer), so every
   cinematic frame is flipped in x: signs read the right way, and the menu framing was turned round to match.
-- [ ] **4. Ride-along.** A "Ride" button in the ride inspector: the camera rides in the front car of a coaster (the
-  train's interpolated position and direction from `coasterTrain.ts`) or on a flat ride's moving part (the rigid ride
-  parts). Esc returns to the park at the same spot. The simulation runs on; the HUD hides except a small "Exit ride"
-  bar. A comfort option for field of view and camera shake.
+- [x] **4. Ride-along.** "Ride along" in the ride inspector (coasters) or "Ride view" (flat rides), shown only where
+  the cinematic camera is offered (a GPU that draws it, Full graphics, motion allowed). A coaster rides in its lead
+  car at a rider's eyes, looking down the track (`rideCamera.ts trainRideView`, from the train's own interpolated
+  pose, `VoxelScene.leadCarPose`); a flat ride gets a slow close circle at riders' head height (riding a flat ride's
+  moving part is not built). The simulation runs on; the HUD hides except a small bar with the ride's name, a
+  comfort choice (Wide view 80° / Calm view 60°; no camera shake is added at all) and Exit ride. Esc always ends it;
+  a demolished ride, a new park, Lite graphics or reduced motion end it too. Known: a loop keeps the world's up (no
+  roll), so the view does not turn over inside the loop.
 - [ ] **Later, not in this phase:** a free camera for screenshots (with the "In-game screenshots" candidate), and full
   3D building. Building would need ray picking, the ghost and overlays in 3D and a new camera control scheme; it stays
   under "Explicitly not now".

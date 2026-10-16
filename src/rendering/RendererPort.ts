@@ -212,6 +212,11 @@ export interface RendererPort {
    * only); `cinematicSupported` says whether this GPU drew it. Presentation only.
    */
   setCinematic?(view: Readonly<CinematicView> | null): void;
+  /**
+   * Phase 41 step 4: rides along: the lead car of a coaster, or a close circle round a flat ride (`objectId`), through
+   * the cinematic camera at `fovY`; null ends it. Optional (voxel only). Presentation only.
+   */
+  setRideAlong?(objectId: number | null, fovY?: number): void;
   /** Phase 41 step 3: true while a smooth view turn is on screen (a second turn waits for it). */
   readonly viewTurning?: boolean;
   readonly cinematicSupported?: boolean;

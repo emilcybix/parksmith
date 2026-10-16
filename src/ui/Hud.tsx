@@ -1198,6 +1198,7 @@ export const INTENSE_RIDE_NOTE = 'Intense: some riders feel queasy';
 
 export const RideInspector = (): React.JSX.Element | null => {
   const ride = useUiStore((state) => state.selectedRide);
+  const cinematicAvailable = useUiStore((state) => state.cinematicAvailable);
   const coasterLift = useUiStore((state) => state.selectedCoasterLift);
   const colours = useUiStore((state) => state.selectedColours);
   const besidePulse = useUiStore((state) => inspectorBesidePulse(state.onboarding, state.mapOfferPending));
@@ -1230,6 +1231,12 @@ export const RideInspector = (): React.JSX.Element | null => {
         </button>
       </div>
       <PathAccessNote objectId={ride.objectId} />
+      {/* Phase 41 step 4: ride along (the lead car of a coaster, a close circle round a flat ride). */}
+      {cinematicAvailable && (
+        <button className="ride-along-button" onClick={() => gameBridge.startRideAlong(ride.objectId)} title="Ride along: Esc returns to the park">
+          <span aria-hidden="true">▶</span> {definition?.custom === 'coaster' ? 'Ride along' : 'Ride view'}
+        </button>
+      )}
       {/* Phase 30: every ride says its band and numbers (only custom coasters did); an intense one warns about queasy riders. */}
       {band !== null && (
         <p className="ride-band-line">
@@ -1604,6 +1611,21 @@ export const HelpHint = (): React.JSX.Element => {
           <span>{item}</span>
         </Fragment>
       ))}
+    </div>
+  );
+};
+
+/** Phase 41 step 4: the one control left while riding along: the ride's name, the field of view, and the way out. */
+export const RideAlongBar = (): React.JSX.Element | null => {
+  const ride = useUiStore((state) => state.rideAlong);
+  if (ride === null) return null;
+  return (
+    <div className="ride-along-bar" role="group" aria-label={`Riding along: ${ride.name}`}>
+      <strong>Riding {ride.name}</strong>
+      <button onClick={() => gameBridge.setRideAlongWide(!ride.wide)} aria-pressed={ride.wide} title="A wider view feels faster; a narrower one is calmer">
+        {ride.wide ? 'Wide view' : 'Calm view'}
+      </button>
+      <button className="ride-along-exit" onClick={() => gameBridge.stopRideAlong()} title="Back to the park (Esc)">Exit ride</button>
     </div>
   );
 };

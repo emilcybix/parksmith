@@ -83,6 +83,11 @@ export interface GameCommands extends UndoCommands {
   adjustSelectedServicePrice(delta: number): void;
   hireStaff(role: StaffRole): void;
   fireStaff(role: StaffRole): void;
+  /** Phase 41 step 4: ride along on the inspected ride (its lead car, or a circle round a flat ride). */
+  startRideAlong(objectId: number): void;
+  stopRideAlong(): void;
+  /** Phase 41 step 4: the comfort choice: a wide (80°) or a narrower (60°) field of view. */
+  setRideAlongWide(wide: boolean): void;
   /** Phase 42: dismisses one particular worker (the Staff window's "Fire this one"). */
   fireWorker(workerId: number): void;
   /** Phase 42: eases the camera to a worker (the Staff window's row). */
@@ -197,6 +202,9 @@ export const gameBridge = {
   hireStaff: (role: StaffRole) => commands?.hireStaff(role),
   fireStaff: (role: StaffRole) => commands?.fireStaff(role),
   fireWorker: (workerId: number) => commands?.fireWorker(workerId),
+  startRideAlong: (objectId: number) => commands?.startRideAlong(objectId),
+  stopRideAlong: () => commands?.stopRideAlong(),
+  setRideAlongWide: (wide: boolean) => commands?.setRideAlongWide(wide),
   focusWorker: (workerId: number) => commands?.focusWorker(workerId),
   centreBuilding: (objectId: number) => commands?.centreBuilding(objectId),
   setObjectsOpen: (objectIds: readonly number[], open: boolean) => commands?.setObjectsOpen(objectIds, open),

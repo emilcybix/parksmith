@@ -383,6 +383,14 @@ export class VoxelScene {
     return this.staticWorld.objectTop(objectId);
   }
 
+  /** Phase 41 step 4: the lead car's pose of a coaster's train this frame (7 floats into `out`); false: no such train. */
+  leadCarPose(objectId: number, out: Float32Array): boolean {
+    const train = this.trains.find((candidate) => candidate.objectId === objectId);
+    if (train === undefined || train.poses.count === 0) return false;
+    out.set(train.poses.data.subarray(0, 7));
+    return true;
+  }
+
   // ---- Frame steps -----------------------------------------------------------------------------
 
   private createStaticWorld(session: ParkSession): StaticWorld {

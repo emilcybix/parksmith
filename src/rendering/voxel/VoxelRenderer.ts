@@ -1,5 +1,6 @@
 import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from 'pixi.js';
 import { lowPassCamera, orbitCamera } from './cameraOrbit';
+import { flatRideView, trainRideView } from './rideCamera';
 import { VIEW_TURN_MS, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
 import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
 import type { CinematicView } from '../RendererPort';
@@ -1286,6 +1287,29 @@ export class VoxelRenderer implements RendererPort {
   }
 
   private requestedCinematic: CinematicView | null = null;
+  private rideAlongId: number | null = null;
+  private rideAlongFov = (70 * Math.PI) / 180;
+  private readonly rideScratch: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 1 };
+  private readonly carPose = new Float32Array(7);
+
+  setRideAlong(objectId: number | null, fovY?: number): void {
+    this.rideAlongId = objectId;
+    if (fovY !== undefined) this.rideAlongFov = fovY;
+  }
+
+  /** The ride-along camera this frame: the coaster's lead car, else a circle round a flat ride; null when it is gone. */
+  private rideAlongView(): CinematicView | null {
+    const id = this.rideAlongId as number;
+    if (this.scene.leadCarPose(id, this.carPose)) return trainRideView(this.carPose, this.rideAlongFov, this.rideScratch);
+    const world = this.session.world;
+    const object = world.objects.get(id);
+    if (object === undefined) return null;
+    const cells = world.objectFootprint(object);
+    const centreX = (cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length + 0.5) * VOXELS_PER_TILE;
+    const centreY = (cells.reduce((sum, cell) => sum + cell.y, 0) / cells.length + 0.5) * VOXELS_PER_TILE;
+    const radius = (Math.max(...cells.map((cell) => cell.x)) - Math.min(...cells.map((cell) => cell.x)) + 3) * VOXELS_PER_TILE;
+    return flatRideView(centreX, centreY, radius, this.lastElapsedMs / 1000, this.rideAlongFov, this.rideScratch);
+  }
 
   /** Phase 41 step 3: whether a smooth view turn is still on screen (GameApp refuses another turn meanwhile). */
   get viewTurning(): boolean {
@@ -1305,6 +1329,10 @@ export class VoxelRenderer implements RendererPort {
       } else {
         return turnView(turn.target, turnAzimuth(turn.from, turn.to, t), turn.lowHeight, this.turnScratch);
       }
+    }
+    if (this.rideAlongId !== null) {
+      const ride = this.rideAlongView();
+      if (ride !== null) return ride;
     }
     if (CAMERA_3D === null || CAMERA_3D === undefined) return this.requestedCinematic;
     const width = this.session.world.width * VOXELS_PER_TILE;

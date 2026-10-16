@@ -687,6 +687,19 @@ its class on the element and a glyph per class (`TOAST_GLYPHS`: "!" for alerts).
 through `GameApp.openParksChooser`, which asks the Quit question when there are unsaved changes and remembers the target
 panel in `chooserAfterQuit` (read once by `quitToMenu`, cleared when the menu opens, resumes or a plain Quit starts).
 
+## Cinematic camera (Phase 41)
+
+The voxel renderer can draw a frame through a perspective camera instead of the isometric projection, for
+presentation only. `RendererPort.setCinematic(view)` (menu shots, `app/cinematicShots.ts`), `setViewRotation(q,
+instant=false)` (a 420 ms yaw, `voxel/viewTurnCamera.ts`) and `setRideAlong(objectId)` (`voxel/rideCamera.ts`) feed
+`VoxelRenderer.cinematicView()` (priority: turn, ride, the `&camera3d` developer flag, the menu), which hands
+`VoxelGpu.setPerspective(view)` a pose every frame. The GPU then draws the static chunks, the guests and staff
+(`perspectiveFigureShaderSource`) and a grass skirt through `shaders/perspective.ts` into the same G-buffer, and a
+cinematic composite (`compositeShaderSource('lite', 'rain', { perspective: true })`: lite face light, sky, fog).
+Every cinematic frame is mirrored in x, because the isometric projection is the mirror image of a physical camera.
+A view turn draws z at √(2/3) through a 6° camera so it lands within a texel of the isometric frame. Building,
+picking and overlays stay isometric; the programs are built on first use and a failure turns the feature off.
+
 ## Building fronts (Phase 40)
 
 A placed object's `rotation` (0–3) is also where it faces: `frontOf(rotation)` is +y, +x, −y, −x, and the voxel model

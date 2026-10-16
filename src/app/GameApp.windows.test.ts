@@ -38,6 +38,9 @@ class FakeRenderer {
   clearPreview(): void {}
   setHintMarkers(): void {}
   drawCoasterDraft(): void {}
+  rideAlong: number | null = null;
+  readonly cinematicSupported = true;
+  setRideAlong(objectId: number | null): void { this.rideAlong = objectId; }
 }
 
 vi.mock('./rendererFlag', () => ({
@@ -152,6 +155,38 @@ describe('Phase 42: windows', () => {
     frame(300);
     expect(useUiStore.getState().workers.length).toBeGreaterThan(0);
     useUiStore.getState().closeWindow('staff');
+    game.destroy();
+  });
+});
+
+describe('Phase 41 step 4: ride-along', () => {
+  it('starts on a ride, hides behind its exit bar, and Esc brings the park back', async () => {
+    const game = await makeGame();
+    game.world.addMoney(100_000);
+    game.world.setBuildAccessPolicy(null);
+    const ride = game.world.buildObject('comet-cups', { x: 12, y: 12 })!;
+    frame(300);
+    useUiStore.setState({ cinematicAvailable: true, menuKind: null });
+    game.startRideAlong(ride.id);
+    expect(useUiStore.getState().rideAlong).toMatchObject({ objectId: ride.id, wide: true });
+    game.setRideAlongWide(false);
+    expect(useUiStore.getState().rideAlong?.wide).toBe(false);
+    press('Escape');
+    expect(useUiStore.getState().rideAlong).toBeNull();
+    expect(useUiStore.getState().menuKind, 'Esc ended the ride, it did not open the menu').toBeNull();
+    game.destroy();
+  });
+
+  it('a demolished ride ends the ride-along', async () => {
+    const game = await makeGame();
+    game.world.addMoney(100_000);
+    game.world.setBuildAccessPolicy(null);
+    const ride = game.world.buildObject('comet-cups', { x: 12, y: 12 })!;
+    useUiStore.setState({ cinematicAvailable: true });
+    game.startRideAlong(ride.id);
+    game.world.demolishObject(ride.id);
+    frame(300);
+    expect(useUiStore.getState().rideAlong).toBeNull();
     game.destroy();
   });
 });
