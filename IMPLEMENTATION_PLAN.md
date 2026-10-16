@@ -2767,7 +2767,7 @@ new failures), `GameWorld` (`trackLayers`, `coasterPieceConflict`, `objectsAt`, 
   `rendering/voxel/content/coasterCrossing.test.ts` (no bent on the upper piece, the `supports` flag, model heights),
   `GameApp.coasterLift.test.ts` (designer re-entry at clearance, refusal with the message).
 
-## Phase 39 — More Coaster Types (built 2026-10-16: wild mouse, wooden, launch; inverted open)
+## Phase 39 — More Coaster Types (built 2026-10-16: wild mouse, wooden, launch, inverted)
 
 **Before.** Three coaster types (`comet-trail`, `star-chaser`, `skyline-serpent`), the same steel coaster with different
 numbers. **Now** every `CoasterTypeDefinition` has a `family` (`steel`, `wild-mouse`, `wooden`) that selects build
@@ -2799,8 +2799,14 @@ coaster stores its type id).
   the momentum up a top hat; the family's height cap is `coaster.launchMaximumHeight` (5). Launches add excitement 6,
   intensity 8, $420 and running cost; no saved stat changed shape (a layout without a launch derives exactly as
   before). On a 32-piece top hat: excitement 97.8, intensity 91.7, top speed 8.3, $4,610 (BALANCE_NOTES Phase 39).
-- [ ] **Inverted** (the train under the track, supports from above, every piece outside the station at
-  `pathClearanceHeight` + 1 or higher): needs a hanging car pose and new support art; Phase 38's layered cells are in.
+- [x] **Inverted: Bat Wing** (`bat-wing`, step 3, research *Suspended Track*, tier 3 after Timber Framing). The game
+  keeps the piece level as the train's level; the art draws the track one level up (`INVERTED_TRACK_LIFT`, 13 voxels)
+  and hangs the cars under it (`coasterHangOffset`, 4 voxels below the normal rail top), on steel gantries (two legs
+  beside the train and a beam over the top, every other straight piece) instead of bents. Rules: no loops; a path
+  (or a low object) under it needs one level more than under ordinary track; it never crosses other track or itself
+  (`TrackLayer.hangs`, also checked at load). Turns weigh 2 and steep turn pairs 3.2 (steel 1.5 / 2.2). Deviation
+  from the plan's "every piece outside the station at level 3": the lifted drawing lets the station stay at level 0
+  and the cars clear the ground at every level. Checked in headless Chromium.
 - [ ] Candidates after these: mine train, spinning, bobsled, flying, water coaster.
 - [ ] Per family still open: a lift/launch sound per family (Phase 15 synth), a classic train style per family,
   determinism fixtures with one coaster per family, and a played balance check (BALANCE_NOTES Phase 39).

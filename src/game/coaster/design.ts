@@ -148,7 +148,7 @@ export const validateCoasterLayout = (
       for (const other of earlier) {
         if (pieces[other].height === piece.height) return failure('overlapping', index);
         if (!trackPiecesMayCross(pieces[other].height, piece.height)) return failure('crossing-too-close', index);
-        if (isExclusiveCoasterPiece(pieces, other) || isExclusiveCoasterPiece(pieces, index)) return failure('crossing-not-allowed', index);
+        if (isExclusiveCoasterPiece(pieces, other) || isExclusiveCoasterPiece(pieces, index) || type.family === 'inverted') return failure('crossing-not-allowed', index);
       }
       earlier.push(index);
     }
@@ -385,7 +385,7 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'not-adjacent': 'Track pieces must connect side by side.',
   overlapping: 'The track crosses itself at the same height.',
   'crossing-too-close': `Too close to the track below: ${GAME_CONFIG.coaster.trackClearanceLevels} levels needed.`,
-  'crossing-not-allowed': 'Stations, loops and boosts cannot be crossed over or under.',
+  'crossing-not-allowed': 'Stations, loops, boosts and hanging track cannot be crossed over or under.',
   'not-closed': 'Bring the loop back to the station.',
   'station-not-flat': 'The first 3 pieces are the station — keep them at ground level.',
   'station-not-straight': 'The station must be a straight run.',

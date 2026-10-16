@@ -943,6 +943,11 @@ free run), base cost $4,610, ticket $10. The same shape chained and capped at le
 6.0, 8, 80, $3,910. The launch buys the top of the excitement range with intensity guests mind; open: whether 91.7
 scares too many riders away to pay back the price.
 
+**Step 3, the inverted family.** Bat Wing against Star Chaser (`excitement | intensity | capacity | reliability |
+cost`): oval 60 / 40.2 / 8 / 84 / $2,918 against 58 / 40.2 / 10 / 86 / $2,430; hill and dip 94 / 65.2 / 8 / 84 / $4,044
+against 92 / 65.2 / 10 / 86 / $3,430; zig-zag 91.5 / 67.9 against 84.5 / 56.9. Turny layouts are where it earns its
+higher price and smaller trains; it has no loops, so the Star Chaser keeps those.
+
 Reading: the mouse is the cheap, exciting small-park coaster with less throughput; the wooden coaster is the cheap way
 to a tall, exciting ride, paid for in intensity (fewer guests ride it) and in breakdowns (reliability 76 against 86).
 Neither has loops, so the Star Chaser and Skyline Serpent keep the top of the excitement range. Open: a played check

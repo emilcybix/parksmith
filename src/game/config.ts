@@ -509,6 +509,7 @@ export const GAME_CONFIG = {
       'wild-mouse': { turn: 2.4, descent: 3, biggestDrop: 6, steepTurns: 4, airtimePerDrop: 0, airtimeDrops: 0 },
       wooden: { turn: 1.5, descent: 4.5, biggestDrop: 13, steepTurns: 2.2, airtimePerDrop: 1.5, airtimeDrops: 4 },
       launch: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, airtimePerDrop: 0, airtimeDrops: 0 },
+      inverted: { turn: 2, descent: 4.5, biggestDrop: 10, steepTurns: 3.2, airtimePerDrop: 0, airtimeDrops: 0 },
     },
     stationLoadSeconds: 6,
     speed: {

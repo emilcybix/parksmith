@@ -15,7 +15,7 @@ describe('Phase 39: coaster families', () => {
   it('every type names a family; the three original types are steel', () => {
     expect(COASTER_TYPES.map((type) => [type.definitionId, type.family])).toEqual([
       ['comet-trail', 'steel'], ['star-chaser', 'steel'], ['skyline-serpent', 'steel'],
-      ['whisker-mouse', 'wild-mouse'], ['timber-twister', 'wooden'], ['thunder-launch', 'launch'],
+      ['whisker-mouse', 'wild-mouse'], ['timber-twister', 'wooden'], ['thunder-launch', 'launch'], ['bat-wing', 'inverted'],
     ]);
     expect(MOUSE.trainCars).toBe(2);
     expect(MOUSE.allowedSpecials).toEqual([]);
@@ -106,5 +106,45 @@ describe('Phase 39 step 2: the launch family', () => {
     const restored = new GameWorld();
     restored.restore(structuredClone(state));
     expect(restored.serialize()).toEqual(state);
+  });
+});
+
+describe('Phase 39 step 3: the inverted family', () => {
+  const BAT = COASTER_TYPE_BY_ID.get('bat-wing')!;
+  const place = (world: GameWorld, id: string, pieces: ReturnType<typeof ovalLayout>) => {
+    const type = COASTER_TYPE_BY_ID.get(id)!;
+    return world.placeCoaster(id, pieces, deriveCoasterStats(pieces, type), coasterBaseCost(pieces, type));
+  };
+
+  it('takes no loops and never crosses itself', () => {
+    expect(BAT.allowedSpecials).not.toContain('loop');
+    expect(validateCoasterLayout(ovalLayout(), BAT)).toEqual({ ok: true });
+    const figureEight = layoutFromMoves({ x: 2, y: 5 }, 'EEEEEESSWWNNNNWWWWWSSE', [0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(validateCoasterLayout(figureEight, COMET)).toEqual({ ok: true });
+    expect(validateCoasterLayout(figureEight, BAT)).toMatchObject({ ok: false, reason: 'crossing-not-allowed' });
+  });
+
+  it('a path under hanging track needs a level more, and no other track crosses it', () => {
+    const world = new GameWorld(100_000);
+    world.setBuildAccessPolicy(null);
+    const placed = place(world, 'bat-wing', ovalLayout({ x: 4, y: 4 }));
+    expect('error' in placed).toBe(false);
+    // The oval runs at level 2 along y = 4 from x = 8 to x = 11: a guest would walk into the hanging cars.
+    expect(world.canPlacePath({ x: 9, y: 4 })).toBe(false);
+    const comet = new GameWorld(100_000);
+    place(comet, 'comet-trail', ovalLayout({ x: 4, y: 4 }));
+    expect(comet.canPlacePath({ x: 9, y: 4 }), 'the same cell under ordinary track').toBe(true);
+    expect(world.coasterPieceConflict({ cell: { x: 9, y: 4 }, height: 0 })).toBe('track');
+    expect(world.coasterPieceConflict({ cell: { x: 9, y: 4 }, height: 4 }), 'not even two levels over it').toBe('track');
+  });
+
+  it('builds, saves and loads with its hanging layers', () => {
+    const world = new GameWorld(100_000);
+    world.setBuildAccessPolicy(null);
+    place(world, 'bat-wing', ovalLayout({ x: 4, y: 4 }));
+    const restored = new GameWorld();
+    restored.restore(structuredClone(world.serialize()));
+    expect(restored.canPlacePath({ x: 9, y: 4 })).toBe(false);
+    expect(restored.serialize()).toEqual(world.serialize());
   });
 });

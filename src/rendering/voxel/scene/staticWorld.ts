@@ -42,6 +42,7 @@ import {
 import type { QuarterTurn } from '../contracts/space';
 import {
   COASTER_LOOP_RADIUS_VOXELS,
+  coasterHangOffset,
   coasterRailTopZ,
   createCoasterCarPoses,
   placeCoasterCars,
@@ -1574,7 +1575,7 @@ export class StaticWorld {
       }
     }
     const poses = createCoasterCarPoses(carCount);
-    placeCoasterCars(record, coasterHeadIndex(record, null), carCount, poses);
+    placeCoasterCars(record, coasterHeadIndex(record, null), carCount, poses, coasterHangOffset(definition.id));
     writeCoasterCarTransforms(this.transforms, record.objectId, poses, 0);
 
     let minX = Number.POSITIVE_INFINITY;

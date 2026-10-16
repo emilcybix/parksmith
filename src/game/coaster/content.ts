@@ -11,8 +11,10 @@ export type CoasterSpecial = 'loop' | 'boost' | 'launch';
  * - `launch` (step 2): at least one `launch` piece replaces the chain lift's job (the train leaves it at
  *   `speed.launch`, and a chain-free climb after it rides that momentum up a top hat); the height cap is
  *   `coaster.launchMaximumHeight` (5) instead of the usual 4.
+ * - `inverted` (step 3): the train hangs under the track (drawn one level up, on gantries from above). A path needs
+ *   one level more under it, it never crosses other track, and it takes no loops.
  */
-export type CoasterFamily = 'steel' | 'wild-mouse' | 'wooden' | 'launch';
+export type CoasterFamily = 'steel' | 'wild-mouse' | 'wooden' | 'launch' | 'inverted';
 
 /**
  * A buildable coaster family: same designer, different physical limits and economy.
@@ -104,7 +106,22 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     heightCostPerLevel: 50,
     allowedSpecials: ['launch', 'boost'],
   },
+  {
+    definitionId: 'bat-wing',
+    family: 'inverted',
+    maximumHeight: 4,
+    trainCapacity: 8,
+    trainCars: 4,
+    reliability: 84,
+    stationCost: 800,
+    pieceCost: 62,
+    heightCostPerLevel: 45,
+    allowedSpecials: ['boost'],
+  },
 ] as const;
+
+/** Phase 39 step 3: whether a coaster type's train hangs under its track. */
+export const coasterHangs = (definitionId: string): boolean => COASTER_TYPE_BY_ID.get(definitionId)?.family === 'inverted';
 
 export const COASTER_TYPE_BY_ID = new Map<string, CoasterTypeDefinition>(
   COASTER_TYPES.map((type) => [type.definitionId, type]),

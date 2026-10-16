@@ -1,5 +1,5 @@
 import { CARD_BY_ID } from '../game/cards/content';
-import { COASTER_TYPE_BY_ID, type CoasterSpecial, type CoasterTypeDefinition } from '../game/coaster/content';
+import { COASTER_TYPE_BY_ID, coasterHangs, type CoasterSpecial, type CoasterTypeDefinition } from '../game/coaster/content';
 import {
   COASTER_VALIDATION_TEXT,
   checkCoasterDesign,
@@ -3523,7 +3523,8 @@ export class GameApp implements GameCommands, RunCommands {
       if (crossed.length > 0) {
         const tooClose = crossed.some(({ piece }) => !trackPiecesMayCross(piece.height, height));
         const exclusive = crossed.some(({ index }) => isExclusiveCoasterPiece(this.coasterDraft, index))
-          || last?.special === 'loop';
+          || last?.special === 'loop'
+          || coasterHangs(this.currentCoasterType()?.definitionId ?? '');
         if (tooClose || exclusive) {
           if (this.coasterDraftRefusal !== `${cell.x},${cell.y}`) {
             this.coasterDraftRefusal = `${cell.x},${cell.y}`;
@@ -3588,7 +3589,7 @@ export class GameApp implements GameCommands, RunCommands {
     const validation = check.validation;
     const stats = deriveCoasterStats(this.coasterDraft, type);
     const conflicts = this.coasterDraft.map((piece, index) => this.world.coasterPieceConflict({
-      cell: piece.cell, height: piece.height, exclusive: isExclusiveCoasterPiece(this.coasterDraft, index),
+      cell: piece.cell, height: piece.height, exclusive: isExclusiveCoasterPiece(this.coasterDraft, index), hangs: coasterHangs(type.definitionId),
     }));
     const conflict = conflicts.find((entry) => entry !== null) ?? null;
     const blocked = conflict !== null;

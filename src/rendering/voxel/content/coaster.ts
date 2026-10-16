@@ -19,13 +19,13 @@ import { colourSlotsFor, type ColourSlotId } from '../../../game/content/colours
 import { GUEST_COLORS } from '../../../game/guests/GuestSimulation';
 import type { BuildDefinition, Cell } from '../../../game/types';
 import type { Blueprint, Shape } from '../contracts/blueprint';
-import { packBoxWord } from '../contracts/boxes';
+import { BOX_FLOATS, packBoxWord } from '../contracts/boxes';
 import type { BoxWriter } from '../contracts/boxes';
 import { BOX_BUDGET } from '../contracts/budgets';
 import type { CoasterContent } from '../contracts/content';
 import { MAT, MATERIAL_EMPTY, PATTERN, SKIN_MATERIALS } from '../contracts/palette';
 import type { Palette } from '../contracts/palette';
-import { GROUND_TOP_Z, PATH_TOP_Z, VOXELS_PER_TILE } from '../contracts/space';
+import { COASTER_LEVEL_VOXELS, GROUND_TOP_Z, PATH_TOP_Z, VOXELS_PER_TILE } from '../contracts/space';
 import { coasterCarSeats } from '../../coasterCarFrame';
 import { slotTagger } from './colourTags';
 import { COASTER_LOOP_RADIUS_VOXELS, coasterRailTopZ } from '../scene/coasterCars';
@@ -266,6 +266,8 @@ const TYPE_LOOK: Readonly<Record<string, { tie?: number; spine: number; support:
   'timber-twister': { tie: MAT.WOOD, spine: MAT.TIMBER, support: MAT.TIMBER },
   // Phase 39 step 2: a launch coaster in steel blue-grey.
   'thunder-launch': { spine: MAT.INK, support: MAT.STEEL },
+  // Phase 39 step 3: an inverted coaster on light steel gantries.
+  'bat-wing': { spine: MAT.INK, support: MAT.STEEL_LIGHT },
 };
 
 /**
@@ -1144,6 +1146,42 @@ const emitBrakeFin = (pieces: readonly CoasterPiece[], frame: PieceFrame, out: B
 // ---------------------------------------------------------------------------------------------
 // Pieces
 
+/** Phase 39 step 3: how far an inverted coaster's track is drawn above its piece level (one level), voxels. */
+export const INVERTED_TRACK_LIFT = COASTER_LEVEL_VOXELS;
+/** The gantry's legs stand this far either side of the line (clear of the hanging cars), the beam on top is this tall. */
+export const GANTRY_LEG_ACROSS = 9;
+const GANTRY_BEAM_HEIGHT = 2;
+
+/**
+ * Phase 39 step 3: an inverted piece's support: a gantry, two legs on stone footings beside the hanging train and a
+ * beam over the top of the lifted track, on every other straight piece (corners are carried by their neighbours). Nothing of
+ * it crosses the space under the track where the cars hang.
+ */
+const emitGantry = (pieces: readonly CoasterPiece[], index: number, frame: PieceFrame, look: CoasterLook, out: BoxWriter): void => {
+  // Every other straight piece: a gantry on every tile read as a fence.
+  if (!frame.straight || index % 2 === 1) return;
+  const count = pieces.length;
+  const highest = Math.max(pieces[index].height, pieces[(index + 1) % count].height, pieces[(index - 1 + count) % count].height);
+  const top = coasterRailTopZ(highest) + INVERTED_TRACK_LIFT + 1;
+  const supportWord = packBoxWord(look.support, frame.outlineGroup, PATTERN.PLAIN, 0);
+  const footingWord = packBoxWord(MAT.STONE, frame.outlineGroup, PATTERN.PLAIN, 0);
+  const alongX = frame.outX !== 0;
+  // Tile-local: the line runs through the tile centre; the gantry stands across it at the middle of the piece.
+  const at = HALF_TILE - 1;
+  for (const side of [-1, 1]) {
+    const across = HALF_TILE + side * GANTRY_LEG_ACROSS;
+    const a0 = side < 0 ? across - SUPPORT_SIZE : across;
+    const [x0, y0] = alongX ? [at, a0] : [a0, at];
+    const [x1, y1] = [x0 + SUPPORT_SIZE, y0 + SUPPORT_SIZE];
+    pushLocalBox(frame, x0 - 1, y0 - 1, x1 + 1, y1 + 1, SUPPORT_FOOTING_Z, SUPPORT_FOOTING_TOP - SUPPORT_FOOTING_Z, footingWord, out);
+    pushLocalBox(frame, x0, y0, x1, y1, SUPPORT_FOOTING_TOP, top + GANTRY_BEAM_HEIGHT - SUPPORT_FOOTING_TOP, supportWord, out);
+  }
+  const low = HALF_TILE - GANTRY_LEG_ACROSS;
+  const high = HALF_TILE + GANTRY_LEG_ACROSS;
+  if (alongX) pushLocalBox(frame, at, low, at + SUPPORT_SIZE, high, top, GANTRY_BEAM_HEIGHT, supportWord, out);
+  else pushLocalBox(frame, low, at, high, at + SUPPORT_SIZE, top, GANTRY_BEAM_HEIGHT, supportWord, out);
+};
+
 /** Phase 38: whether another piece of the same layout runs under piece `index` in its cell (the track crosses itself). */
 const hasLowerPieceInCell = (pieces: readonly CoasterPiece[], index: number): boolean => {
   const piece = pieces[index];
@@ -1173,8 +1211,11 @@ const pieceBoxes = (
   const special = frame.straight ? piece.special : undefined;
   layoutColumns(frame, pieces, special);
   const station = isStationPiece(pieces, index);
-  // The lower layer: the spine, or the station's stone bed over the whole width (down to the grass at level 0).
-  if (station) {
+  // Phase 39 step 3: an inverted coaster's track is drawn one level up and its train hangs beneath it (scene/
+  // coasterCars.ts coasterHangOffset); its station keeps a plain spine (no stone bed: the platform is under the cars).
+  const inverted = COASTER_TYPE_BY_ID.get(definition.id)?.family === 'inverted';
+  const trackStart = out.count;
+  if (station && !inverted) {
     emitLowerLayer(frame, FLAG_BAND, packBoxWord(MAT.STONE, outlineGroup, PATTERN.PLAIN, 0), out);
   } else {
     emitLowerLayer(frame, FLAG_SPINE, packBoxWord(look.spine, outlineGroup, PATTERN.PLAIN, 0), out);
@@ -1184,6 +1225,13 @@ const pieceBoxes = (
   emitTopLayer(frame, TOP_CHAIN, packBoxWord(MAT.FENCE_RAIL, outlineGroup, PATTERN.PLAIN, 0), out);
   emitTopLayer(frame, TOP_BRAKE, packBoxWord(MAT.CONCRETE, outlineGroup, PATTERN.PLAIN, 0), out);
   emitTopLayer(frame, TOP_CHEVRON, packBoxWord(MAT.BULB, outlineGroup, PATTERN.PLAIN, 0), out);
+  if (inverted) {
+    emitBrakeFin(pieces, frame, out);
+    for (let box = trackStart; box < out.count; box += 1) out.data[box * BOX_FLOATS + 2] += INVERTED_TRACK_LIFT;
+    if (supports && !hasLowerPieceInCell(pieces, index)) emitGantry(pieces, index, frame, look, out);
+    emitStation(pieces, index, frame, definition, palette, out, paint);
+    return;
+  }
   // Phase 38: a piece crossing over other track (or a low object) stands on no bent: its legs would come down on
   // what is below. Its neighbours' bents carry it.
   if (supports && !hasLowerPieceInCell(pieces, index)) {

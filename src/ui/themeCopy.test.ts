@@ -139,7 +139,7 @@ describe('research panel copy', () => {
   it('says where a branch leads, by name', () => {
     const branches = researchBranches(projects());
     const family = branches.find((branch) => branch.id === 'family-favorites')!;
-    expect(researchBranchLine(family)).toBe('Opens with Family Favorites, then Water Works, Temple Expeditions or Timber Framing.');
+    expect(researchBranchLine(family)).toBe('Opens with Family Favorites, then Water Works, Temple Expeditions or Timber Framing; at tier 3, Suspended Track.');
     const garden = branches.find((branch) => branch.id === 'garden-appeal')!;
     expect(researchBranchLine(garden)).toBe('Opens with Garden Appeal, then Seaside Styling, Adventure Styling or Future Styling.');
     const spin = branches.find((branch) => branch.id === 'spin-studies')!;

@@ -19,7 +19,7 @@ import { restPose } from '../contracts/rigid';
 import type { PartDriver, PartPose, RideMotionState } from '../contracts/rigid';
 import type { QuarterTurn } from '../contracts/space';
 import { advanceRideMotion, createRideMotionState } from '../rideMotion';
-import { placeCoasterCars, writeCoasterCarTransforms } from './coasterCars';
+import { coasterHangOffset, placeCoasterCars, writeCoasterCarTransforms } from './coasterCars';
 import { createFigurePacker } from './figures';
 import type { FigurePacker } from './figures';
 import { CoasterDraft } from './coasterDraft';
@@ -535,7 +535,7 @@ export class VoxelScene {
           ? coasterInterpolatedRemaining(runtime.cycleRemainingSeconds, train.record.stats.durationSeconds, stepFraction)
           : null,
       );
-      placeCoasterCars(train.record, headIndex, train.carCount, train.poses);
+      placeCoasterCars(train.record, headIndex, train.carCount, train.poses, coasterHangOffset(this.session.world.objects.get(train.objectId)?.definitionId));
       const loaded = runtime === undefined
         ? 0
         : coasterLoadedCars(runtime.status, runtime.riderGuestIds.length, train.capacity, train.carCount);

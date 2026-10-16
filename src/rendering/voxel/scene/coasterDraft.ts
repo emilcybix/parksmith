@@ -10,7 +10,7 @@ import { COLOUR_TAG_LIMIT } from '../contracts/blueprint';
 import { coasterCarSlotKey, coasterCouplingSlotKey } from '../contracts/rigid';
 import type { GhostState } from '../contracts/frame';
 import { GHOST_COVERAGE_VALID, GHOST_TINT_VALID } from '../contracts/gbuffer';
-import { createCoasterCarPoses, placeCarsOnTrack, writeCoasterCarTransforms } from './coasterCars';
+import { coasterHangOffset, createCoasterCarPoses, placeCarsOnTrack, writeCoasterCarTransforms } from './coasterCars';
 import type { TransformTable } from './rigid';
 import type { SceneModels } from './staticWorld';
 
@@ -220,7 +220,7 @@ export class CoasterDraft {
     const cars = COASTER_TYPE_BY_ID.get(definition.id)?.trainCars ?? 0;
     if (cars === 0) return;
     const poses = createCoasterCarPoses(cars);
-    placeCarsOnTrack(centreLineFor(ring), GAME_CONFIG.coaster.stationLength - 1, cars, poses);
+    placeCarsOnTrack(centreLineFor(ring), GAME_CONFIG.coaster.stationLength - 1, cars, poses, coasterHangOffset(definition.id));
     writeCoasterCarTransforms(table, DRAFT_TRAIN_OBJECT_ID, poses, 0, false);
     for (let car = 0; car < cars; car += 1) {
       const flat = models.carFlat(definition, car);

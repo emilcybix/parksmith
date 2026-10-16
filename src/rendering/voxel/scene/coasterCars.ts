@@ -1,3 +1,4 @@
+import { COASTER_TYPE_BY_ID } from '../../../game/coaster/content';
 import type { CoasterPiece } from '../../../game/coaster/design';
 import {
   centreLineFor,
@@ -161,7 +162,16 @@ const COUPLING_HALF = createCoasterCarFrame();
  * Writes a frame as a world pose (pivot in voxels, then the quaternion of the basis forward, left,
  * up as columns: Shepperd's method, no square root of a negative, no allocation).
  */
-const writeFramePose = (frame: CoasterCarFrame, data: Float32Array, at: number): void => {
+/**
+ * Phase 39 step 3: how far an inverted coaster's cars sit below the normal rail top (voxels, negative): its track is
+ * drawn a level up (content/coaster.ts INVERTED_TRACK_LIFT), so the car's roof and riders' heads stay one voxel under
+ * the spine. 0 for every other coaster.
+ */
+export const COASTER_HANG_OFFSET_VOXELS = -4;
+export const coasterHangOffset = (definitionId: string | undefined): number =>
+  definitionId !== undefined && COASTER_TYPE_BY_ID.get(definitionId)?.family === 'inverted' ? COASTER_HANG_OFFSET_VOXELS : 0;
+
+const writeFramePose = (frame: CoasterCarFrame, data: Float32Array, at: number, zOffset = 0): void => {
   const m00 = frame.forwardX;
   const m10 = frame.forwardY;
   const m20 = frame.forwardZ;
@@ -203,7 +213,7 @@ const writeFramePose = (frame: CoasterCarFrame, data: Float32Array, at: number):
   }
   data[at] = frame.x * VOXELS_PER_TILE;
   data[at + 1] = frame.y * VOXELS_PER_TILE;
-  data[at + 2] = coasterRailTopZ(frame.z);
+  data[at + 2] = coasterRailTopZ(frame.z) + zOffset;
   data[at + 3] = qx;
   data[at + 4] = qy;
   data[at + 5] = qz;
@@ -215,7 +225,7 @@ const writeFramePose = (frame: CoasterCarFrame, data: Float32Array, at: number):
  * `headIndex` is a fractional, possibly unwrapped piece index (coasterHeadIndex). Grows its buffers
  * only when they are too small; otherwise allocation-free.
  */
-export const placeCarsOnTrack = (track: CoasterTrack, headIndex: number, carCount: number, out: CoasterCarPoses): void => {
+export const placeCarsOnTrack = (track: CoasterTrack, headIndex: number, carCount: number, out: CoasterCarPoses, zOffset = 0): void => {
   const cars = track.pieceCount > 0 && carCount > 0 && Number.isFinite(carCount) ? Math.floor(carCount) : 0;
   if (out.data.length < cars * COASTER_CAR_POSE_FLOATS) out.data = new Float32Array(cars * COASTER_CAR_POSE_FLOATS);
   if (out.couplings.length < 2 * cars * COASTER_CAR_POSE_FLOATS) out.couplings = new Float32Array(2 * cars * COASTER_CAR_POSE_FLOATS);
@@ -230,12 +240,12 @@ export const placeCarsOnTrack = (track: CoasterTrack, headIndex: number, carCoun
     const frame = frames[car];
     frame.distance = HEAD_DISTANCE.distance - car * COASTER_CAR_SPACING_TILES;
     resampleCoasterCarFrame(track, frame);
-    writeFramePose(frame, data, car * COASTER_CAR_POSE_FLOATS);
+    writeFramePose(frame, data, car * COASTER_CAR_POSE_FLOATS, zOffset);
   }
   for (let car = 0; car + 1 < cars; car += 1) {
     coasterCouplingFrame(frames[car], frames[car + 1], COUPLING);
-    writeFramePose(coasterCouplingHalfFrame(COUPLING, 0, COUPLING_HALF), out.couplings, 2 * car * COASTER_CAR_POSE_FLOATS);
-    writeFramePose(coasterCouplingHalfFrame(COUPLING, 1, COUPLING_HALF), out.couplings, (2 * car + 1) * COASTER_CAR_POSE_FLOATS);
+    writeFramePose(coasterCouplingHalfFrame(COUPLING, 0, COUPLING_HALF), out.couplings, 2 * car * COASTER_CAR_POSE_FLOATS, zOffset);
+    writeFramePose(coasterCouplingHalfFrame(COUPLING, 1, COUPLING_HALF), out.couplings, (2 * car + 1) * COASTER_CAR_POSE_FLOATS, zOffset);
   }
 };
 
@@ -245,8 +255,9 @@ export const placeCoasterCars = (
   headIndex: number,
   carCount: number,
   out: CoasterCarPoses,
+  zOffset = 0,
 ): void => {
-  placeCarsOnTrack(coasterTrackFor(record), headIndex, carCount, out);
+  placeCarsOnTrack(coasterTrackFor(record), headIndex, carCount, out, zOffset);
 };
 
 const COLLAPSED = new Float32Array(COASTER_CAR_POSE_FLOATS);

@@ -99,9 +99,10 @@ const setup = (options: { gated?: boolean } = {}) => {
         for (let x = 0; x + 9 <= game.width && !placed; x += 1) {
           // The launch coaster takes a compact 6 x 2 loop: the colour park has no 9 x 5 space left after the other two.
           // It must still cross a chunk edge (the recolour test below checks several chunks rebuild).
-          if (type.family === 'launch' && Math.floor(x / 8) === Math.floor((x + 5) / 8) && Math.floor(y / 8) === Math.floor((y + 1) / 8)) continue;
-          const pieces = type.family === 'launch'
-            ? layoutFromMoves({ x, y }, 'EEEEESWWWWWN', [0, 0, 0, 1, 2, 2, 1, 0, 0, 0, 0, 0], { 3: 'launch' })
+          const compact = type.family === 'launch' || type.family === 'inverted';
+          if (compact && Math.floor(x / 8) === Math.floor((x + 5) / 8) && Math.floor(y / 8) === Math.floor((y + 1) / 8)) continue;
+          const pieces = compact
+            ? layoutFromMoves({ x, y }, 'EEEEESWWWWWN', [0, 0, 0, 1, 2, 2, 1, 0, 0, 0, 0, 0], type.family === 'launch' ? { 3: 'launch' } : {})
             : ovalLayout({ x, y });
           const result = game.placeCoaster(id, pieces, deriveCoasterStats(pieces, type), coasterBaseCost(pieces, type));
           placed = !('error' in result);
