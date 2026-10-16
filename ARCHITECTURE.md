@@ -748,6 +748,17 @@ of a piece with something under it (`hasSomethingUnder`, or a lower piece of its
 A crossing adds `coaster.crossing.excitement` (2) per crossing, up to 3; a layout without one takes the old
 expressions. The classic renderer draws crossings without that support rule (it is frozen).
 
+**Shuttles (Phase 44).** A layout whose first piece carries `launchSpeed` is a shuttle (`game/coaster/shuttle.ts`):
+open (no closure), launched from the station, out to a turnaround on a climb and back. Only a type with
+`layout: 'shuttle'` (Thunder Launch) accepts one; a closed layout of that type (saved before Phase 44) still loads as a
+circuit. `validateCoasterLayout` has a shuttle branch (load-safe rules); `checkCoasterDesign` adds the
+balance-dependent ones (overshoot, stop on the flat, slow loop, a crawl back over a hill). `shuttleProfile` is an
+integer energy sweep out and back; `deriveCoasterStats` reads it (`durationSeconds` = out + back + loading, the saved
+`travelSeconds` the outbound times with nominal times on unused pieces), and `coasterHeadIndex` turns elapsed time into
+the out-and-back head index (`shuttleHeadIndex`, stretched over the saved duration). `createCentreLine` builds a
+shuttle on its own open ring (two scratch pieces after the real ones, `realPieceCount`), so every renderer draws it
+with the same piece indices and nothing chained. Schema 17 (`launchSpeed` on a piece).
+
 ## Coaster centre line
 
 Phase 27 step 1. A coaster's look comes from one pure curve, `src/game/coaster/centreLine.ts` (no Pixi, DOM, world or gameplay imports; `centreLine.test.ts` has its tests). `createCentreLine(pieces)` turns a layout into position and tangent per arc length (`sampleCentreLine`, allocation-free; `resampleCentreLine` for hot loops), and the voxel track, both trains, the designer ghost and the draft preview all read it, so the train rides exactly the rail that is drawn. **It is visual only**: ride stats, cycle time, cost, ratings, queue and dispatch, breakdowns and saves come from `design.ts` and `RideSimulation` and never see it (`gameplayInvariance.test.ts` pins them to golden values captured before the curve existed).

@@ -138,6 +138,8 @@ export interface CoasterPieceState {
   special?: CoasterSpecial;
   /** Schema 5. Written only when true: segment i to i+1 climbs without a chain. Absent = chained. */
   freeClimb?: true;
+  /** Schema 17 (Phase 44). Only on the first piece of a shuttle layout: its launch speed, cells per second. */
+  launchSpeed?: number;
 }
 
 /**

@@ -1523,6 +1523,25 @@ export const CoasterPanel = (): React.JSX.Element | null => {
         </div>
         <em>New pieces climb toward this level</em>
       </div>
+      {draft.launchSpeed !== null && (
+        <div className="coaster-height-row">
+          <small>LAUNCH SPEED (STATION)</small>
+          <div className="coaster-height-controls">
+            <button
+              onClick={() => gameBridge.coasterAdjustLaunch(-1)}
+              aria-label="Lower launch speed"
+              title="Lower launch speed"
+            ><span aria-hidden="true">−</span></button>
+            <strong role="status"><span className="sr-only">Launch speed </span>{draft.launchSpeed.toFixed(1)}</strong>
+            <button
+              onClick={() => gameBridge.coasterAdjustLaunch(1)}
+              aria-label="Raise launch speed"
+              title="Raise launch speed"
+            ><span aria-hidden="true">+</span></button>
+          </div>
+          <em>The train climbs until it runs out of speed, then rolls back</em>
+        </div>
+      )}
       {draft.allowedSpecials.length > 0 && (
         <div className="coaster-specials-row">
           <small>SPECIAL PIECES · LAST PIECE</small>

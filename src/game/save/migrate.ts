@@ -422,6 +422,31 @@ export const SAVE_MIGRATIONS: readonly SaveMigration[] = [
       return { ...save, schemaVersion: 16, state: { ...state, rules } };
     },
   },
+  {
+    from: 16,
+    to: 17,
+    description: 'Shuttle coasters: the optional launch speed on a coaster\'s first piece (a schema-16 park has none)',
+    // A schema-16 park has no shuttle: a hand-edited `launchSpeed` on a piece (which a schema-16 build ignored) is
+    // dropped, so every coaster runs as it did. Nothing else changes.
+    migrate: (save) => {
+      const state = save.state as PlainRecord;
+      if (!Array.isArray(state.coasters)) return { ...save, schemaVersion: 17 };
+      let changed = false;
+      const coasters = state.coasters.map((record: unknown) => {
+        if (!isRecord(record) || !Array.isArray(record.pieces)) return record;
+        if (!record.pieces.some((piece: unknown) => isRecord(piece) && Object.hasOwn(piece, 'launchSpeed'))) return record;
+        changed = true;
+        const pieces = record.pieces.map((piece: unknown) => {
+          if (!isRecord(piece) || !Object.hasOwn(piece, 'launchSpeed')) return piece;
+          const { launchSpeed: _launch, ...rest } = piece;
+          void _launch;
+          return rest;
+        });
+        return { ...record, pieces };
+      });
+      return changed ? { ...save, schemaVersion: 17, state: { ...state, coasters } } : { ...save, schemaVersion: 17 };
+    },
+  },
 ];
 
 export interface MigrateOptions {

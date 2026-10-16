@@ -14,6 +14,7 @@ import {
 import type { CentreLine } from '../../../game/coaster/centreLine';
 import type { CoasterPiece } from '../../../game/coaster/design';
 import { COASTER_TYPE_BY_ID } from '../../../game/coaster/content';
+import { isShuttleLayout } from '../../../game/coaster/shuttle';
 import { GAME_CONFIG } from '../../../game/config';
 import { colourSlotsFor, type ColourSlotId } from '../../../game/content/colours';
 import { GUEST_COLORS } from '../../../game/guests/GuestSimulation';
@@ -570,7 +571,8 @@ const layoutBand = (
   const index = frame.index;
   const ground = line.groundStart[index];
   const railInner = TRACK_HALF_WIDTH - RAIL_WIDTH;
-  const brakePiece = pieces.length >= 2 && index === pieces.length - 1;
+  // Phase 44: a shuttle has no run into the station at its far end (its spike top): no brake there.
+  const brakePiece = pieces.length >= 2 && index === pieces.length - 1 && !isShuttleLayout(pieces);
   for (let y = 0; y < TILE; y += 1) {
     for (let x = 0; x < TILE; x += 1) {
       projectOntoTile(line, index, (x + 0.5) / TILE, (y + 0.5) / TILE, PROJECTION);
@@ -604,8 +606,10 @@ const layoutBand = (
 /** Lays out the piece's track columns (tops, layers, chevrons) for `frame`. */
 const layoutColumns = (frame: PieceFrame, pieces: readonly CoasterPiece[], special: CoasterPiece['special']): void => {
   layoutBand(frame, pieces, COLUMN_FLAGS, COLUMN_TOP, COLUMN_TOP_KIND);
-  // Phase 39 step 2: a launch track shows the boost's glowing chevrons too (it is a longer, stronger boost).
-  if (frame.straight && (special === 'boost' || special === 'launch')) {
+  // Phase 39 step 2: a launch track shows the boost's glowing chevrons too (it is a longer, stronger boost). Phase 44:
+  // so does a shuttle's station after its first piece (it is the launch).
+  const launchStation = frame.index > 0 && frame.index < GAME_CONFIG.coaster.stationLength && isShuttleLayout(pieces);
+  if (frame.straight && (special === 'boost' || special === 'launch' || launchStation)) {
     const acrossX = frame.outY !== 0 ? 1 : 0;
     const acrossY = frame.outX !== 0 ? 1 : 0;
     for (let chevron = 0; chevron < CHEVRON_TIPS.length; chevron += 1) {
@@ -1134,7 +1138,7 @@ const emitStation = (
  * of the track, hanging on the tie's side (so a raised last piece carries it too).
  */
 const emitBrakeFin = (pieces: readonly CoasterPiece[], frame: PieceFrame, out: BoxWriter): void => {
-  if (pieces.length < 2 || frame.index !== pieces.length - 1 || !frame.straight) return;
+  if (pieces.length < 2 || frame.index !== pieces.length - 1 || !frame.straight || isShuttleLayout(pieces)) return;
   const alongX = frame.outX;
   const alongY = frame.outY;
   const top = railTopAt(frame, (BRAKE_FIN_ALONG + 0.5) / TILE);

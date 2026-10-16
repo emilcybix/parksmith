@@ -87,7 +87,15 @@ const TURN_LENGTH = CENTRE_LINE_CORNER_RADIUS * HALF_PI;
 const RING_LENGTH = 2 * Math.PI * CENTRE_LINE_LOOP_RADIUS;
 
 export interface CentreLine {
+  /** Pieces on the line: a shuttle's line has two scratch pieces after its real ones (`realPieceCount`). */
   readonly pieceCount: number;
+  /**
+   * Phase 44: the layout's own pieces, indices 0 … realPieceCount − 1 (= pieceCount on a circuit). A shuttle layout
+   * (`launchSpeed` on its first piece) is built on its own open ring: the real pieces, then a scratch piece straight
+   * on past the last (continuing its climb, so the spike ends steep) and one behind the first (the station's
+   * lead-in), never drawn and never reached by the train. Nothing on it is chained.
+   */
+  readonly realPieceCount: number;
   /** Arc length of the whole circuit, rings included (tiles). */
   readonly totalLength: number;
   readonly cellX: Int32Array;
@@ -152,6 +160,9 @@ const stepSign = (from: number, to: number, other: number, otherTo: number, want
  * the first); a malformed one (gaps, a U-turn) still gets a well-defined line, never NaN. O(n).
  */
 export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine => {
+  if (pieces.length >= 2 && pieces[0].launchSpeed !== undefined) {
+    return { ...createCentreLine(shuttleRing(pieces)), realPieceCount: pieces.length };
+  }
   const count = pieces.length;
   const cellX = new Int32Array(count);
   const cellY = new Int32Array(count);
@@ -228,6 +239,7 @@ export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine =>
   const ringEntryPitch = new Float64Array(count);
   const line: CentreLine = {
     pieceCount: count,
+    realPieceCount: count,
     totalLength,
     cellX,
     cellY,
@@ -267,10 +279,12 @@ interface CacheEntry {
 }
 
 const SPECIAL_CODE: Readonly<Record<string, number>> = { loop: 1, boost: 2 };
-/** Slot 3 of a piece's signature: its special, plus a bit for the lift flag (the line's `chained`). */
+/** Slot 3 of a piece's signature: its special, plus a bit for the lift flag (the line's `chained`) and one for a shuttle's launch. */
 const FREE_CLIMB_BIT = 8;
+const LAUNCH_SPEED_BIT = 16;
 const pieceCode = (piece: CoasterPiece): number =>
-  (piece.special ? SPECIAL_CODE[piece.special] ?? 3 : 0) | (piece.freeClimb === true ? FREE_CLIMB_BIT : 0);
+  (piece.special ? SPECIAL_CODE[piece.special] ?? 3 : 0) | (piece.freeClimb === true ? FREE_CLIMB_BIT : 0)
+  | (piece.launchSpeed !== undefined ? LAUNCH_SPEED_BIT : 0);
 const CACHE = new WeakMap<readonly CoasterPiece[], CacheEntry>();
 
 const signatureMatches = (signature: Int32Array, pieces: readonly CoasterPiece[]): boolean => {
@@ -755,6 +769,26 @@ export const openLayoutRing = (pieces: readonly CoasterPiece[]): CoasterPiece[] 
   const ring: CoasterPiece[] = [{ cell: { x: first.cell.x - headX, y: first.cell.y - headY }, height: first.height }];
   for (const piece of pieces) ring.push({ cell: { x: piece.cell.x, y: piece.cell.y }, height: piece.height, special: piece.special });
   ring.push({ cell: { x: last.cell.x + tailX, y: last.cell.y + tailY }, height: last.height });
+  return ring;
+};
+
+/**
+ * Phase 44: the open ring a shuttle layout's line is built on: its pieces (every one free of a chain), a scratch
+ * piece straight on past the last at the height the last climb would reach next, and one behind the first at the
+ * station's level. Real pieces keep their indices.
+ */
+const shuttleRing = (pieces: readonly CoasterPiece[]): CoasterPiece[] => {
+  const count = pieces.length;
+  const first = pieces[0];
+  const last = pieces[count - 1];
+  const previous = pieces[count - 2];
+  const headX = Math.sign(pieces[1].cell.x - first.cell.x);
+  const headY = Math.sign(pieces[1].cell.y - first.cell.y);
+  const tailX = Math.sign(last.cell.x - previous.cell.x);
+  const tailY = Math.sign(last.cell.y - previous.cell.y);
+  const ring: CoasterPiece[] = pieces.map((piece) => ({ cell: piece.cell, height: piece.height, special: piece.special, freeClimb: true }));
+  ring.push({ cell: { x: last.cell.x + tailX, y: last.cell.y + tailY }, height: Math.max(0, 2 * last.height - previous.height), freeClimb: true });
+  ring.push({ cell: { x: first.cell.x - headX, y: first.cell.y - headY }, height: first.height, freeClimb: true });
   return ring;
 };
 

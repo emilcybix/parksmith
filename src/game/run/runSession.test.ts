@@ -304,7 +304,7 @@ describe('envelope of schema 12', () => {
     const { session } = testStageSession({ cardCount: 1 });
     session.syncWithWorld();
     const save = JSON.parse(JSON.stringify(createParkSave(session.serialize(), { clock: { speed: 1, simulationTimeMs: 0 }, tourNodeId: null }, 1)));
-    expect(save.schemaVersion).toBe(16);
+    expect(save.schemaVersion).toBe(17);
     expect(save.mode).toBe('run');
     expect(() => migrateSave(save)).not.toThrow();
     const noRun = JSON.parse(JSON.stringify(save));

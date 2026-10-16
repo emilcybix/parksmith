@@ -755,6 +755,7 @@ export class GameWorld implements Serializable<GameWorldState> {
         height: piece.height,
         special: piece.special,
         ...(piece.freeClimb === true ? { freeClimb: true } : {}),
+        ...(piece.launchSpeed !== undefined ? { launchSpeed: piece.launchSpeed } : {}),
       })),
       stats: { ...stats, travelSeconds: [...stats.travelSeconds] },
       paidCost: cost,
@@ -1136,6 +1137,7 @@ export class GameWorld implements Serializable<GameWorldState> {
         };
         if (piece.special !== undefined) state.special = piece.special;
         if (piece.freeClimb === true) state.freeClimb = true;
+        if (piece.launchSpeed !== undefined) state.launchSpeed = plainNumber(piece.launchSpeed, `${piecePath}.launchSpeed`);
         return state;
       });
       const stats = record.stats;
@@ -1239,6 +1241,7 @@ export class GameWorld implements Serializable<GameWorldState> {
           height: piece.height,
           special: piece.special,
           ...(piece.freeClimb === true ? { freeClimb: true } : {}),
+          ...(piece.launchSpeed !== undefined ? { launchSpeed: piece.launchSpeed } : {}),
         })),
         stats: copyCoasterStats(record.stats),
         paidCost: record.paidCost,
@@ -1358,10 +1361,12 @@ export class GameWorld implements Serializable<GameWorldState> {
         fail(`${path}.paidCost`, 'is not a finite non-negative number');
       }
       if (!Array.isArray(record.pieces)) return fail(`${path}.pieces`, 'is not an array');
-      if (record.pieces.length < coasterConfig.minimumPieces || record.pieces.length > coasterConfig.maximumPieces) {
+      // Phase 44: a shuttle may be shorter than a circuit (the layout rules check which it is).
+      const fewestPieces = Math.min(coasterConfig.minimumPieces, coasterConfig.shuttle.minimumPieces);
+      if (record.pieces.length < fewestPieces || record.pieces.length > coasterConfig.maximumPieces) {
         fail(
           `${path}.pieces`,
-          `has ${record.pieces.length} pieces, outside ${coasterConfig.minimumPieces}..${coasterConfig.maximumPieces}`,
+          `has ${record.pieces.length} pieces, outside ${fewestPieces}..${coasterConfig.maximumPieces}`,
         );
       }
       record.pieces.forEach((piece, pieceIndex) => {
@@ -1375,6 +1380,10 @@ export class GameWorld implements Serializable<GameWorldState> {
           fail(`${piecePath}.special`, 'is not loop, boost or launch');
         }
         if (piece.freeClimb !== undefined && piece.freeClimb !== true) fail(`${piecePath}.freeClimb`, 'is not true');
+        // Phase 44: a shuttle's launch speed (the layout rules check where it sits and its range).
+        if (piece.launchSpeed !== undefined && (typeof piece.launchSpeed !== 'number' || !Number.isFinite(piece.launchSpeed))) {
+          fail(`${piecePath}.launchSpeed`, 'is not a finite number');
+        }
       });
       if (!isPlainObject(record.stats)) return fail(`${path}.stats`, 'is not an object');
       const stats = record.stats as unknown as Record<string, unknown>;

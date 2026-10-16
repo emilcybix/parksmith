@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hillDipLayout, ovalLayout } from '../../../game/coaster/testLayouts';
+import { hillDipLayout, layoutFromMoves, ovalLayout } from '../../../game/coaster/testLayouts';
 import { COASTER_HANG_OFFSET_VOXELS, coasterHangOffset, coasterRailTopZ } from '../scene/coasterCars';
 import { BUILD_BY_ID, BUILD_CATALOG } from '../../../game/content/catalog';
 import { GUEST_ACCENTS, GUEST_COLORS } from '../../../game/guests/GuestSimulation';
@@ -79,5 +79,40 @@ describe('Phase 39 step 3: the inverted coaster art', () => {
     expect(COASTER_HANG_OFFSET_VOXELS).toBeLessThan(0);
     expect(coasterHangOffset('comet-trail')).toBe(0);
     expect(coasterHangOffset(undefined)).toBe(0);
+  });
+});
+
+describe('Phase 44: the shuttle art', () => {
+  /** A shuttle: the launch station, a run-up and a spike to level 5. */
+  const SHUTTLE = layoutFromMoves({ x: 4, y: 4 }, 'EEEEEEEEE', [0, 0, 0, 0, 1, 2, 3, 4, 5]);
+  SHUTTLE[0].launchSpeed = 7;
+  const boxes = (index: number): Float32Array[] => {
+    const writer = new BoxWriter(64);
+    coasterContent.pieceBoxes(SHUTTLE, index, BUILD_BY_ID.get('thunder-launch')!, palette, 1, writer);
+    return Array.from({ length: writer.count }, (_unused, box) => writer.data.slice(box * BOX_FLOATS, box * BOX_FLOATS + 8));
+  };
+  const materialsOf = (list: Float32Array[]) => new Set(list.map((box) => unpackBoxWord(box[3]).material));
+
+  it('launch chevrons light the station after its first piece; no brake at the spike top and no chain on it', () => {
+    expect(materialsOf(boxes(1)).has(MAT.BULB)).toBe(true);
+    expect(materialsOf(boxes(2)).has(MAT.BULB)).toBe(true);
+    const top = materialsOf(boxes(SHUTTLE.length - 1));
+    expect(top.has(MAT.CONCRETE), 'no brake pad').toBe(false);
+    expect(top.has(MAT.FENCE_POST), 'no brake fin').toBe(false);
+    for (let index = 3; index < SHUTTLE.length; index += 1) expect(materialsOf(boxes(index)).has(MAT.FENCE_RAIL), `piece ${index}`).toBe(false);
+  });
+
+  it('every piece compiles inside its tile, no two boxes overlapping', () => {
+    for (let index = 0; index < SHUTTLE.length; index += 1) {
+      const list = boxes(index);
+      expect(list.length).toBeGreaterThan(0);
+      for (const box of list) {
+        expect(box[0]).toBeGreaterThanOrEqual(SHUTTLE[index].cell.x * 32);
+        expect(box[0] + box[4]).toBeLessThanOrEqual(SHUTTLE[index].cell.x * 32 + 32);
+      }
+      for (let a = 0; a < list.length; a += 1) {
+        for (let b = a + 1; b < list.length; b += 1) expect(overlaps(list[a], list[b]), `piece ${index}: boxes ${a} and ${b}`).toBe(false);
+      }
+    }
   });
 });

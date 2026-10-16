@@ -9,6 +9,7 @@ import {
   trackPiecesMayCross,
   type CoasterPiece,
 } from '../game/coaster/design';
+import { clampLaunchSpeed } from '../game/coaster/shuttle';
 import {
   describeCoasterLift,
   liftRunAtPiece,
@@ -309,6 +310,8 @@ export class GameApp implements GameCommands, RunCommands {
   private lastDraftCell: Cell | null = null;
   private coasterDraft: CoasterPiece[] = [];
   private coasterHeight = 0;
+  /** Phase 44: the launch speed a shuttle draft starts with and keeps while it is being laid (set at the station). */
+  private coasterLaunchSpeed: number = GAME_CONFIG.coaster.shuttle.launchSpeed.default;
   private coasterLastCell: Cell | null = null;
   /** Phase 40: the cell R was pressed on: the ghost keeps the player's turn there instead of facing the path. */
   private manualFacingCell: Cell | null = null;
@@ -3049,7 +3052,8 @@ export class GameApp implements GameCommands, RunCommands {
       // A press on a piece that sits on a climb (not the one the track continues from) flips that
       // lift instead of starting a drag.
       const pressed = this.draftIndexAt(cell);
-      if (pressed >= 0 && pressed < before - 1) {
+      // Phase 44: a shuttle has no lifts to flip.
+      if (pressed >= 0 && pressed < before - 1 && this.currentCoasterType()?.layout !== 'shuttle') {
         const run = liftRunAtPiece(this.coasterDraft, pressed);
         if (run) {
           this.coasterLastCell = null;
@@ -3440,11 +3444,35 @@ export class GameApp implements GameCommands, RunCommands {
     this.refreshCoasterPreview();
   }
 
+  /** Phase 44: a shuttle's launch speed, one step up or down (kept for the next shuttle too). */
+  coasterAdjustLaunch(delta: number): void {
+    const type = this.currentCoasterType();
+    if (type?.layout !== 'shuttle') return;
+    this.coasterLaunchSpeed = clampLaunchSpeed(this.coasterLaunchSpeed + Math.sign(delta) * GAME_CONFIG.coaster.shuttle.launchSpeed.step);
+    this.refreshCoasterPreview();
+  }
+
+  /**
+   * Phase 44: the draft follows its type's layout: a shuttle type's first piece carries the launch speed, any other
+   * type's none (switching type keeps the pieces, as before).
+   */
+  private syncShuttleDraft(type: CoasterTypeDefinition | undefined): void {
+    const first = this.coasterDraft[0];
+    if (!first || !type) return;
+    if (type.layout === 'shuttle') first.launchSpeed = this.coasterLaunchSpeed;
+    else delete first.launchSpeed;
+  }
+
+  /** The specials the designer offers for a type: a shuttle's station is its launch, so it takes no launch pieces. */
+  private designerSpecials(type: CoasterTypeDefinition): CoasterSpecial[] {
+    return type.allowedSpecials.filter((special) => type.layout !== 'shuttle' || special !== 'launch');
+  }
+
   coasterToggleSpecial(kind: CoasterSpecial): void {
     const type = this.currentCoasterType();
     const last = this.coasterDraft[this.coasterDraft.length - 1];
     if (!type || !last) return;
-    if (!type.allowedSpecials.includes(kind)) {
+    if (!this.designerSpecials(type).includes(kind)) {
       this.toast(COASTER_VALIDATION_TEXT['special-not-allowed']);
       return;
     }
@@ -3489,6 +3517,8 @@ export class GameApp implements GameCommands, RunCommands {
   /** Flips the lift under the cursor, else the one holding the last piece, else the last lift. */
   coasterToggleLift(): void {
     if (!this.currentCoasterType()) return;
+    // Phase 44: a shuttle climbs on its launch alone.
+    if (this.currentCoasterType()?.layout === 'shuttle') return;
     const run = liftRunForTarget(this.coasterDraft, this.hoveredDraftIndex());
     if (!run) {
       this.toast('No climb here to chain.');
@@ -3505,6 +3535,7 @@ export class GameApp implements GameCommands, RunCommands {
   }
 
   private flipDraftRun(runStart: number): void {
+    if (this.currentCoasterType()?.layout === 'shuttle') return;
     setLiftRunChained(this.coasterDraft, runStart, !liftRuns(this.coasterDraft).find((run) => run.start === runStart)?.chained);
     normaliseLiftFlags(this.coasterDraft);
     this.coasterLiftHistory = recordLiftToggle(this.coasterLiftHistory, {
@@ -3611,6 +3642,7 @@ export class GameApp implements GameCommands, RunCommands {
       }
       this.coasterDraftRefusal = null;
       this.coasterDraft.push({ cell: { ...cell }, height });
+      if (this.coasterDraft.length === 1) this.syncShuttleDraft(this.currentCoasterType());
       // A piece that continues a hill joins its lift; one that starts a new hill starts chained.
       normaliseLiftFlags(this.coasterDraft);
     }
@@ -3635,6 +3667,7 @@ export class GameApp implements GameCommands, RunCommands {
     // control follows every change to it.
     this.publishUndoStatus();
     const type = this.currentCoasterType();
+    this.syncShuttleDraft(type);
     const definition = type ? BUILD_BY_ID.get(type.definitionId) : undefined;
     // The layout is drawn from the type it belongs to, not the tool that happens to be armed, so
     // it stays visible (dimmed) while the player prices a bench and comes back to it.
@@ -3652,11 +3685,15 @@ export class GameApp implements GameCommands, RunCommands {
         coasterDraft: {
           typeName: definition.name,
           maximumHeight: type.maximumHeight,
-          allowedSpecials: [...type.allowedSpecials],
+          allowedSpecials: this.designerSpecials(type),
           pieces: 0, height: this.coasterHeight, baseCost: 0, effectiveCost: 0,
-          stats: null, validationMessage: 'Drag on the grass to lay track. First 3 pieces become the station.',
+          stats: null,
+          validationMessage: type.layout === 'shuttle'
+            ? 'Drag on the grass to lay track. First 3 pieces become the launch station; end on a climb.'
+            : 'Drag on the grass to lay track. First 3 pieces become the station.',
           buildable: false, affordable: true, lastPieceSpecial: null,
           liftRuns: [], warning: null, chainSavings: 0,
+          launchSpeed: type.layout === 'shuttle' ? this.coasterLaunchSpeed : null,
         },
       });
       return;
@@ -3683,7 +3720,7 @@ export class GameApp implements GameCommands, RunCommands {
       coasterDraft: {
         typeName: definition.name,
         maximumHeight: type.maximumHeight,
-        allowedSpecials: [...type.allowedSpecials],
+        allowedSpecials: this.designerSpecials(type),
         pieces: this.coasterDraft.length,
         height: this.coasterHeight,
         baseCost,
@@ -3715,6 +3752,7 @@ export class GameApp implements GameCommands, RunCommands {
         })),
         warning: check.warning,
         chainSavings,
+        launchSpeed: type.layout === 'shuttle' ? this.coasterLaunchSpeed : null,
       },
     });
   }

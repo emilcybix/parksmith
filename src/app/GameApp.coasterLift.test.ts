@@ -311,3 +311,37 @@ describe('Phase 38: the designer lets the track cross itself at clearance', () =
     game.destroy();
   });
 });
+
+describe('Phase 44: the shuttle designer', () => {
+  it('a shuttle draft carries the launch speed on its first piece, steps it, and builds out and back', async () => {
+    const game = await makeGame();
+    game.world.addMoney(1_000_000);
+    game.world.setBuildAccessPolicy(null);
+    useUiStore.getState().selectBuild('thunder-launch');
+    inputHandlers!.hover({ x: 4, y: 4 });
+    expect(draft().launchSpeed).toBe(10);
+    expect(draft().allowedSpecials, 'the station is the launch').not.toContain('launch');
+    // Lay the station and a run-up at ground level, then a spike to level 5, eastward from (4, 4).
+    const cells = Array.from({ length: 9 }, (_unused, index) => ({ x: 4 + index, y: 4 }));
+    inputHandlers!.start(cells[0]);
+    inputHandlers!.move(cells[3]);
+    for (let level = 0; level < 5; level += 1) gameBridge.coasterAdjustHeight(1);
+    inputHandlers!.move(cells[8]);
+    inputHandlers!.end(cells[8]);
+    const pieces = internals(game).coasterDraft;
+    expect(pieces.map((piece) => piece.height)).toEqual([0, 0, 0, 0, 1, 2, 3, 4, 5]);
+    expect(pieces[0].launchSpeed).toBe(10);
+    expect(draft().buildable, 'launch 10 flies off a 5-high spike').toBe(false);
+    for (let step = 0; step < 8; step += 1) gameBridge.coasterAdjustLaunch(-1);
+    expect(draft().launchSpeed).toBe(6);
+    expect(pieces[0].launchSpeed).toBe(6);
+    expect(draft().validationMessage).toBe('Ready to build!');
+    // The lift key does nothing on a shuttle (nothing is chained).
+    gameBridge.coasterToggleLift();
+    expect(pieces.some((piece) => piece.freeClimb === true)).toBe(false);
+    gameBridge.coasterBuild();
+    const record = [...game.world.coasters.values()][0];
+    expect(record.pieces[0].launchSpeed).toBe(6);
+    game.destroy();
+  });
+});

@@ -246,8 +246,8 @@ const TABLES = {
   rules: keysOf<ParkRulesetStateV14>({ startingCash: true, lockedDefinitionIds: true, arrivalIntervalMultiplier: true, guestBudgetMultiplier: true, servicePriceToleranceMultiplier: true, needDecayMultiplier: true, constructionCostMultiplier: true, rideOperatingCostMultiplier: true, rideDispatchMultiplier: true, serviceDurationMultiplier: true, needReliefMultiplier: true, staffSalaryMultiplier: true, staffSpeedMultiplier: true, wetWeatherMultiplier: true, chainLiftCostMultiplier: true, recolourCostMultiplier: true, weatherEffectMultiplier: true, nightArrivalMultiplier: true, dayLengthMultiplier: true, crowdCapacityMultiplier: true, litterImpactMultiplier: true, breakdownRateMultiplier: true, sceneryAppealMultiplier: true, landCostMultiplier: true, hungerRateMultiplier: true, thirstRateMultiplier: true, startingResearchPoints: true, extraCardSlots: true, themeAffinity: true, researchCostScale: true, crowdFeedback: true, frontAccess: true }),
   map: keysOf<MapState>({ id: true, biomeId: true, width: true, height: true, entrance: true, ground: true, props: true, recipe: true }),
   prop: keysOf<PropState>({ id: true, kind: true, x: true, y: true, rotation: true }),
-  /** Every key a piece can carry; `special` and `freeClimb` only when set. */
-  coasterPiece: keysOf<Required<CoasterPieceState>>({ cell: true, height: true, special: true, freeClimb: true }),
+  /** Every key a piece can carry; `special` and `freeClimb` only when set, `launchSpeed` only on a shuttle's first piece. */
+  coasterPiece: keysOf<Required<CoasterPieceState>>({ cell: true, height: true, special: true, freeClimb: true, launchSpeed: true }),
   coaster: keysOf<CoasterRecordState>({ objectId: true, pieces: true, stats: true, paidCost: true }),
   transaction: keysOf<TransactionState>({ id: true, amount: true, label: true, category: true, tick: true }),
   clock: keysOf<SimulationClockState>({ speed: true, simulationTimeMs: true }),

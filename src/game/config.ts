@@ -555,6 +555,36 @@ export const GAME_CONFIG = {
       freeRunReliabilityLoss: 2,
       maxFreeReliabilityLoss: 4,
     },
+    /**
+     * Phase 44: the shuttle launch coaster (an open track; the station fires the train out at the layout's
+     * `launchSpeed`, it climbs until its momentum runs out and rolls backward to the station). Energies are speed
+     * squared in (milli-cells/s)^2, the fixed point of `lift.speedScale`.
+     */
+    shuttle: {
+      minimumPieces: 6,
+      /** The launch speed the designer offers, cells per second. */
+      launchSpeed: { minimum: 6, maximum: 14, step: 0.5, default: 10 },
+      /** Speed squared lost per level climbed and won per level fallen: 9 cells^2/s^2. */
+      energyPerLevel: 9_000_000,
+      /** Speed squared lost on every segment, either way: 1.5 cells^2/s^2. */
+      frictionPerSegment: 1_500_000,
+      /** Speed squared a loop costs, either way, and the least speed squared a loop needs on entry (4 cells/s). */
+      loopEnergy: 6_000_000,
+      loopMinimumEnergy: 16_000_000,
+      /** The station brakes bring the returning train down to this speed, cells per second. */
+      brakeSpeed: 1.1,
+      /** The designer refuses a return that crawls over a hill for more than this many segments. */
+      maxReturnCreepSegments: 1,
+      /** Riding the whole track a second time, backward. */
+      backwardExcitement: 5,
+      backwardIntensity: 6,
+    },
+    /**
+     * Phases 44-45: a drop deeper than `fullIntensityLevels` counts each level past it at `tallLevelShare` of the
+     * family's biggest-drop weight, so a level-10 drop is wild but does not pin intensity at 100 on its own. Every
+     * layout of the old height cap (4) derives exactly as before.
+     */
+    tall: { fullIntensityLevels: 4, tallLevelShare: 0.4 },
     specials: {
       loop: { cost: 260, excitement: 9, intensity: 12 },
       boost: { cost: 140, excitement: 3, intensity: 4 },

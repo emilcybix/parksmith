@@ -1,4 +1,5 @@
 import { centreLineFor, layoutCanClose } from '../../../game/coaster/centreLine';
+import { isShuttleLayout } from '../../../game/coaster/shuttle';
 import { openDraftRing } from '../../draftRing';
 import { COASTER_TYPE_BY_ID } from '../../../game/coaster/content';
 import { GAME_CONFIG } from '../../../game/config';
@@ -189,7 +190,8 @@ export class CoasterDraft {
     const paint = models.slotTable(definition.id, this.colours, this.slotTable);
     this.paint = paint;
     let ringPieces: readonly CoasterPiece[];
-    if (layoutCanClose(layout)) {
+    // Phase 44: a shuttle draft is drawn on its own open line, exactly as it will be built.
+    if (layoutCanClose(layout) || (isShuttleLayout(layout) && count >= 2)) {
       ringPieces = layout;
       // Group 0 is the ground's: a draft never claims an object's outline.
       for (let index = 0; index < count; index += 1) models.pieceBoxes(layout, index, definition, 0, writer, paint);

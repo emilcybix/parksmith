@@ -37,6 +37,7 @@ import { classicTint } from './classicDayTint';
 import { ClassicSeeThrough, type SeeThroughCandidate } from './classicSeeThrough';
 import { ClassicWeather, type FieldBounds, type ScreenSize } from './classicWeather';
 import { coasterHeadIndex } from './coasterTrain';
+import { isShuttleLayout } from '../game/coaster/shuttle';
 import { classicCarLean, classicTrainSpec, createClassicTrain, setClassicLoadedCars } from './classicTrain';
 import { createObjectArt, drawEntranceArt } from './classicObjectArt';
 import { drawPropArt, propArtIsOriented, shade } from './classicPropArt';
@@ -1343,9 +1344,11 @@ export class WorldRenderer implements RendererPort {
     setClassicView(this.view);
     // An open draft is drawn as the ring it would be built on (see openDraftRing), its scratch
     // lead-in and run-out skipped, so the ghost and the finished coaster show the same curve.
-    const ring = closed ? pieces : openDraftRing(pieces);
+    // Phase 44: a shuttle is open by nature and its own line knows it (centreLineFor builds its open ring).
+    const shuttle = isShuttleLayout(pieces) && pieces.length >= 2;
+    const ring = closed || shuttle ? pieces : openDraftRing(pieces);
     const line = centreLineFor(ring);
-    const offset = closed ? 0 : 1;
+    const offset = closed || shuttle ? 0 : 1;
     const stationLength = GAME_CONFIG.coaster.stationLength;
     const palette = classicCoasterPalette(definitionId, color, colours);
     for (const [index, piece] of pieces.entries()) {
@@ -1359,9 +1362,9 @@ export class WorldRenderer implements RendererPort {
     if (pieces.length < 2 && !closed) return;
     const boostTiles: number[] = [];
     for (const [index, piece] of pieces.entries()) {
-      if (piece.special === 'boost' || piece.special === 'launch') boostTiles.push(index + offset);
+      if (piece.special === 'boost' || piece.special === 'launch' || (shuttle && index > 0 && index < stationLength)) boostTiles.push(index + offset);
     }
-    const geometry = buildClassicTrack(line, offset, offset + pieces.length - 1, { closed, stationLength, boostTiles });
+    const geometry = buildClassicTrack(line, offset, offset + pieces.length - 1, { closed: closed && !shuttle, stationLength, boostTiles });
     this.strokeCoasterGeometry(graphic, geometry, palette, alpha);
   }
 
@@ -1438,9 +1441,10 @@ export class WorldRenderer implements RendererPort {
       graphic.poly(diamondPoints(point.x, point.y, 2)).fill({ color: 0xff6f86, alpha: 0.5 });
     }
     const last = pieces[pieces.length - 1];
-    const closable = layoutCanClose(pieces);
+    const shuttle = isShuttleLayout(pieces);
+    const closable = !shuttle && layoutCanClose(pieces);
     this.drawCoasterTrack(graphic, pieces, color, closable, 0.85, definitionId, colours);
-    if (!closable && pieces.length >= 2) {
+    if (!closable && !shuttle && pieces.length >= 2) {
       // A dotted guide back to the station reminds the player the loop must close.
       const from = this.coasterPoint(last);
       const to = this.coasterPoint(pieces[0]);

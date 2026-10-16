@@ -118,6 +118,8 @@ export interface GameCommands extends UndoCommands {
   skipOnboardingStep(): void;
   dismissOnboarding(): void;
   coasterAdjustHeight(delta: number): void;
+  /** Phase 44: steps a shuttle's launch speed up or down one step. */
+  coasterAdjustLaunch(delta: number): void;
   coasterUndo(): void;
   coasterClear(): void;
   coasterBuild(): void;
@@ -221,6 +223,7 @@ export const gameBridge = {
   skipOnboardingStep: () => commands?.skipOnboardingStep(),
   dismissOnboarding: () => commands?.dismissOnboarding(),
   coasterAdjustHeight: (delta: number) => commands?.coasterAdjustHeight(delta),
+  coasterAdjustLaunch: (delta: number) => commands?.coasterAdjustLaunch(delta),
   coasterUndo: () => commands?.coasterUndo(),
   coasterClear: () => commands?.coasterClear(),
   coasterBuild: () => commands?.coasterBuild(),

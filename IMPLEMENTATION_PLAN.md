@@ -3053,6 +3053,55 @@ with the window prefs); four new keybindings; `layoutModel.ts` anchors.
 First Day outline, Land off an estate, the markup with key hints), `layoutModel.test.ts` (the bar in the anchor model,
 Park Pulse above the dock), the keybinding registry and doc.
 
+## Phase 44 — Shuttle Launch Coaster (built 2026-10-16; owner request 2026-10-16)
+
+**Request.** "The launch coaster launches from the station by default, with an initial speed the player sets. Then an
+uphill the train climbs and rolls backward to the station, so the track does not need to be a closed circuit."
+
+- [x] **Thunder Launch becomes a shuttle.** A shuttle layout is open: the 3-piece flat station at level 0, then any
+  track (turns, hills, boosts, loops), ending where the player stops laying it. The station fires the train out at the
+  **launch speed** the designer sets (cells per second, saved on the first piece as `launchSpeed`; 6–14 in steps of 0.5,
+  default 10). The train climbs until its momentum runs out, rolls backward the whole way and the station brakes stop it.
+- [x] Rules (load-safe, `validateCoasterLayout`): no closure; at least `shuttle.minimumPieces`; no `launch` pieces (the
+  station is the launch) and no special on the last piece; at least one climb of 2 levels. Designer-only checks
+  (`checkCoasterDesign`, never at load): the train must not reach the end with speed to spare (`shuttle-overshoots`),
+  must turn on a climb, not run dry on the flat (`shuttle-stops-flat`), and must not crawl over a hill on the way back
+  (`shuttle-stalls-back`). A saved closed Thunder Launch (no `launchSpeed`) still loads and runs as a circuit.
+- [x] Speed model `shuttleProfile`: integer energy (speed squared) out and back, the same loss per level as a free
+  climb, a small friction per segment; the turnaround is a fraction of a segment. Saved `travelSeconds` hold the
+  outbound times (nominal times on unused pieces); `durationSeconds` is out + back + loading. The train animation reads
+  the out-and-back timeline (`coasterHeadIndex`), scaled to the saved duration.
+- [x] Stats: the station launch counts as one launch; riding backward adds `shuttle.backwardExcitement`.
+- [x] Art: the open centre line (`centreLineFor` builds a shuttle on its own open ring, scratch pieces after the last
+  real piece, so piece indices are unchanged); no brake at the spike end and no chain anywhere; launch chevrons on the
+  station. Designer: a launch speed control, the shuttle's turnaround shown in the status line.
+- [x] Tests: validation, speed model (overshoot, flat stop, return stall), timeline monotone and ending parked, save
+  round trip with `launchSpeed`, legacy closed launch layout still loads, art compiles without overlaps.
+- [x] Built as planned; schema 17 (migration 16→17 drops a hand-edited `launchSpeed`), content version 7. Numbers in
+  BALANCE_NOTES Phase 44. Code: `game/coaster/shuttle.ts`, the shuttle branches of `design.ts`, `lift.ts`,
+  `centreLine.ts`, `coasterTrain.ts`; designer `GameApp.coasterAdjustLaunch`, Hud launch row.
+
+## Phase 45 — Tall Coasters (owner request 2026-10-16)
+
+- [ ] `coaster.absoluteMaximumHeight` becomes 10 (the save cap); each type keeps its own cap. Thunder Launch goes to
+  10 (a spike needs height); a new advanced steel type **Titan Hyper** (`titan-hyper`, research *Hyper Engineering*,
+  tier 4) reaches 10 and takes every element of Phase 46.
+- [ ] Check every height-bound consumer at level 10: voxel chunk bounds and culling, shadows, picking, the ride
+  camera, supports and bracing, the classic renderer.
+
+## Phase 46 — Coaster Elements (owner request 2026-10-16)
+
+- [ ] New specials, each with a speed effect, excitement and intensity (`coaster.specials`), cost, art and car poses
+  from the centre line:
+  - **Airtime hill** (`airtime-hill`, one straight piece): a hump of 0.8 levels over the piece, floating the riders.
+  - **Corkscrew** (`corkscrew`, two straight pieces): a 360° roll round a heartline 11 voxels above the track.
+  - **Zero-g roll** (`zero-g-roll`, two straight pieces): a 360° roll over a one-level hump, close to the heartline.
+  - **Cobra roll** (`cobra-roll`, a U-turn of two turn pieces the same way): a tall rolling U-turn that inverts twice.
+  - **Helix** (designer tool): lays four turn pieces round a 2 × 2 block, climbing or falling a level a piece and
+    crossing back under or over its own entry; recognised in the stats (four or more turns the same way), banked steeper.
+- [ ] The centre line owns the geometry (roll and offset per piece); the voxel track draws rolled pieces with a swept
+  cross-section (rails, ties, spine voxelised and merged into boxes), so track and train always agree.
+
 ## Voxel Renderer (main renderer)
 
 The main renderer since 2026-10-06. The classic renderer stays the automatic fallback and is reachable with `?renderer=classic`. Architecture is under Renderers in ARCHITECTURE.md. It is a visual change on the fixed camera, not the "Full 3D" listed under not-now.

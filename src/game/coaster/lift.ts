@@ -2,6 +2,7 @@ import { GAME_CONFIG } from '../config';
 import type { CoasterTypeDefinition } from './content';
 // design.ts imports this module too; the cycle is safe because both only use each other inside functions.
 import { coasterBaseCost, deriveCoasterStats, type CoasterPiece } from './design';
+import { isShuttleLayout } from './shuttle';
 import { coasterSpeedTrace, creepSpeedMilli } from './speedModel';
 
 /**
@@ -216,6 +217,13 @@ export const analyseLiftRuns = (pieces: readonly CoasterPiece[]): LiftRunAnalysi
   });
 };
 
+/** Phase 44: a shuttle's climbs, every one free (read open). */
+const shuttleLiftCounts = (pieces: readonly CoasterPiece[]): { climbing: number; chained: number; free: number; freeRuns: number } => {
+  let climbing = 0;
+  for (let index = 0; index < pieces.length - 1; index += 1) if (pieces[index + 1].height > pieces[index].height) climbing += 1;
+  return { climbing, chained: 0, free: climbing, freeRuns: 0 };
+};
+
 /** Counts the climbing segments by mode. A run counts as free when its first segment is. */
 export const liftCounts = (pieces: readonly CoasterPiece[]): {
   climbing: number; chained: number; free: number; freeRuns: number;
@@ -260,7 +268,9 @@ export const describeCoasterLift = (
     ...(typeof rules === 'number' ? { chainLiftCostMultiplier: rules } : rules),
   };
   const creepSpeed = creepSpeedMilli() / config.lift.speedScale;
-  const counts = liftCounts(pieces);
+  // Phase 44: a shuttle has no chain: every climb rides the launch (read open, no segment back to the station).
+  const shuttle = isShuttleLayout(pieces);
+  const counts = shuttle ? shuttleLiftCounts(pieces) : liftCounts(pieces);
   const speeds: number[] = [];
   const lengths: number[] = [];
   const kinds: SpeedSegmentKind[] = [];
@@ -272,8 +282,8 @@ export const describeCoasterLift = (
     lengths.push(length);
     topSpeed = Math.max(topSpeed, speed);
     let kind: SpeedSegmentKind = 'other';
-    if (isClimbingSegment(pieces, index)) {
-      if (!isFree(piece)) kind = 'chain';
+    if (isClimbingSegment(pieces, index) && !(shuttle && index === pieces.length - 1)) {
+      if (!isFree(piece) && !shuttle) kind = 'chain';
       else kind = speed <= creepSpeed + 1e-6 ? 'creep' : 'free';
     }
     kinds.push(kind);

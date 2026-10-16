@@ -899,6 +899,25 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 44: the shuttle launch coaster · **PROVISIONAL**
+
+Not played; measured on fixture layouts (`shuttle.test.ts`). Numbers in `GAME_CONFIG.coaster.shuttle`.
+
+- Energy per level 9 cells²/s² (a free climb on a circuit loses 4: a shuttle's spike is steep), friction 1.5 a
+  segment either way, a loop 6 more and at least 4 cells/s to enter. Launch 6–14 cells/s in steps of 0.5, default 10.
+  Launch 10 from a 3-piece station with one flat piece climbs about 8.7 levels; launch 6 about 3.3.
+- A 9-piece shuttle (station, one flat piece, a spike to level 5), launch 7: excitement 80.5, intensity 86.9, top
+  speed 7, ride time 9.2 s (out and back plus 6 s loading), ticket $8.50, $2,500. The short cycle is the type's trade:
+  many cycles, high intensity, no chain to pay for.
+- The station launch adds the launch special's excitement 6 / intensity 8 and $420; riding backward adds 5 / 6; a
+  loop counts twice (ridden both ways). Every climb counts as a drop on the way back (pure geometry, so restore
+  re-derives it).
+- New for every family (Phases 44-45): a drop deeper than 4 levels counts each level past 4 at 40 % of the family's
+  biggest-drop weight (`coaster.tall`). No layout of the old cap changes; the Phase 39 launch top hat (drop 5)
+  derives intensity about 6 lower than recorded there.
+- What would change these numbers: a playtest finding shuttles too intense for most guests (lower
+  `backwardIntensity` first), or ride times so short the queue never moves differently from a circuit.
+
 ## Phase 40: front-only access · **PROVISIONAL**
 
 Measured on 2026-10-16 with the three opt-in sweeps, once with `GAME_CONFIG.access.frontOnly` on (shipped) and once

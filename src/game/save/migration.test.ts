@@ -776,9 +776,9 @@ describe('migration 12 -> 13 (Neighborhoods & Crowd Flow: the optional crowd fie
   type V12Envelope = { schemaVersion: number; stateHash: string; state: Record<string, unknown> & { rules: Record<string, unknown> } };
   const names = ['park-v12-sandbox-themed.json', 'park-v12-scenario.json', 'park-v12-run-stage.json'];
 
-  it('is a link of the chain (13 -> 14 follows, Phase 21, then 14 -> 15, Phase 29, and 15 -> 16, Phase 40)', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(16);
-    expect(SAVE_MIGRATIONS.at(-4)).toMatchObject({ from: 12, to: 13 });
+  it('is a link of the chain (13 -> 14 follows, Phase 21, then 14 -> 15, Phase 29, 15 -> 16, Phase 40, and 16 -> 17, Phase 44)', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(17);
+    expect(SAVE_MIGRATIONS.at(-5)).toMatchObject({ from: 12, to: 13 });
   });
 
   it('keeps every schema-12 park byte for byte (state and hash): no rule, no field, no feedback', () => {
@@ -807,9 +807,9 @@ describe('migration 12 -> 13 (Neighborhoods & Crowd Flow: the optional crowd fie
     expect(migrated.stateHash).toBe(hashState(JSON.parse(original)));
   });
 
-  it('a schema-17 save is too new', () => {
+  it('a schema-18 save is too new', () => {
     const stored = fixture('park-v12-scenario.json') as unknown as V12Envelope;
-    stored.schemaVersion = 17;
+    stored.schemaVersion = 18;
     expect(() => migrateSave(stored)).toThrow(/newer version/);
   });
 });
@@ -819,9 +819,10 @@ describe('migration 14 -> 15 (Guest life & souvenirs: four fields on every guest
   const v13 = import.meta.glob<Record<string, unknown>>('./fixtures/v13/park-v13-*.json', { import: 'default', eager: true });
   const names = Object.keys(v13);
 
-  it('is followed by 15 -> 16 (Phase 40), the last link of the chain', () => {
-    expect(SAVE_MIGRATIONS.at(-2)).toMatchObject({ from: 14, to: 15 });
-    expect(SAVE_MIGRATIONS.at(-1)).toMatchObject({ from: 15, to: 16 });
+  it('is followed by 15 -> 16 (Phase 40) and 16 -> 17 (Phase 44), the last link of the chain', () => {
+    expect(SAVE_MIGRATIONS.at(-3)).toMatchObject({ from: 14, to: 15 });
+    expect(SAVE_MIGRATIONS.at(-2)).toMatchObject({ from: 15, to: 16 });
+    expect(SAVE_MIGRATIONS.at(-1)).toMatchObject({ from: 16, to: 17 });
   });
 
   it('gives every saved guest no nausea, a comfortable warmth, no souvenirs and no activity, and changes nothing else', () => {
@@ -830,9 +831,9 @@ describe('migration 14 -> 15 (Guest life & souvenirs: four fields on every guest
       const stored = structuredClone(v13[name]) as unknown as Envelope;
       const frozen = JSON.stringify(stored);
       const at14 = migrateSave(stored, TO_SCHEMA_14) as unknown as Envelope;
-      // To the latest schema: 15 -> 16 (Phase 40) is the identity for a park without a hand-edited front rule.
+      // To the latest schema: 15 -> 16 (Phase 40) and 16 -> 17 (Phase 44) are the identity for a park without hand edits.
       const at15 = migrateSave(stored) as unknown as Envelope;
-      expect(at15.schemaVersion, name).toBe(16);
+      expect(at15.schemaVersion, name).toBe(17);
       const guests = at14.state.guests.guests as Array<Record<string, unknown>>;
       expect(guests.length, `${name} has guests to migrate`).toBeGreaterThan(0);
       expect(at15.state.guests.guests, name).toEqual(guests.map((guest) => ({ ...guest, nausea: 0, warmth: 50, souvenirs: 0, activity: null })));
@@ -888,5 +889,20 @@ describe('migration 15 -> 16 (Building fronts: the optional front-access rule)',
     at15.state.rules.frontAccess = 1;
     const at16 = migration.migrate(at15 as never) as unknown as Envelope;
     expect(JSON.stringify(at16.state)).toBe(original);
+  });
+});
+
+describe('migration 16 -> 17 (Shuttle coasters: the optional launch speed)', () => {
+  type Envelope = { schemaVersion: number; stateHash: string; state: Record<string, any> };
+  const v13 = import.meta.glob<Record<string, unknown>>('./fixtures/v13/park-v13-*.json', { import: 'default', eager: true });
+  const migration = SAVE_MIGRATIONS.find((candidate) => candidate.from === 16)!;
+
+  it('keeps a schema-16 park byte for byte', () => {
+    for (const [name, raw] of Object.entries(v13)) {
+      const at16 = { ...(migrateSave(structuredClone(raw)) as unknown as Envelope), schemaVersion: 16 };
+      const at17 = migration.migrate(structuredClone(at16) as never) as unknown as Envelope;
+      expect(at17.schemaVersion, name).toBe(17);
+      expect(JSON.stringify(at17.state), name).toBe(JSON.stringify(at16.state));
+    }
   });
 });

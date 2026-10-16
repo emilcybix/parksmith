@@ -8,7 +8,7 @@ export type CoasterSpecial = 'loop' | 'boost' | 'launch';
  *   count for more, drops for less.
  * - `wooden`: wooden track and lattice supports, no inversions; rougher (more intensity per drop) with an airtime
  *   bonus per hill, lower reliability.
- * - `launch` (step 2): at least one `launch` piece replaces the chain lift's job (the train leaves it at
+ * - `launch` (step 2; Phase 44 made Thunder Launch a shuttle, see `layout`): at least one `launch` piece replaces the chain lift's job (the train leaves it at
  *   `speed.launch`, and a chain-free climb after it rides that momentum up a top hat); the height cap is
  *   `coaster.launchMaximumHeight` (5) instead of the usual 4.
  * - `inverted` (step 3): the train hangs under the track (drawn one level up, on gantries from above). A path needs
@@ -31,6 +31,12 @@ export interface CoasterTypeDefinition {
   pieceCost: number;
   heightCostPerLevel: number;
   allowedSpecials: readonly CoasterSpecial[];
+  /**
+   * Phase 44: `shuttle` types build open out-and-back layouts (the station launches the train, it climbs, rolls
+   * back): the designer sets a launch speed instead of closing the circuit. A shuttle type still LOADS a closed
+   * circuit saved before it became one (a layout without `launchSpeed` is read as a circuit).
+   */
+  layout?: 'shuttle';
 }
 
 export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
@@ -104,7 +110,9 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     stationCost: 900,
     pieceCost: 70,
     heightCostPerLevel: 50,
-    allowedSpecials: ['launch', 'boost'],
+    // `launch` stays for the closed circuits saved before Phase 44; a shuttle refuses launch pieces (its station launches).
+    allowedSpecials: ['launch', 'boost', 'loop'],
+    layout: 'shuttle',
   },
   {
     definitionId: 'bat-wing',

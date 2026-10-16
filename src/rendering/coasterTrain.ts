@@ -1,5 +1,6 @@
 import type { CoasterPiece } from '../game/coaster/design';
 import { GAME_CONFIG } from '../game/config';
+import { isShuttleLayout, shuttleHeadIndex, shuttleProfileFor } from '../game/coaster/shuttle';
 
 /** What the train's timing reads from a coaster record (`GameWorld.coasters`). */
 export interface CoasterTimingRecord {
@@ -36,6 +37,12 @@ export const coasterHeadIndex = (
   if (travel.length !== pieceCount) return parkedIndex;
   const elapsed = record.stats.durationSeconds - cycleRemainingSeconds - GAME_CONFIG.coaster.stationLoadSeconds;
   if (elapsed <= 0) return parkedIndex;
+  // Phase 44: a shuttle goes out and comes back, on its own timeline stretched over the saved ride time.
+  if (isShuttleLayout(record.pieces)) {
+    const riding = record.stats.durationSeconds - GAME_CONFIG.coaster.stationLoadSeconds;
+    const total = shuttleProfileFor(record.pieces).totalSeconds;
+    return shuttleHeadIndex(record.pieces, elapsed, total > 0 && riding > 0 ? riding / total : 1);
+  }
   let remaining = elapsed;
   for (let step = 0; step < pieceCount; step += 1) {
     const seconds = travel[(parkedIndex + step) % pieceCount];

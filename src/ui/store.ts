@@ -100,6 +100,8 @@ export interface CoasterDraftSnapshot {
   warning: string | null;
   /** Base cost the free climbs save compared with chaining every hill. */
   chainSavings: number;
+  /** Phase 44: a shuttle's launch speed (cells per second); null on a circuit. */
+  launchSpeed: number | null;
 }
 
 export interface DraftLiftRun {
