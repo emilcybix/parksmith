@@ -396,14 +396,15 @@ export class SceneModels {
     outlineGroup: number,
     out: BoxWriter,
     paint: Uint8Array | null = null,
+    supports = true,
   ): void {
     const start = out.count;
     try {
-      this.content.coaster().pieceBoxes(pieces, index, definition, this.palette, outlineGroup, out, paint);
+      this.content.coaster().pieceBoxes(pieces, index, definition, this.palette, outlineGroup, out, paint, supports);
     } catch (error) {
       out.count = start;
       this.reportOnce(`coaster track of ${definition.id}`, error);
-      placeholderCoaster.pieceBoxes(pieces, index, definition, this.palette, outlineGroup, out);
+      placeholderCoaster.pieceBoxes(pieces, index, definition, this.palette, outlineGroup, out, null, supports);
     }
   }
 
@@ -1544,7 +1545,9 @@ export class StaticWorld {
     for (let piece = 0; piece < pieces.length; piece += 1) {
       const cell = pieces[piece].cell;
       if (chunkIndexOfCell(cell.x, cell.y, this.width) !== index) continue;
-      this.models.pieceBoxes(pieces, piece, definition, group, writer, slotMaterials);
+      // Phase 38: a piece over other track or a low object gets no bent of its own.
+      const supports = !world.hasSomethingUnder(cell, pieces[piece].height);
+      this.models.pieceBoxes(pieces, piece, definition, group, writer, slotMaterials, supports);
     }
     if (pieces.length === 0 || chunkIndexOfCell(pieces[0].cell.x, pieces[0].cell.y, this.width) !== index) return;
 

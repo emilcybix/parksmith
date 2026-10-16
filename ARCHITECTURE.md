@@ -691,6 +691,21 @@ panel in `chooserAfterQuit` (read once by `quitToMenu`, cleared when the menu op
 
 Coaster design is pure data and pure functions: a layout is an ordered closed loop of track pieces (cell + height + optional special), validated per coaster type (height limits, allowed specials) and converted to a deterministic ride profile in `src/game/coaster/design.ts` with no world or rendering dependencies. A marble-physics speed sweep assigns each piece a travel time — chain lift up (or, on a free climb, a fixed-point momentum climb, see Lift hills), acceleration down drops, drag on flats, loop scrub, launch boosts — which yields duration, top speed, and the timing the renderer uses to move the train. Ground cells under track at clearance height stay open for walkways, and bulldozing removes the walkway before the track above it. The world stores built coasters beside placed objects, occupies every track cell, and answers two queries the rest of the game uses for all rides: `objectFootprint` (a coaster's whole track, a normal object's rectangle) and `rideProfile` (custom stats win over catalog stats). RideSimulation, guests, scenery, and management read profiles and footprints through those two calls, so a coaster behaves like any other ride — queues, cycles, tickets, wear, breakdowns, rating — without duplicated logic. Bulldozing any track cell removes the whole ride and refunds from the actually paid cost.
 
+**Crossings (Phase 38).** A layout may visit a cell again when the two pieces are at least
+`GAME_CONFIG.coaster.trackClearanceLevels` (2) apart and neither is exclusive (`isExclusiveCoasterPiece`: a station
+piece, a loop or boost, or the piece after a loop, which its ring overhangs); `validateCoasterLayout` raises
+`overlapping` (same height), `crossing-too-close` or `crossing-not-allowed`. In the world, `occupancy` holds only the
+ground occupant (entrance, non-coaster objects) and `trackLayers` every coaster piece per cell, lowest first, both
+derived and rebuilt at restore (no schema change). `coasterPieceConflict` / `canPlaceCoasterPiece` check a piece
+against paths (`pathClearanceHeight`), ground objects (a definition's `clearanceLevels`: track at `clearanceLevels + 1`
+or higher may pass over it; absent = never) and other track; `canPlace` / `checkObjectBuild` check an object against
+the track above it the same way. `objectAt` answers the ground occupant first, else the top-most track (so the
+bulldozer takes a bench before the track over it, and the upper track before the lower); `objectsAt` lists every
+object top first, and a repeated click on such a cell steps the selection down. The voxel track drops the support bent
+of a piece with something under it (`hasSomethingUnder`, or a lower piece of its own layout); its neighbours carry it.
+A crossing adds `coaster.crossing.excitement` (2) per crossing, up to 3; a layout without one takes the old
+expressions. The classic renderer draws crossings without that support rule (it is frozen).
+
 ## Coaster centre line
 
 Phase 27 step 1. A coaster's look comes from one pure curve, `src/game/coaster/centreLine.ts` (no Pixi, DOM, world or gameplay imports; `centreLine.test.ts` has its tests). `createCentreLine(pieces)` turns a layout into position and tangent per arc length (`sampleCentreLine`, allocation-free; `resampleCentreLine` for hot loops), and the voxel track, both trains, the designer ghost and the draft preview all read it, so the train rides exactly the rail that is drawn. **It is visual only**: ride stats, cycle time, cost, ratings, queue and dispatch, breakdowns and saves come from `design.ts` and `RideSimulation` and never see it (`gameplayInvariance.test.ts` pins them to golden values captured before the curve existed).

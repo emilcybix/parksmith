@@ -489,6 +489,10 @@ export const GAME_CONFIG = {
     maximumPieces: 64,
     absoluteMaximumHeight: 4,
     pathClearanceHeight: 2,
+    /** Phase 38: two track pieces may share a cell when their heights differ by at least this many levels. */
+    trackClearanceLevels: 2,
+    /** Phase 38: excitement per crossing of the track over or under itself (a near miss), up to `maximumCounted`. */
+    crossing: { excitement: 2, maximumCounted: 3 },
     stationLoadSeconds: 6,
     speed: {
       lift: 1.6,

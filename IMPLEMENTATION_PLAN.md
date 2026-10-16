@@ -2724,60 +2724,48 @@ and stayed red: the draft only grew, so moving the pointer back did not take the
   `GameApp.pathDraft.test.ts` (into a bench, pulled back and round it builds exactly the final route; hover cost
   follows the cut; unaffordable is all red; mid-drag Ctrl+Z), `rendering/pathDraftPreview.test.ts` (both renderers).
 
-## Phase 38 — Coaster Track Over and Under (planned, not started)
+## Phase 38 — Coaster Track Over and Under (2026-10-16)
 
-**Problem.** A coaster cannot cross itself or anything else at a different height. `validateCoasterLayout` refuses any
-cell a layout visits twice (`overlapping`, "The track crosses itself."), whatever the heights. The world holds one
-occupant per cell (`World.occupancy`, a cell key to one id; `coasterHeights`, one height per cell). The only crossing
-that works today is track at `pathClearanceHeight` (2) or higher over a path.
+**Problem.** A coaster could not cross itself or anything else at a different height: `validateCoasterLayout` refused
+any repeated cell and the world held one occupant per cell. The only crossing was track at level 2+ over a path.
 
-**Goal.** A coaster can run over or under its own track, another coaster, and low objects, when the two are far enough
-apart in height. The same rule that already lets track pass over a path decides it.
+**Built.** Code: `game/coaster/design.ts` (`isExclusiveCoasterPiece`, `trackPiecesMayCross`, `coasterCrossings`, two
+new failures), `GameWorld` (`trackLayers`, `coasterPieceConflict`, `objectsAt`, `trackHeightsAt`, `hasSomethingUnder`),
+`BuildDefinition.clearanceLevels`, `GameApp` (designer re-entry, conflict message, selection cycling), voxel
+`pieceBoxes(…, supports)`. No schema bump: the layers are rebuilt from the saved pieces at load.
 
-**Rule (decide first).**
-- [ ] **Clearance in levels.** Two track pieces may share a cell when their heights differ by at least
-  `GAME_CONFIG.coaster.trackClearanceLevels`. Recommended: 2, the same as `pathClearanceHeight`, so a train fits under
-  track the way a guest fits under it. With today's type heights (2, 3, 4; absolute 4), a crossing then needs a
-  ground-level piece under a level 2+ piece. That is enough for a figure eight on the taller types. Raising the height
-  caps is a separate balance question.
-- [ ] **Over objects.** Every build definition gets a gameplay height in levels (`clearanceLevels`): for example 1 for
-  benches, bins, lamps and flower beds, and "full" (never crossable) for rides, stalls and the entrance. Track may pass
-  over an object when its height is at least the object's height plus 1. Never under: an object cannot be built on a
-  cell where track runs above it unless the same rule holds, checked from the object's side. Props and water keep
-  their current rules.
-- [ ] **Stations and specials stay alone.** A station piece, a loop and a boost keep their cell (and their Phase 27
-  breathing room) to themselves: nothing crosses them, above or below.
-
-**Simulation and save.**
-- [ ] Occupancy per cell becomes layered: a cell holds at most one ground occupant plus track layers, each with its
-  height. `canPlaceCoasterPiece` checks clearance against every layer; `occupantAt` / picking returns the top-most item
-  under the pointer (with a modifier or a repeat click to reach the one below).
-- [ ] `validateCoasterLayout` allows a repeated cell only at the clearance; `overlapping` stays for a closer repeat. The
-  message says why ("Too close to the track below: 2 levels needed").
-- [ ] Bulldoze and demolition take the item hit, not every layer of the cell. Undo is unchanged (one entry per build).
-- [ ] Saves: if the layered occupancy is rebuilt from the saved pieces at load (to be checked), no schema bump. Otherwise
-  bump the schema with a migration. Determinism pins only move for layouts that could not be built before.
-- [ ] Stats: a crossing counts toward excitement (a small "near miss" bonus per crossing, capped), tuned in
-  BALANCE_NOTES. Optional and can come later.
-
-**Draft and feedback.**
-- [ ] The coaster draft may re-enter a cell it already uses when the height rule holds. The draft shows a too-close
-  cell in red and names the clearance it needs in the hover message, like the path draft (see Phase 37).
-- [ ] Height is visible while building: the hover card shows the piece's level and the level of what is below.
-
-**Rendering (both renderers; voxel first).**
-- [ ] Supports: a support under an upper piece stops on the lower track's structure or is offset beside it, and never
-  runs through a train's path. The footing on a path tile keeps the Phase 27 rule.
-- [ ] Draw order and see-through: a lower track under an upper one stays readable (the cutaway already used for
-  buildings behind buildings), and the train under a crossing is drawn correctly in all four view rotations.
-- [ ] The train-clearance review (`coasterTrainReview.fuzz.test.ts`, today marked `it.fails`) must pass for crossing
-  layouts.
-
-**Tests.** A figure eight with a level-0/level-2 crossing validates and builds; a level-0/level-1 crossing is refused
-with the clearance message; track over a bench is allowed and over a stall is refused; a bench cannot be placed under
-track that is too low; bulldozing the upper track leaves the lower one; save, load and the determinism fixtures
-round-trip a crossing coaster; the crossing renders in all four view rotations without a support through the lower
-track.
+- [x] **Clearance in levels.** `GAME_CONFIG.coaster.trackClearanceLevels` = 2, the same as `pathClearanceHeight`. With
+  today's caps (2, 3, 4) a crossing needs ground-level track under level 2+ track. Raising the caps stays a balance
+  question (BALANCE_NOTES Phase 38).
+- [x] **Over objects.** `clearanceLevels` on benches, the bin, flowers, the planter (1), the idol (2), the fountain,
+  lamp and torch (3); track at `clearanceLevels + 1` or higher passes over them, and they may be built under such
+  track. Everything else (rides, stalls, the entrance, tall scenery) is never crossed. A render test keeps every value
+  honest against the voxel model's height.
+- [x] **Stations and specials stay alone**: a station piece, a loop, a boost and the piece after a loop (its ring
+  overhangs it) are never crossed, above or below, by track or objects. Paths under them keep the old rule.
+- [x] Layered occupancy: one ground occupant plus track layers per cell. `objectAt` answers the ground occupant first,
+  else the top-most track; `objectsAt` lists all, top first; a repeated click on a crossing steps the selection down.
+- [x] `validateCoasterLayout`: `overlapping` for the same height, `crossing-too-close` ("Too close to the track below: 2
+  levels needed."), `crossing-not-allowed` for an exclusive piece. Restore refuses a save with a crossing too close or
+  over an object it does not clear.
+- [x] Bulldoze takes the ground occupant (or path) first, then the top-most track; demolishing removes only that
+  object's layers. Undo unchanged.
+- [x] Saves: no schema bump. Determinism: final states, events and fingerprints unchanged in every fixture; only the
+  `observables` probe (which asks `canPlaceCoasterPiece` on every cell) moved and was re-pinned.
+- [x] Stats: +2 excitement per crossing, at most 3 counted; a layout without a crossing is unchanged.
+- [x] Draft: the designer may re-enter a cell it already uses when the height rule holds; a refused re-entry toasts
+  the clearance message once per cell. The status line names the world conflict (other track, a path, a building).
+- [ ] **Not built: height in the hover card** (the piece's level and the level below). The draft already shows the
+  height it climbs toward; revisit with the Phase 41 camera work.
+- [x] Supports (voxel): a piece with something under it (other track, a low object, a lower piece of its own layout)
+  gets no bent; its neighbours carry it. Paths under track keep the Phase 27 walkway rule.
+- [ ] **Not built: see-through for the lower track** and a classic-renderer support rule (classic is frozen). The
+  train-clearance fuzz review stays `it.fails` as before.
+- [x] Tests: `game/coaster/crossing.test.ts` (figure eight validates and builds; level 0/1 refused; boost crossing
+  refused; bonus; second coaster over the first at clearance and not closer; bulldoze takes the upper; bench under,
+  stall refused, too-low bench refused, lamp refused; save/load round trip; too-close save refused),
+  `rendering/voxel/content/coasterCrossing.test.ts` (no bent on the upper piece, the `supports` flag, model heights),
+  `GameApp.coasterLift.test.ts` (designer re-entry at clearance, refusal with the message).
 
 ## Phase 39 — More Coaster Types (planned, not started)
 

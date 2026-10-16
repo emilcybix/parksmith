@@ -116,16 +116,16 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
     stats: { serviceType: 'toilet', serviceDuration: 2.6, needRelief: 100, itemPrice: 1.5 },
   },
   {
-    id: 'ribbon-bench', name: 'Ribbon Bench', kind: 'amenity', category: 'comforts', icon: '⌑',
+    id: 'ribbon-bench', clearanceLevels: 1, name: 'Ribbon Bench', kind: 'amenity', category: 'comforts', icon: '⌑',
     description: 'A cheerful place to recharge.', buildCost: 55, footprint: [1, 1], color: 0xb96748, accent: 0xffd166,
   },
   {
-    id: 'tidy-totem', name: 'Tidy Totem', kind: 'amenity', category: 'comforts', icon: '▥',
+    id: 'tidy-totem', clearanceLevels: 1, name: 'Tidy Totem', kind: 'amenity', category: 'comforts', icon: '▥',
     description: 'A bin guests can spot from afar.', buildCost: 45, footprint: [1, 1], color: 0x48786b, accent: 0x8ee3c5,
     stats: { amenityType: 'bin', binCapacity: 10 },
   },
   {
-    id: 'lollipop-lamp', name: 'Lollipop Lamp', kind: 'scenery', category: 'scenery', icon: '♧', theme: 'carnival',
+    id: 'lollipop-lamp', clearanceLevels: 3, name: 'Lollipop Lamp', kind: 'scenery', category: 'scenery', icon: '♧', theme: 'carnival',
     description: 'A warm pool of light after dusk.', buildCost: 35, footprint: [1, 1], color: 0x335c67, accent: 0xffe66d,
     stats: { sceneryAppeal: 8, sceneryRadius: 3 },
   },
@@ -135,12 +135,12 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
     stats: { sceneryAppeal: 18, sceneryRadius: 4 },
   },
   {
-    id: 'sunburst-flowers', name: 'Sunburst Flowers', kind: 'scenery', category: 'scenery', icon: '✿', theme: 'garden',
+    id: 'sunburst-flowers', clearanceLevels: 1, name: 'Sunburst Flowers', kind: 'scenery', category: 'scenery', icon: '✿', theme: 'garden',
     description: 'A pocket of bright, low flowers.', buildCost: 28, footprint: [1, 1], color: 0x52b788, accent: 0xffcf56,
     stats: { sceneryAppeal: 10, sceneryRadius: 3 },
   },
   {
-    id: 'ripple-fountain', name: 'Ripple Fountain', kind: 'scenery', category: 'scenery', icon: '≋', theme: 'garden',
+    id: 'ripple-fountain', clearanceLevels: 3, name: 'Ripple Fountain', kind: 'scenery', category: 'scenery', icon: '≋', theme: 'garden',
     description: 'A cool blue centerpiece for a small plaza.', buildCost: 380, footprint: [2, 2], color: 0x4ea8de, accent: 0xbde0fe,
     stats: { sceneryAppeal: 35, sceneryRadius: 5 },
   },
@@ -206,7 +206,7 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
     stats: { sceneryAppeal: 7, sceneryRadius: 4 },
   },
   {
-    id: 'shell-planter', name: 'Shell Planter', kind: 'scenery', category: 'scenery', icon: '⌓', theme: 'seaside',
+    id: 'shell-planter', clearanceLevels: 1, name: 'Shell Planter', kind: 'scenery', category: 'scenery', icon: '⌓', theme: 'seaside',
     description: 'Sea pinks spilling from a giant scallop shell.', buildCost: 45, footprint: [1, 1], color: 0x7fc8e8, accent: 0xfff0f5,
     stats: { sceneryAppeal: 12, sceneryRadius: 3 },
   },
@@ -216,12 +216,12 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
     stats: { sceneryAppeal: 30, sceneryRadius: 7 },
   },
   {
-    id: 'tiki-torch', name: 'Tiki Torch', kind: 'scenery', category: 'scenery', icon: '♆', theme: 'adventure',
+    id: 'tiki-torch', clearanceLevels: 3, name: 'Tiki Torch', kind: 'scenery', category: 'scenery', icon: '♆', theme: 'adventure',
     description: 'A carved torch that flickers along the trail.', buildCost: 38, footprint: [1, 1], color: 0xe4572e, accent: 0xffd166,
     stats: { sceneryAppeal: 9, sceneryRadius: 4 },
   },
   {
-    id: 'jungle-idol', name: 'Jungle Idol', kind: 'scenery', category: 'scenery', icon: '۞', theme: 'adventure',
+    id: 'jungle-idol', clearanceLevels: 2, name: 'Jungle Idol', kind: 'scenery', category: 'scenery', icon: '۞', theme: 'adventure',
     description: 'A mossy stone idol with glowing jade eyes.', buildCost: 80, footprint: [1, 1], color: 0x48786b, accent: 0x8ee3c5,
     stats: { sceneryAppeal: 20, sceneryRadius: 3 },
   },

@@ -195,9 +195,10 @@ export interface LandState {
 }
 
 /**
- * DERIVED and rebuilt on restore, never saved: `occupancy` (entrance -> 0, then every object's
- * footprint or coaster piece cells in id order; overlap fails the restore) and `coasterHeights`
- * (from coaster pieces). CONFIG, untouched: `width`, `height`, `entrance`, the cost multiplier,
+ * DERIVED and rebuilt on restore, never saved: `occupancy` (the ground occupant: entrance -> 0, then every
+ * non-coaster object's footprint in id order; overlap fails the restore) and `trackLayers` (Phase 38: every coaster
+ * piece per cell, lowest first; a crossing closer than the clearance, or over an object the track does not clear,
+ * fails the restore). CONFIG, untouched: `width`, `height`, `entrance`, the cost multiplier,
  * `buildAccessPolicy`. TRANSIENT, untouched: `listeners`, `batchDepth`, `batchedChange`
  * (serialize and restore throw if a batch is open: half a gesture must not be captured).
  */

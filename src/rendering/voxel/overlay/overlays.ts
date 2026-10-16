@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import { previewFill } from '../../previewFill';
-import type { CoasterPiece } from '../../../game/coaster/design';
+import { isExclusiveCoasterPiece, type CoasterPiece } from '../../../game/coaster/design';
 import { BUILD_BY_ID } from '../../../game/content/catalog';
 import type { ParkSession } from '../../../game/session/ParkSession';
 import type { CrowdBand, CrowdHeatmapView } from '../../../game/crowd/types';
@@ -537,9 +537,9 @@ export class VoxelOverlays {
       return;
     }
     const graphic = new Graphics();
-    // Blocked cells (occupied ground, or a path under low track) glow red under the track.
-    for (const piece of pieces) {
-      if (this.session().world.canPlaceCoasterPiece(piece)) continue;
+    // Blocked cells (occupied ground, a path under low track, other track too close: Phase 38) glow red under the track.
+    for (const [index, piece] of pieces.entries()) {
+      if (this.session().world.canPlaceCoasterPiece({ cell: piece.cell, height: piece.height, exclusive: isExclusiveCoasterPiece(pieces, index) })) continue;
       const point = cellToWorld(viewCell(this.frame, piece.cell));
       graphic.poly(texelDiamond(point.x, point.y, 1)).fill({ color: 0xff6f86, alpha: BLOCKED_FILL_ALPHA });
     }

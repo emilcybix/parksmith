@@ -35,6 +35,11 @@ import { sessionFromSave } from './fromSave';
  * Phase 29 (schema 15, content version 5) likewise runs with guest life switched off (`guestLife.enabled`), and the
  * guest fields, the sick flag and the souvenir total it adds to a save are stripped before hashing: with the switch off
  * every pin here holds, which is the proof that the six appended stalls and the new code paths move nothing by themselves.
+ *
+ * Phase 38 (2026-10-16): only the `observables` pins moved. The probe in determinismHarness.observe asks
+ * canPlaceCoasterPiece on every cell, and track may now run over low objects and other track at clearance, so the
+ * answers for cells under benches or beside existing coasters changed by design. Final state, events and fingerprints
+ * are unchanged in every fixture.
  */
 vi.mock('../config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../config')>();
@@ -354,13 +359,13 @@ const PINS = {
    "final": "37b9839ed1ac1082",
    "events": "85b42f32fd2f7088",
    "fingerprints": "8d1f3ab1ce0c91b4",
-   "observables": "f034768fb907f222"
+   "observables": "0531a31fc777d23f"
   },
   "scenario with Pulse Cards and a rules-locked id": {
    "final": "a38348e75876bd9d",
    "events": "a55cd1bbd70c91a3",
    "fingerprints": "d9b71b690f928d5d",
-   "observables": "73ef55a93c46ab1e"
+   "observables": "af3c7dd0082e2717"
   },
   "scenario latched success": {
    "final": "611ca60232cc1abb",
@@ -378,25 +383,25 @@ const PINS = {
    "final": "0876429f97742226",
    "events": "008be93323b5a50d",
    "fingerprints": "257c3bc00aee79d5",
-   "observables": "2a694f549570e6a4"
+   "observables": "26dd4d27c23b33ff"
   },
   "player-built coaster with loop and boost, bulldozed later": {
    "final": "1b9ce3ef9eb3848c",
    "events": "de00f1379c7a98ce",
    "fingerprints": "6e588caf53342bef",
-   "observables": "1d7b9e69279c849c"
+   "observables": "069efc300dcf595e"
   },
   "player-built coaster with free-climb hills, bulldozed later": {
    "final": "266c12ffb53fba46",
    "events": "da2aa3c245a9890a",
    "fingerprints": "263409137e976652",
-   "observables": "25d9d2ac6de71a69"
+   "observables": "f7a2a57bc5589bff"
   },
   "hand-driven park: breakdown, repair, litter, closure, research": {
    "final": "c9d9c23cd337f770",
    "events": "a83316788b2bbcf1",
    "fingerprints": "d22643d3568dfe09",
-   "observables": "035d546e1d7312e4"
+   "observables": "fdebb7d1d4fb204a"
   },
   "first day: sandbox progression latching, skip and dismiss": {
    "final": "861cc46a17740a89",
@@ -408,13 +413,13 @@ const PINS = {
    "final": "3c3f5a3395da788d",
    "events": "bf28cd9330b85580",
    "fingerprints": "3f04cd268b5223de",
-   "observables": "54daec0caea352ce"
+   "observables": "f78c32b5cc6fa4b8"
   },
   "park calendar: short days, a length change and a time lock": {
    "final": "eba869dcca654689",
    "events": "0784261b6fcf47ab",
    "fingerprints": "b43e10574683d20b",
-   "observables": "3609a5c32f3cfe34"
+   "observables": "504721b63b79f30a"
   },
   "weather: a stormy afternoon with a storm-closed ride, a player-closed ride and opening hours": {
    "final": "a8d02c5d6a065a79",

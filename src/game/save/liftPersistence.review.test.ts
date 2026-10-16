@@ -95,26 +95,30 @@ const PRE_CHANGE_SAVE_RUNS: Record<string, readonly string[]> = {
  *   c2c55cd72e7d0a8d, fingerprints cfbe8b8222e35185 -> 2d49ee89e7fe5125, observables 37c1e53eff752903 -> cf3aa8955256aeb2.
  * - scenario latched success: final c3c9ad9e05f9dd62 -> d4ef22e43440bbc2, observables 9271120420e6d33d -> e105225732848376.
  * - scenario mid sustain streak: final 6a705be23903b303 -> 1e4ebf326333c689, observables 9ac108b4107dc253 ->
- *   289667545c3b32c7.
+ *   a3081cc19109beb2.
  *
  * Re-pinned 2026-10-15, Phase 29 (schema 15, content version 5), a deliberate gameplay change: guest life (benches,
  * pauses, nausea and sickness, warmth, souvenirs) moves the play of the parks below. The Phase 29 save keys are stripped
  * by `preChangeHash` (and their neutral values from the observables, determinismHarness.ts). Unmoved: all of 'scenario
  * mid sustain streak', and the event streams of 'scenario latched failure' and 'pre-first-step and right after
  * removeAll'. That the switched-off code is bit-identical to the code before Phase 29 is proven by
- * session/defaultIdentity.review.test.ts, which runs with `guestLife.enabled` off and keeps its pins.
+ * session/defaultIdentity.review.test.ts, which runs with `guestLife.enabled` off and keeps its pins. *
+ * Phase 38 (2026-10-16): only the `observables` pins moved. The probe in determinismHarness.observe asks
+ * canPlaceCoasterPiece on every cell, and track may now run over low objects and other track at clearance, so the
+ * answers for cells under benches or beside existing coasters changed by design. Final state, events and fingerprints
+ * are unchanged in every fixture.
  */
 const PRE_CHANGE_FIXTURES: Record<string, { final: string; events: string; fingerprints: string; observables: string }> = {
-  'dev park, 1,000 guests, coaster': { final: 'e7426a1460e9c532', events: '434357e733752ff5', fingerprints: '0c091d5c29dd207d', observables: '54d113d6d027070f' },
-  'scenario with Pulse Cards and a rules-locked id': { final: '61979b25761df373', events: '5d9b00c22adcfee6', fingerprints: 'e02f287bea932338', observables: '0b01b67198677831' },
+  'dev park, 1,000 guests, coaster': { final: 'e7426a1460e9c532', events: '434357e733752ff5', fingerprints: '0c091d5c29dd207d', observables: '55e05c7475c9ae12' },
+  'scenario with Pulse Cards and a rules-locked id': { final: '61979b25761df373', events: '5d9b00c22adcfee6', fingerprints: 'e02f287bea932338', observables: '42467d5c6cdf4a2e' },
   'scenario latched success': { final: 'e5c36d65bc70dee2', events: '9030f462ddf66049', fingerprints: '28065ad7d491be07', observables: '07e11b8f39c612d6' },
   'scenario latched failure': { final: '13f46a1213a0c5d9', events: '6ace405e46b8ecc5', fingerprints: 'b3e95127fb35fc41', observables: '83c0c8b337a916ea' },
-  'scenario mid sustain streak': { final: '1e4ebf326333c689', events: '008be93323b5a50d', fingerprints: '257c3bc00aee79d5', observables: '289667545c3b32c7' },
-  'player-built coaster with loop and boost, bulldozed later': { final: 'b763cf8dc108dd3d', events: '006aba6e0edb64d2', fingerprints: '99c95c29dd5d96dd', observables: '2f03a5712350c52b' },
-  'hand-driven park: breakdown, repair, litter, closure, research': { final: '47e98c509914e8f2', events: 'e7164638c7e0e06f', fingerprints: '150ab2e0ccb4a712', observables: '44e2483fdccf586b' },
+  'scenario mid sustain streak': { final: '1e4ebf326333c689', events: '008be93323b5a50d', fingerprints: '257c3bc00aee79d5', observables: 'a3081cc19109beb2' },
+  'player-built coaster with loop and boost, bulldozed later': { final: 'b763cf8dc108dd3d', events: '006aba6e0edb64d2', fingerprints: '99c95c29dd5d96dd', observables: '1807aaa8a69cafd1' },
+  'hand-driven park: breakdown, repair, litter, closure, research': { final: '47e98c509914e8f2', events: 'e7164638c7e0e06f', fingerprints: '150ab2e0ccb4a712', observables: '5a5810b9487a32f9' },
   'first day: sandbox progression latching, skip and dismiss': { final: 'c538ab72587fd479', events: '9edf55db86116ffb', fingerprints: 'a8194581755b9e05', observables: '10db11263bf5f717' },
-  'pre-first-step and right after removeAll': { final: '62f86010c6d2a219', events: 'bf28cd9330b85580', fingerprints: '0ae8926bcf542f2d', observables: '139fdb1f1033dabb' },
-  'park calendar: short days, a length change and a time lock': { final: '1906767a12d1429a', events: '48e3543b50ee22ac', fingerprints: '6e66ee2c190a20f9', observables: 'd3e06f3416265a6a' },
+  'pre-first-step and right after removeAll': { final: '62f86010c6d2a219', events: 'bf28cd9330b85580', fingerprints: '0ae8926bcf542f2d', observables: '4b8233b736ee5d25' },
+  'park calendar: short days, a length change and a time lock': { final: '1906767a12d1429a', events: '48e3543b50ee22ac', fingerprints: '6e66ee2c190a20f9', observables: '405a85976658df40' },
   'weather: a stormy afternoon with a storm-closed ride, a player-closed ride and opening hours': { final: 'd3c460c30e208ba0', events: '7211ebd9cb3cf3c1', fingerprints: 'd24163be0630ad08', observables: 'be5ad71b5e28f279' },
 };
 

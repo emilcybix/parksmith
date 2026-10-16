@@ -370,7 +370,7 @@ describe('GameWorld field coverage', () => {
       serialized,
       // Rebuilt by restore from objects and coaster pieces.
       // Phase 24: the live props and their grid belong to the `map` key of the save (serializeMap / restoreMap), not to this state.
-      derived: ['occupancy', 'coasterHeights', 'props', 'propGrid'],
+      derived: ['occupancy', 'trackLayers', 'props', 'propGrid'],
       // Constants of the map and injected collaborators; the target is built with the same ones.
       config: ['width', 'height', 'entrance', 'entranceFacing', 'map', 'buildAccessPolicy', 'gateSchedule', 'landCostMultiplier'],
       // Subscribers, an open batch and the edit counters (Phase 28 appearance, Phase 24 props, Phase 21 land: transient stamps) are never part of a park.

@@ -1,5 +1,7 @@
 import { COASTER_TYPES } from './coaster/content';
-import { deriveCoasterStats, validateCoasterLayout, type CoasterDerivedStats, type CoasterPiece } from './coaster/design';
+import {
+  deriveCoasterStats, isExclusiveCoasterPiece, trackPiecesMayCross, validateCoasterLayout, type CoasterDerivedStats, type CoasterPiece,
+} from './coaster/design';
 import { BUILD_BY_ID } from './content/catalog';
 import {
   ENTRANCE_COLOUR_ID,
@@ -42,6 +44,33 @@ import type {
 } from './types';
 
 const cellKey = ({ x, y }: Cell) => `${x},${y}`;
+
+/** Phase 38: one coaster piece in a cell's track layers. */
+interface TrackLayer {
+  readonly id: number;
+  readonly height: number;
+  /** A station piece, a special, or under a loop ring: nothing may cross it (design.ts isExclusiveCoasterPiece). */
+  readonly exclusive: boolean;
+}
+
+/** Phase 38: what a coaster piece needs to know about its cell's other track. */
+export interface CoasterPieceProbe {
+  cell: Cell;
+  height: number;
+  /** Station, special or under a loop: may share its cell with nothing but a path (as before). */
+  exclusive?: boolean;
+}
+
+const addTrackLayer = (layers: Map<string, TrackLayer[]>, key: string, layer: TrackLayer): void => {
+  const list = layers.get(key);
+  if (list === undefined) {
+    layers.set(key, [layer]);
+    return;
+  }
+  list.push(layer);
+  list.sort((a, b) => a.height - b.height);
+};
+
 
 /** What the world needs from the opening hours: a plain read, so it never imports the weather owner. */
 export interface GateSchedule {
@@ -194,7 +223,6 @@ export class GameWorld implements Serializable<GameWorldState> {
   readonly paths = new Set<string>();
   readonly objects = new Map<number, PlacedObject>();
   readonly coasters = new Map<number, CoasterRecord>();
-  private readonly coasterHeights = new Map<string, number>();
   readonly transactions: Transaction[] = [];
   /** The gate: a map property (Meadow: (15, 31)). Read it here, never as a literal. */
   readonly entrance: Cell;
@@ -219,7 +247,14 @@ export class GameWorld implements Serializable<GameWorldState> {
    */
   demolitions = 0;
 
+  /** The ground occupant of a cell: the entrance (0) or a placed non-coaster object. DERIVED, never saved. */
   private readonly occupancy = new Map<string, number>();
+  /**
+   * Phase 38: the coaster pieces in each cell, lowest first. Two pieces share a cell only when they are at least
+   * `trackClearanceLevels` apart and neither is exclusive; a ground occupant under track has a `clearanceLevels` the
+   * track clears. DERIVED from the coaster records, rebuilt on restore, never saved.
+   */
+  private readonly trackLayers = new Map<string, TrackLayer[]>();
   /** Derived from `props`: 0 = no prop, else the prop id, index y * width + x. Rebuilt on construct, clear and restoreMap. */
   private readonly propGrid: Int32Array;
   /** TRANSIENT: +1 per clear and per restoreMap. Renderers diff the prop set when it moved. Never saved. */
@@ -494,24 +529,79 @@ export class GameWorld implements Serializable<GameWorldState> {
 
   canPlacePath(cell: Cell): boolean {
     const key = cellKey(cell);
-    if (!this.isOwned(cell) || this.paths.has(key) || this.isObstructed(cell)) return false;
-    if (!this.occupancy.has(key)) return true;
+    if (!this.isOwned(cell) || this.paths.has(key) || this.isObstructed(cell) || this.occupancy.has(key)) return false;
     // Elevated coaster track leaves the ground free for a walkway underneath.
-    const trackHeight = this.coasterHeights.get(key);
-    return trackHeight !== undefined && trackHeight >= GAME_CONFIG.coaster.pathClearanceHeight;
+    const lowest = this.trackLayers.get(key)?.[0];
+    return lowest === undefined || lowest.height >= GAME_CONFIG.coaster.pathClearanceHeight;
   }
 
-  /** A coaster piece fits on empty ground, or above an existing path if it is high enough. */
-  canPlaceCoasterPiece(piece: { cell: Cell; height: number }): boolean {
+  /**
+   * A coaster piece fits on empty ground, above an existing path if it is high enough, and (Phase 38) over a low
+   * object it clears, and over or under other track at least `trackClearanceLevels` away when neither piece is
+   * exclusive. Checked against the WORLD only: a draft's own crossings are validateCoasterLayout's job.
+   */
+  canPlaceCoasterPiece(piece: CoasterPieceProbe): boolean {
+    return this.coasterPieceConflict(piece) === null;
+  }
+
+  /**
+   * Phase 38: why a coaster piece cannot go here, or null. 'track' = other track too close or not crossable,
+   * 'object' = an object it does not clear (or the entrance), 'path' = a path under track below the clearance.
+   */
+  coasterPieceConflict(piece: CoasterPieceProbe): 'blocked' | 'object' | 'path' | 'track' | null {
     const key = cellKey(piece.cell);
-    if (!this.isOwned(piece.cell) || this.occupancy.has(key) || this.isObstructed(piece.cell)) return false;
-    return piece.height >= GAME_CONFIG.coaster.pathClearanceHeight || !this.paths.has(key);
+    if (!this.isOwned(piece.cell) || this.isObstructed(piece.cell)) return 'blocked';
+    const ground = this.occupancy.get(key);
+    if (ground !== undefined) {
+      const levels = ground === 0 ? undefined : this.groundClearanceLevels(ground);
+      if (levels === undefined || piece.exclusive === true || piece.height < levels + 1) return 'object';
+    }
+    if (piece.height < GAME_CONFIG.coaster.pathClearanceHeight && this.paths.has(key)) return 'path';
+    for (const layer of this.trackLayers.get(key) ?? []) {
+      if (layer.exclusive || piece.exclusive === true || !trackPiecesMayCross(layer.height, piece.height)) return 'track';
+    }
+    return null;
+  }
+
+  /** Phase 38: the clearance a ground object needs from track above it, or undefined when track never crosses it. */
+  private groundClearanceLevels(objectId: number): number | undefined {
+    const object = this.objects.get(objectId);
+    return object ? BUILD_BY_ID.get(object.definitionId)?.clearanceLevels : undefined;
+  }
+
+  /** Phase 38: whether an object of this definition may stand in a cell with track above it. */
+  private clearsTrackAbove(definition: BuildDefinition, key: string): boolean {
+    const layers = this.trackLayers.get(key);
+    if (layers === undefined) return true;
+    const levels = definition.clearanceLevels;
+    return levels !== undefined && layers.every((layer) => !layer.exclusive && layer.height >= levels + 1);
+  }
+
+  /**
+   * Phase 38: the track heights in a cell, lowest first, excluding coaster `exceptId` (a coaster's own pieces).
+   * Renderers ask it whether a piece has something under it (then it stands on no support bent of its own).
+   */
+  trackHeightsAt(cell: Cell, exceptId = -1): number[] {
+    const layers = this.trackLayers.get(cellKey(cell));
+    if (layers === undefined) return [];
+    const heights: number[] = [];
+    for (const layer of layers) if (layer.id !== exceptId) heights.push(layer.height);
+    return heights;
+  }
+
+  /** Phase 38: whether anything but a path stands or runs under a piece at `height` in this cell (track or an object). */
+  hasSomethingUnder(cell: Cell, height: number): boolean {
+    const key = cellKey(cell);
+    if (this.occupancy.has(key)) return true;
+    return (this.trackLayers.get(key) ?? []).some((layer) => layer.height < height);
   }
 
   canPlace(definition: BuildDefinition, anchor: Cell, rotation: Rotation = 0): boolean {
     if (definition.kind === 'path') return this.canPlacePath(anchor);
     for (const cell of this.footprintCells(definition, anchor, rotation)) {
-      if (!this.isOwned(cell) || this.paths.has(cellKey(cell)) || this.occupancy.has(cellKey(cell)) || this.isObstructed(cell)) return false;
+      const key = cellKey(cell);
+      if (!this.isOwned(cell) || this.paths.has(key) || this.occupancy.has(key) || this.isObstructed(cell)) return false;
+      if (!this.clearsTrackAbove(definition, key)) return false;
     }
     return true;
   }
@@ -524,7 +614,8 @@ export class GameWorld implements Serializable<GameWorldState> {
     let obstacle = false;
     let unowned = false;
     for (const cell of this.footprintCells(definition, anchor, rotation)) {
-      if (!this.isInside(cell) || this.paths.has(cellKey(cell)) || this.occupancy.has(cellKey(cell))) return 'blocked';
+      const key = cellKey(cell);
+      if (!this.isInside(cell) || this.paths.has(key) || this.occupancy.has(key) || !this.clearsTrackAbove(definition, key)) return 'blocked';
       if (!this.land.isCellOwned(cell.x, cell.y)) unowned = true;
       if (this.isObstructed(cell)) obstacle = true;
     }
@@ -591,8 +682,10 @@ export class GameWorld implements Serializable<GameWorldState> {
     const definition = BUILD_BY_ID.get(definitionId);
     if (definition?.custom !== 'coaster') return { error: 'unknown' };
     if (!this.isDefinitionUnlocked(definitionId)) return { error: 'locked' };
-    for (const piece of pieces) {
-      if (!this.canPlaceCoasterPiece(piece)) return { error: 'blocked' };
+    for (const [index, piece] of pieces.entries()) {
+      if (!this.canPlaceCoasterPiece({ cell: piece.cell, height: piece.height, exclusive: isExclusiveCoasterPiece(pieces, index) })) {
+        return { error: 'blocked' };
+      }
     }
     const cost = Math.round(baseCost * this.constructionCostMultiplier);
     if (this.cash < cost) return { error: 'funds' };
@@ -603,9 +696,8 @@ export class GameWorld implements Serializable<GameWorldState> {
       rotation: 0,
     };
     this.objects.set(placed.id, placed);
-    for (const piece of pieces) {
-      this.occupancy.set(cellKey(piece.cell), placed.id);
-      this.coasterHeights.set(cellKey(piece.cell), piece.height);
+    for (const [index, piece] of pieces.entries()) {
+      addTrackLayer(this.trackLayers, cellKey(piece.cell), { id: placed.id, height: piece.height, exclusive: isExclusiveCoasterPiece(pieces, index) });
     }
     this.coasters.set(placed.id, {
       objectId: placed.id,
@@ -660,9 +752,31 @@ export class GameWorld implements Serializable<GameWorldState> {
     return placed;
   }
 
+  /**
+   * The object in a cell: its ground occupant first (a bench under track, a stall), else (Phase 38) the top-most
+   * track. The bulldozer takes what this returns, so a crossing loses its upper track before the lower one.
+   */
   objectAt(cell: Cell): PlacedObject | undefined {
-    const id = this.occupancy.get(cellKey(cell));
-    return id ? this.objects.get(id) : undefined;
+    const key = cellKey(cell);
+    const id = this.occupancy.get(key);
+    if (id) return this.objects.get(id);
+    const layers = this.trackLayers.get(key);
+    return layers === undefined ? undefined : this.objects.get(layers[layers.length - 1].id);
+  }
+
+  /** Phase 38: every object in a cell, top-most track first, then the ground occupant (each once). */
+  objectsAt(cell: Cell): PlacedObject[] {
+    const key = cellKey(cell);
+    const found: PlacedObject[] = [];
+    const layers = this.trackLayers.get(key) ?? [];
+    for (let index = layers.length - 1; index >= 0; index -= 1) {
+      const object = this.objects.get(layers[index].id);
+      if (object && !found.includes(object)) found.push(object);
+    }
+    const id = this.occupancy.get(key);
+    const ground = id ? this.objects.get(id) : undefined;
+    if (ground) found.push(ground);
+    return found;
   }
 
   /**
@@ -730,8 +844,13 @@ export class GameWorld implements Serializable<GameWorldState> {
     if (!definition) return { removed: false, refund: 0, label: null };
     const coaster = this.coasters.get(object.id);
     for (const occupied of this.objectFootprint(object)) {
-      this.occupancy.delete(cellKey(occupied));
-      this.coasterHeights.delete(cellKey(occupied));
+      const key = cellKey(occupied);
+      if (this.occupancy.get(key) === object.id) this.occupancy.delete(key);
+      const layers = this.trackLayers.get(key);
+      if (layers === undefined) continue;
+      const kept = layers.filter((layer) => layer.id !== object.id);
+      if (kept.length === 0) this.trackLayers.delete(key);
+      else this.trackLayers.set(key, kept);
     }
     this.objects.delete(object.id);
     this.coasters.delete(object.id);
@@ -1040,9 +1159,9 @@ export class GameWorld implements Serializable<GameWorldState> {
     this.objects.clear();
     this.coasters.clear();
     this.occupancy.clear();
-    this.coasterHeights.clear();
+    this.trackLayers.clear();
     for (const [key, id] of plan.occupancy) this.occupancy.set(key, id);
-    for (const [key, height] of plan.coasterHeights) this.coasterHeights.set(key, height);
+    for (const [key, layers] of plan.trackLayers) this.trackLayers.set(key, layers);
     for (const object of state.objects) {
       const colours = plan.colours.get(object.id);
       this.objects.set(object.id, {
@@ -1097,7 +1216,7 @@ export class GameWorld implements Serializable<GameWorldState> {
     ownedParcels: number[] | null;
     pathKeys: string[];
     occupancy: Map<string, number>;
-    coasterHeights: Map<string, number>;
+    trackLayers: Map<string, TrackLayer[]>;
     colours: Map<number, ObjectColours>;
   } {
     const fail = (path: string, problem: string): never => {
@@ -1232,8 +1351,10 @@ export class GameWorld implements Serializable<GameWorldState> {
     });
 
     const occupancy = new Map<string, number>([[cellKey(this.entrance), 0]]);
-    const coasterHeights = new Map<string, number>();
+    const trackLayers = new Map<string, TrackLayer[]>();
     const colours = new Map<number, ObjectColours>();
+    // Phase 38: ground objects claim first (in id order), track second, so a crossing is checked whatever the ids.
+    const pendingTrack: Array<{ key: string; layer: TrackLayer; path: string }> = [];
     const claim = (cell: Cell, id: number, path: string): void => {
       const key = cellKey(cell);
       if (occupancy.has(key)) fail(path, `overlaps another object or the entrance at ${key}`);
@@ -1265,8 +1386,14 @@ export class GameWorld implements Serializable<GameWorldState> {
       if (definition.custom === 'coaster') {
         if (!record) return fail(path, `is a coaster but has no coaster record`);
         record.pieces.forEach((piece, pieceIndex) => {
-          claim(piece.cell, object.id, `${path} (coaster piece ${pieceIndex})`);
-          coasterHeights.set(cellKey(piece.cell), piece.height);
+          const piecePath = `${path} (coaster piece ${pieceIndex})`;
+          if (this.isObstructed(piece.cell)) fail(piecePath, `stands on a prop or water at ${cellKey(piece.cell)}`);
+          checkOwned(piece.cell, piecePath);
+          pendingTrack.push({
+            key: cellKey(piece.cell),
+            layer: { id: object.id, height: piece.height, exclusive: isExclusiveCoasterPiece(record.pieces, pieceIndex) },
+            path: piecePath,
+          });
           // Track low enough to touch the ground cannot stand on a walkway (placement forbids it).
           if (pathSet.has(cellKey(piece.cell)) && piece.height < coasterConfig.pathClearanceHeight) {
             fail(`${path} (coaster piece ${pieceIndex})`, 'sits on a path below the clearance height');
@@ -1302,6 +1429,20 @@ export class GameWorld implements Serializable<GameWorldState> {
     for (const id of recordById.keys()) {
       if (!objectIds.has(id)) fail('coasters', `has a record for object ${id}, which does not exist`);
     }
+    for (const { key, layer, path } of pendingTrack) {
+      const ground = occupancy.get(key);
+      if (ground !== undefined) {
+        const groundObject = state.objects.find((candidate) => candidate.id === ground);
+        const levels = groundObject ? BUILD_BY_ID.get(groundObject.definitionId)?.clearanceLevels : undefined;
+        if (levels === undefined || layer.exclusive || layer.height < levels + 1) fail(path, `overlaps another object or the entrance at ${key}`);
+      }
+      for (const other of trackLayers.get(key) ?? []) {
+        if (other.exclusive || layer.exclusive || !trackPiecesMayCross(other.height, layer.height)) {
+          fail(path, `crosses other track too closely at ${key}`);
+        }
+      }
+      addTrackLayer(trackLayers, key, layer);
+    }
 
     if (state.transactions.length > TRANSACTION_HISTORY_LIMIT) {
       fail('transactions', `has ${state.transactions.length} entries, above the ${TRANSACTION_HISTORY_LIMIT} cap`);
@@ -1325,7 +1466,7 @@ export class GameWorld implements Serializable<GameWorldState> {
       }
     });
 
-    return { ownedParcels, pathKeys, occupancy, coasterHeights, colours };
+    return { ownedParcels, pathKeys, occupancy, trackLayers, colours };
   }
 
   /**

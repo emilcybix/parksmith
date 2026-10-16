@@ -87,7 +87,7 @@ describe('own-property accounting of every owner', () => {
       // Schema 14: `land` (the owned parcels) is written only when restricted.
       serialized: ['paths', 'objects', 'coasters', 'transactions', 'cash', 'tick', 'parkOpen', 'demolitions', 'nextObjectId', 'nextTransactionId', 'version', 'pathVersion', 'gateRecord', 'land'],
       // Schema 8: the map layer is the `map` key of the save (serializeMap); `props` holds the REMAINING props and `propGrid` is rebuilt from them.
-      derived: ['coasterHeights', 'occupancy', 'props', 'propGrid'],
+      derived: ['trackLayers', 'occupancy', 'props', 'propGrid'],
       config: ['width', 'height', 'entrance', 'entranceFacing', 'map', 'constructionCostMultiplier', 'buildAccessPolicy', 'gateSchedule', 'landCostMultiplier'],
       transient: ['listeners', 'batchDepth', 'batchedChange', 'appearanceCounter', 'propRevisionCounter', 'landRevisionCounter'],
       optional: ['startingCash'],

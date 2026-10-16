@@ -1109,6 +1109,17 @@ const emitBrakeFin = (pieces: readonly CoasterPiece[], frame: PieceFrame, out: B
 // ---------------------------------------------------------------------------------------------
 // Pieces
 
+/** Phase 38: whether another piece of the same layout runs under piece `index` in its cell (the track crosses itself). */
+const hasLowerPieceInCell = (pieces: readonly CoasterPiece[], index: number): boolean => {
+  const piece = pieces[index];
+  if (piece === undefined) return false;
+  for (let other = 0; other < pieces.length; other += 1) {
+    const candidate = pieces[other];
+    if (other !== index && candidate.cell.x === piece.cell.x && candidate.cell.y === piece.cell.y && candidate.height < piece.height) return true;
+  }
+  return false;
+};
+
 const pieceBoxes = (
   pieces: readonly CoasterPiece[],
   index: number,
@@ -1117,6 +1128,7 @@ const pieceBoxes = (
   outlineGroup: number,
   out: BoxWriter,
   paint: Uint8Array | null = null,
+  supports = true,
 ): void => {
   if (pieces.length === 0) return;
   const piece = pieceAt(pieces, index);
@@ -1137,7 +1149,9 @@ const pieceBoxes = (
   emitTopLayer(frame, TOP_CHAIN, packBoxWord(MAT.FENCE_RAIL, outlineGroup, PATTERN.PLAIN, 0), out);
   emitTopLayer(frame, TOP_BRAKE, packBoxWord(MAT.CONCRETE, outlineGroup, PATTERN.PLAIN, 0), out);
   emitTopLayer(frame, TOP_CHEVRON, packBoxWord(MAT.BULB, outlineGroup, PATTERN.PLAIN, 0), out);
-  emitSupports(frame, look, out);
+  // Phase 38: a piece crossing over other track (or a low object) stands on no bent: its legs would come down on
+  // what is below. Its neighbours' bents carry it.
+  if (supports && !hasLowerPieceInCell(pieces, index)) emitSupports(frame, look, out);
   if (special === 'loop') emitLoopRing(pieces, index, frame, look, out);
   emitStation(pieces, index, frame, definition, palette, out, paint);
   emitBrakeFin(pieces, frame, out);

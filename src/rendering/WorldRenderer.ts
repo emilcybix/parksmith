@@ -6,7 +6,7 @@ import {
   layoutCanClose,
 } from '../game/coaster/centreLine';
 import { COASTER_TYPE_BY_ID } from '../game/coaster/content';
-import type { CoasterPiece } from '../game/coaster/design';
+import { isExclusiveCoasterPiece, type CoasterPiece } from '../game/coaster/design';
 import { WEATHER_FLAGS } from '../app/rendererFlag';
 import { GAME_CONFIG } from '../game/config';
 import { DEFAULT_BIOME_ID } from '../game/biomes/content';
@@ -1431,9 +1431,9 @@ export class WorldRenderer implements RendererPort {
     } else {
       graphic.clear();
     }
-    // Blocked cells (occupied ground, or a path under low track) glow red under the track.
-    for (const piece of pieces) {
-      if (this.world.canPlaceCoasterPiece(piece)) continue;
+    // Blocked cells (occupied ground, a path under low track, other track too close: Phase 38) glow red under the track.
+    for (const [index, piece] of pieces.entries()) {
+      if (this.world.canPlaceCoasterPiece({ cell: piece.cell, height: piece.height, exclusive: isExclusiveCoasterPiece(pieces, index) })) continue;
       const point = this.project(piece.cell.x, piece.cell.y);
       graphic.poly(diamondPoints(point.x, point.y, 2)).fill({ color: 0xff6f86, alpha: 0.5 });
     }

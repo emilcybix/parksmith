@@ -42,6 +42,12 @@ export interface BuildDefinition {
   accent: number;
   /** Placed through a dedicated designer tool instead of footprint stamping. */
   custom?: 'coaster';
+  /**
+   * Phase 38: the object's gameplay height in coaster levels. Track may run over it at level `clearanceLevels + 1`
+   * or higher (and it may be built under such track). Absent = never crossed (rides, stalls, tall scenery).
+   * A render test pins every value against the voxel model's height.
+   */
+  clearanceLevels?: number;
   stats?: {
     capacity?: number;
     duration?: number;

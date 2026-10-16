@@ -22,6 +22,10 @@ export type CoasterValidationFailure =
   | 'too-long'
   | 'not-adjacent'
   | 'overlapping'
+  /** Phase 38: a repeated cell closer in height than `trackClearanceLevels`. */
+  | 'crossing-too-close'
+  /** Phase 38: a repeated cell where one of the two pieces is a station piece, a special, or under a loop ring. */
+  | 'crossing-not-allowed'
   | 'not-closed'
   | 'station-not-flat'
   | 'station-not-straight'
@@ -86,6 +90,33 @@ const failure = (reason: CoasterValidationFailure, pieceIndex: number | null = n
   ({ ok: false, reason, pieceIndex });
 
 /**
+ * Phase 38: whether piece `index` keeps its cell to itself (nothing crosses it, above or below): a station piece, a
+ * loop or a boost, and the piece after a loop (the ring overhangs into it). Reads the layout as a closed ring.
+ */
+export const isExclusiveCoasterPiece = (pieces: readonly CoasterPiece[], index: number): boolean => {
+  if (index < GAME_CONFIG.coaster.stationLength) return true;
+  if (pieces[index].special !== undefined) return true;
+  const previous = pieces[(index - 1 + pieces.length) % pieces.length];
+  return previous?.special === 'loop';
+};
+
+/** Phase 38: whether two track pieces may share a cell: far enough apart in height, neither exclusive. */
+export const trackPiecesMayCross = (lowerOrUpper: number, other: number): boolean =>
+  Math.abs(lowerOrUpper - other) >= GAME_CONFIG.coaster.trackClearanceLevels;
+
+/** Phase 38: how many cells a layout visits twice (or more: each extra visit counts). */
+export const coasterCrossings = (pieces: readonly CoasterPiece[]): number => {
+  const seen = new Set<string>();
+  let crossings = 0;
+  for (const piece of pieces) {
+    const key = `${piece.cell.x},${piece.cell.y}`;
+    if (seen.has(key)) crossings += 1;
+    else seen.add(key);
+  }
+  return crossings;
+};
+
+/**
  * Geometry rules for a buildable layout: an orderly closed loop of unique, cardinally
  * chained cells; a straight, flat station at the start; heights within the coaster
  * type's limit changing one level per piece; specials the type allows, on straight
@@ -101,11 +132,22 @@ export const validateCoasterLayout = (
   if (pieces.length > config.maximumPieces) return failure('too-long');
 
   const maximumHeight = Math.min(type.maximumHeight, config.absoluteMaximumHeight);
-  const seen = new Set<string>();
+  // Phase 38: a cell may be visited again when the two pieces are far enough apart in height and neither keeps
+  // its cell to itself (station, special, under a loop ring); `overlapping` stays for an exact repeat height.
+  const seen = new Map<string, number[]>();
   for (const [index, piece] of pieces.entries()) {
     const key = `${piece.cell.x},${piece.cell.y}`;
-    if (seen.has(key)) return failure('overlapping', index);
-    seen.add(key);
+    const earlier = seen.get(key);
+    if (earlier === undefined) {
+      seen.set(key, [index]);
+    } else {
+      for (const other of earlier) {
+        if (pieces[other].height === piece.height) return failure('overlapping', index);
+        if (!trackPiecesMayCross(pieces[other].height, piece.height)) return failure('crossing-too-close', index);
+        if (isExclusiveCoasterPiece(pieces, other) || isExclusiveCoasterPiece(pieces, index)) return failure('crossing-not-allowed', index);
+      }
+      earlier.push(index);
+    }
     if (piece.height < 0 || piece.height > maximumHeight || !Number.isInteger(piece.height)) {
       return failure('height-range', index);
     }
@@ -217,8 +259,14 @@ export const deriveCoasterStats = (
   const rawIntensity = 8 + biggestDrop * 10 + totalDescent * 2.5 + steepTurnPairs * 2.2
     + loops * specials.loop.intensity + boosts * specials.boost.intensity
     + speed.topSpeed * 1.2;
+  // Phase 38: each crossing is a near miss (capped); a layout without one takes the exact expressions it always did.
+  const crossings = coasterCrossings(pieces);
+  const crossing = GAME_CONFIG.coaster.crossing;
+  const withCrossings = crossings > 0
+    ? rawExcitement + Math.min(crossing.maximumCounted, crossings) * crossing.excitement
+    : rawExcitement;
   const excitement = round(clamp(
-    freeRuns > 0 ? rawExcitement + Math.min(lift.maxFreeExcitement, lift.freeRunExcitement * freeRuns) : rawExcitement,
+    freeRuns > 0 ? withCrossings + Math.min(lift.maxFreeExcitement, lift.freeRunExcitement * freeRuns) : withCrossings,
     0,
     100,
   ));
@@ -312,7 +360,9 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'too-short': `Lay at least ${GAME_CONFIG.coaster.minimumPieces} track pieces.`,
   'too-long': `Maximum ${GAME_CONFIG.coaster.maximumPieces} track pieces.`,
   'not-adjacent': 'Track pieces must connect side by side.',
-  overlapping: 'The track crosses itself.',
+  overlapping: 'The track crosses itself at the same height.',
+  'crossing-too-close': `Too close to the track below: ${GAME_CONFIG.coaster.trackClearanceLevels} levels needed.`,
+  'crossing-not-allowed': 'Stations, loops and boosts cannot be crossed over or under.',
   'not-closed': 'Bring the loop back to the station.',
   'station-not-flat': 'The first 3 pieces are the station — keep them at ground level.',
   'station-not-straight': 'The station must be a straight run.',

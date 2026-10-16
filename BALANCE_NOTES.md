@@ -899,6 +899,24 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 38: coaster crossings · **PROVISIONAL**
+
+Set on 2026-10-16 from the voxel model heights; no play. A crossing is a near miss: +2 excitement per crossing, at most
+3 counted (`coaster.crossing`), so the bonus tops out at +6 (about a third of a loop). Layouts without a crossing are
+unchanged (the gameplay-invariance golden holds). Track needs 2 levels over other track (`trackClearanceLevels`) and,
+over an object, `clearanceLevels + 1`; the values below keep every model at least 2 voxels under the spine of the
+lowest track allowed over it (pinned by `coasterCrossing.test.ts`):
+
+| Object | Model top (voxels) | `clearanceLevels` | Lowest track over it |
+|---|---|---|---|
+| Ribbon Bench, Tidy Totem, Sunburst Flowers, Shell Planter | 15, 19, 7, 20 | 1 | level 2 |
+| Jungle Idol | 38 | 2 | level 3 |
+| Ripple Fountain, Lollipop Lamp, Tiki Torch | 40, 50, 48 | 3 | level 4 (Skyline Serpent only) |
+| Trees, masts, pylons, the lighthouse, the globe; rides, stalls, facilities | 53+ | none | never |
+
+Open: whether a crossing should also add intensity, and whether the height caps (2, 3, 4) should rise so the smaller
+coasters can cross over more than ground-level track.
+
 ## Phase 30: the guest-life need gate · **PROVISIONAL**
 
 Measured on 2026-10-15 with the run margin proofs (`run/winnability.*`) and the determinism pins; no play.

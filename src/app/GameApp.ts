@@ -5,6 +5,8 @@ import {
   checkCoasterDesign,
   coasterBaseCost,
   deriveCoasterStats,
+  isExclusiveCoasterPiece,
+  trackPiecesMayCross,
   type CoasterPiece,
 } from '../game/coaster/design';
 import {
@@ -244,6 +246,16 @@ const playRefusalText = (reason: Extract<PlayCardResult, { ok: false }>['reason'
   }
 };
 
+/** Phase 38: what stops a coaster draft from being built where it is (the designer's status line). */
+const coasterConflictMessage = (conflict: 'blocked' | 'object' | 'path' | 'track' | null): string => {
+  switch (conflict) {
+    case 'track': return `Too close to other track: ${GAME_CONFIG.coaster.trackClearanceLevels} levels needed, and stations, loops and boosts cannot be crossed.`;
+    case 'path': return `Track over a path must be at level ${GAME_CONFIG.coaster.pathClearanceHeight} or higher.`;
+    case 'object': return 'The track runs into a building. Low objects (benches, bins, flowers) can go under raised track.';
+    default: return 'The track crosses land you do not own, water or a prop.';
+  }
+};
+
 /** Everything a test may replace; production passes nothing and gets IndexedDB, the hash worker and the lazy loader. */
 export interface GameAppOptions {
   saveStore?: SaveStore;
@@ -287,6 +299,8 @@ export class GameApp implements GameCommands, RunCommands {
   private coasterDraft: CoasterPiece[] = [];
   private coasterHeight = 0;
   private coasterLastCell: Cell | null = null;
+  /** Phase 38: the cell whose refused crossing was last toasted, so a drag over it says so once. */
+  private coasterDraftRefusal: string | null = null;
   private coasterTypeId: string | null = null;
   /** Lift toggles made in the designer, so Ctrl+Z can take one back before it takes a piece. */
   private coasterLiftHistory: LiftToggleHistory = EMPTY_LIFT_HISTORY;
@@ -2876,7 +2890,7 @@ export class GameApp implements GameCommands, RunCommands {
       const before = this.coasterDraft.length;
       // A press on a piece that sits on a climb (not the one the track continues from) flips that
       // lift instead of starting a drag.
-      const pressed = this.coasterDraft.findIndex((piece) => sameCell(piece.cell, cell));
+      const pressed = this.draftIndexAt(cell);
       if (pressed >= 0 && pressed < before - 1) {
         const run = liftRunAtPiece(this.coasterDraft, pressed);
         if (run) {
@@ -3284,8 +3298,17 @@ export class GameApp implements GameCommands, RunCommands {
   private hoveredDraftIndex(): number | null {
     const cell = this.renderer?.hoveredCell;
     if (!cell) return null;
-    const index = this.coasterDraft.findIndex((piece) => sameCell(piece.cell, cell));
+    const index = this.draftIndexAt(cell);
     return index >= 0 ? index : null;
+  }
+
+  /** Phase 38: the draft piece in a cell, the top-most where the track crosses itself there; -1 if none. */
+  private draftIndexAt(cell: Cell): number {
+    let found = -1;
+    this.coasterDraft.forEach((piece, index) => {
+      if (sameCell(piece.cell, cell) && (found < 0 || piece.height >= this.coasterDraft[found].height)) found = index;
+    });
+    return found;
   }
 
   /** Flips the lift under the cursor, else the one holding the last piece, else the last lift. */
@@ -3363,7 +3386,7 @@ export class GameApp implements GameCommands, RunCommands {
       this.toast(result.error === 'funds'
         ? 'Not enough cash for this coaster'
         : result.error === 'blocked'
-          ? 'The track crosses paths, buildings or land you do not own'
+          ? 'The track crosses paths, buildings, other track or land you do not own'
           : result.error === 'locked'
             ? 'Complete its research project first'
             : 'The coaster could not be built');
@@ -3386,7 +3409,6 @@ export class GameApp implements GameCommands, RunCommands {
   private appendCoasterCells(cells: readonly Cell[]): void {
     for (const cell of cells) {
       if (!this.world.isInside(cell)) continue;
-      if (this.coasterDraft.some((piece) => sameCell(piece.cell, cell))) continue;
       const last = this.coasterDraft[this.coasterDraft.length - 1];
       if (last && Math.abs(cell.x - last.cell.x) + Math.abs(cell.y - last.cell.y) !== 1) continue;
       // The track climbs toward the selected height one level per piece.
@@ -3394,6 +3416,24 @@ export class GameApp implements GameCommands, RunCommands {
       const height = last === undefined
         ? 0
         : last.height + Math.sign(target - last.height);
+      // Phase 38: the track may run over or under itself where the two pieces are far enough apart in height and
+      // neither is a station piece, a special or under a loop ring; any other repeat is refused, as before.
+      const crossed = this.coasterDraft
+        .map((piece, index) => ({ piece, index }))
+        .filter(({ piece }) => sameCell(piece.cell, cell));
+      if (crossed.length > 0) {
+        const tooClose = crossed.some(({ piece }) => !trackPiecesMayCross(piece.height, height));
+        const exclusive = crossed.some(({ index }) => isExclusiveCoasterPiece(this.coasterDraft, index))
+          || last?.special === 'loop';
+        if (tooClose || exclusive) {
+          if (this.coasterDraftRefusal !== `${cell.x},${cell.y}`) {
+            this.coasterDraftRefusal = `${cell.x},${cell.y}`;
+            this.toast(COASTER_VALIDATION_TEXT[tooClose ? 'crossing-too-close' : 'crossing-not-allowed']);
+          }
+          continue;
+        }
+      }
+      this.coasterDraftRefusal = null;
       this.coasterDraft.push({ cell: { ...cell }, height });
       // A piece that continues a hill joins its lift; one that starts a new hill starts chained.
       normaliseLiftFlags(this.coasterDraft);
@@ -3448,7 +3488,11 @@ export class GameApp implements GameCommands, RunCommands {
     const check = checkCoasterDesign(this.coasterDraft, type);
     const validation = check.validation;
     const stats = deriveCoasterStats(this.coasterDraft, type);
-    const blocked = this.coasterDraft.some((piece) => !this.world.canPlaceCoasterPiece(piece));
+    const conflicts = this.coasterDraft.map((piece, index) => this.world.coasterPieceConflict({
+      cell: piece.cell, height: piece.height, exclusive: isExclusiveCoasterPiece(this.coasterDraft, index),
+    }));
+    const conflict = conflicts.find((entry) => entry !== null) ?? null;
+    const blocked = conflict !== null;
     const chainRule = this.session.rules.chainLiftCostMultiplier;
     const baseCost = coasterBaseCost(this.coasterDraft, type, chainRule);
     const allChained = this.coasterDraft.map((piece) => {
@@ -3482,7 +3526,7 @@ export class GameApp implements GameCommands, RunCommands {
         },
         validationMessage: validation.ok
           ? blocked
-            ? 'The track crosses paths or buildings.'
+            ? coasterConflictMessage(conflict)
             : !affordable ? 'Not enough cash.' : check.warning ?? 'Ready to build!'
           : COASTER_VALIDATION_TEXT[validation.reason],
         buildable: validation.ok && !blocked && affordable,
@@ -3735,7 +3779,16 @@ export class GameApp implements GameCommands, RunCommands {
   }
 
   private selectObjectAt(cell: Cell): void {
-    const object = this.world.objectAt(cell);
+    // Phase 38: a cell where track crosses holds more than one selectable object (the upper track first). A click
+    // picks the top one; another click on the same cell steps to the next one below.
+    const selectable = this.world.objectsAt(cell).filter((candidate) => {
+      const candidateDefinition = BUILD_BY_ID.get(candidate.definitionId);
+      return candidateDefinition !== undefined && (candidateDefinition.kind === 'ride' || candidateDefinition.stats?.serviceType !== undefined);
+    });
+    const current = selectable.findIndex((candidate) => candidate.id === (this.selectedRideId ?? this.selectedServiceId));
+    const object = selectable.length > 1 && current >= 0
+      ? selectable[(current + 1) % selectable.length]
+      : selectable[0] ?? this.world.objectAt(cell);
     const definition = object ? BUILD_BY_ID.get(object.definitionId) : undefined;
     if (!object || !definition || (definition.kind !== 'ride' && !definition.stats?.serviceType)) {
       // Phase 30: no ride or stall here (a path, a bench, grass): a guest sitting on this bench (drawn on it, though

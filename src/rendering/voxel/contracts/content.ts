@@ -49,6 +49,12 @@ export interface CoasterContent {
     outlineGroup: number,
     out: BoxWriter,
     paint?: Uint8Array | null,
+    /**
+     * Phase 38: false when something stands or runs under this piece in its cell (other track, a low object): the
+     * piece then gets no support bent of its own (its neighbours carry it). Default true. A piece of the same
+     * layout below it in its cell drops the bent whatever this says.
+     */
+    supports?: boolean,
   ): void;
   /**
    * Car model; the lead car (index 0) may differ. Body part only; the car is posed as a whole.

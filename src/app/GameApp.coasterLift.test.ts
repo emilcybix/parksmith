@@ -263,3 +263,43 @@ describe('lift toggles in the designer', () => {
     game.destroy();
   });
 });
+
+describe('Phase 38: the designer lets the track cross itself at clearance', () => {
+  const lay = (game: unknown, cells: Array<[number, number]>, heightTargets: Record<number, number>): void => {
+    void game;
+    cells.forEach(([x, y], index) => {
+      if (heightTargets[index] !== undefined) {
+        for (let step = 0; step < 4; step += 1) gameBridge.coasterAdjustHeight(-1);
+        for (let step = 0; step < heightTargets[index]; step += 1) gameBridge.coasterAdjustHeight(1);
+      }
+      if (index === 0) inputHandlers!.start({ x, y });
+      else inputHandlers!.move({ x, y });
+    });
+    const [lastX, lastY] = cells[cells.length - 1];
+    inputHandlers!.end({ x: lastX, y: lastY });
+  };
+  // East along y = 5, round, and back north through (6, 5).
+  const route: Array<[number, number]> = [
+    [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5], [8, 5], [8, 6], [8, 7], [7, 7], [6, 7], [6, 6], [6, 5], [6, 4],
+  ];
+
+  it('re-entering a cell two levels below the earlier piece adds the crossing', async () => {
+    const game = await openDesigner([], 'comet-trail');
+    lay(game, route, { 0: 0, 3: 2, 7: 0 });
+    const pieces = internals(game).coasterDraft;
+    const atCrossing = pieces.filter((piece) => piece.cell.x === 6 && piece.cell.y === 5).map((piece) => piece.height);
+    expect(atCrossing).toEqual([2, 0]);
+    expect(pieces[pieces.length - 1].cell).toEqual({ x: 6, y: 4 });
+    game.destroy();
+  });
+
+  it('re-entering it one level below is refused, with the clearance message', async () => {
+    const game = await openDesigner([], 'comet-trail');
+    lay(game, route, { 0: 0, 3: 1, 7: 0 });
+    const pieces = internals(game).coasterDraft;
+    expect(pieces.filter((piece) => piece.cell.x === 6 && piece.cell.y === 5)).toHaveLength(1);
+    expect(pieces[pieces.length - 1].cell, 'the draft stops before the refused cell').toEqual({ x: 6, y: 6 });
+    expect(useUiStore.getState().toast).toContain('levels needed');
+    game.destroy();
+  });
+});

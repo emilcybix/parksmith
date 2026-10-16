@@ -68,13 +68,15 @@ export const placeholderCoaster: CoasterContent = {
     palette: Palette,
     outlineGroup: number,
     out: BoxWriter,
+    _paint?: Uint8Array | null,
+    supports = true,
   ): void => {
     const piece = pieces[index];
     const x = piece.cell.x * VOXELS_PER_TILE;
     const y = piece.cell.y * VOXELS_PER_TILE;
     const bed = piece.height * COASTER_LEVEL_VOXELS + PATH_TOP_Z;
     out.push(x + 8, y + 8, bed, 16, 16, 4, packBoxWord(palette.material(definition.color), outlineGroup, PATTERN.PLAIN, 0));
-    if (piece.height > 0) {
+    if (piece.height > 0 && supports) {
       out.push(x + 2, y + 2, PATH_TOP_Z, 2, 2, bed - PATH_TOP_Z, packBoxWord(MAT.SUPPORT, outlineGroup, PATTERN.PLAIN, 0));
     }
   },
