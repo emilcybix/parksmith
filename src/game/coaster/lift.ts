@@ -188,7 +188,7 @@ export const analyseLiftRuns = (pieces: readonly CoasterPiece[]): LiftRunAnalysi
   let creepOnClimb = 0;
   for (let step = 1; step <= count; step += 1) {
     const segment = (origin + step + count) % count;
-    if (pieces[segment].special === 'boost') creepOnClimb = 0;
+    if (pieces[segment].special === 'boost' || pieces[segment].special === 'launch') creepOnClimb = 0;
     const heightChange = pieces[(segment + 1) % count].height - pieces[segment].height;
     if (heightChange < 0) creepOnClimb = 0;
     else if (heightChange > 0) {

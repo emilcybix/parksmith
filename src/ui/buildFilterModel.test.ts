@@ -18,7 +18,7 @@ describe('the build dock filter rail (Phase 29)', () => {
   });
 
   it('puts every coaster under Coasters and splits the flat rides into gentle, family and thrill', () => {
-    expect(ids('rides', 'coasters')).toEqual(['comet-trail', 'star-chaser', 'skyline-serpent', 'whisker-mouse', 'timber-twister']);
+    expect(ids('rides', 'coasters')).toEqual(['comet-trail', 'star-chaser', 'skyline-serpent', 'whisker-mouse', 'timber-twister', 'thunder-launch']);
     expect(ids('rides', 'gentle')).toContain('moonpetal-carousel');
     expect(ids('rides', 'family')).toContain('comet-cups');
     expect(ids('rides', 'thrill')).toContain('thunder-drum');
@@ -45,7 +45,7 @@ describe('the build dock filter rail (Phase 29)', () => {
     expect(view.activeId).toBe('thrill');
     expect(view.chips.filter((chip) => chip.active).map((chip) => chip.id)).toEqual(['thrill']);
     expect(view.chips.find((chip) => chip.id === 'all')?.count).toBe(ids('rides').length);
-    expect(view.chips.find((chip) => chip.id === 'coasters')?.count).toBe(5);
+    expect(view.chips.find((chip) => chip.id === 'coasters')?.count).toBe(6);
     expect(buildFilterView(BUILD_CATALOG, 'rides', 'no-such-filter').activeId).toBe(ALL_FILTER_ID);
     expect(buildFilterView(BUILD_CATALOG, 'rides', 'souvenirs').activeId, "another category's filter").toBe(ALL_FILTER_ID);
     // A filter that matches nothing in this catalog is not offered (and so cannot be stuck on).

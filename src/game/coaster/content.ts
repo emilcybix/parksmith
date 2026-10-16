@@ -1,4 +1,5 @@
-export type CoasterSpecial = 'loop' | 'boost';
+/** Phase 39 step 2: `launch` is the launch family's special: a launch track that fires the train out at speed. */
+export type CoasterSpecial = 'loop' | 'boost' | 'launch';
 
 /**
  * Phase 39: what a coaster is built like. `steel` is the original three types; a family has its own build rules
@@ -7,8 +8,11 @@ export type CoasterSpecial = 'loop' | 'boost';
  *   count for more, drops for less.
  * - `wooden`: wooden track and lattice supports, no inversions; rougher (more intensity per drop) with an airtime
  *   bonus per hill, lower reliability.
+ * - `launch` (step 2): at least one `launch` piece replaces the chain lift's job (the train leaves it at
+ *   `speed.launch`, and a chain-free climb after it rides that momentum up a top hat); the height cap is
+ *   `coaster.launchMaximumHeight` (5) instead of the usual 4.
  */
-export type CoasterFamily = 'steel' | 'wild-mouse' | 'wooden';
+export type CoasterFamily = 'steel' | 'wild-mouse' | 'wooden' | 'launch';
 
 /**
  * A buildable coaster family: same designer, different physical limits and economy.
@@ -87,6 +91,18 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     pieceCost: 42,
     heightCostPerLevel: 30,
     allowedSpecials: [],
+  },
+  {
+    definitionId: 'thunder-launch',
+    family: 'launch',
+    maximumHeight: 5,
+    trainCapacity: 12,
+    trainCars: 4,
+    reliability: 82,
+    stationCost: 900,
+    pieceCost: 70,
+    heightCostPerLevel: 50,
+    allowedSpecials: ['launch', 'boost'],
   },
 ] as const;
 

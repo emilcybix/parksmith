@@ -201,6 +201,18 @@ export const RESEARCH_PROJECTS: readonly ResearchProjectDefinition[] = [
     requiredMilestoneIds: [],
     unlockDefinitionIds: ['timber-twister'],
   },
+  {
+    id: 'launch-lab',
+    tier: 3,
+    name: 'Launch Lab',
+    category: 'rides',
+    description: 'Linear motors instead of a chain: fire a coaster up a top hat.',
+    researchPointCost: 100,
+    cashCost: 1_200,
+    prerequisiteIds: ['vertical-motion'],
+    requiredMilestoneIds: [],
+    unlockDefinitionIds: ['thunder-launch'],
+  },
 ] as const;
 
 export const RESEARCH_PROJECT_BY_ID = new Map<ResearchProjectId, ResearchProjectDefinition>(

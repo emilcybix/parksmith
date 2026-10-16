@@ -11,7 +11,7 @@ export const layoutFromMoves = (
   start: { x: number; y: number },
   moves: string,
   heights: readonly number[],
-  specials: Readonly<Record<number, 'loop' | 'boost'>> = {},
+  specials: Readonly<Record<number, 'loop' | 'boost' | 'launch'>> = {},
 ): CoasterPiece[] => {
   const pieces: CoasterPiece[] = [];
   let x = start.x;
@@ -187,3 +187,7 @@ export const randomCircuit = (seed: number, target: number, size: number): Coast
   });
 };
 
+
+/** Phase 39 step 2: the oval with a launch on piece 3, the first straight after the station (valid for the launch family). */
+export const launchOvalLayout = (start = { x: 4, y: 4 }): CoasterPiece[] =>
+  layoutFromMoves(start, OVAL_MOVES, OVAL_HEIGHTS, { 3: 'launch' });

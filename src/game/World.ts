@@ -1362,11 +1362,11 @@ export class GameWorld implements Serializable<GameWorldState> {
         const piecePath = `${path}.pieces[${pieceIndex}]`;
         if (!isPlainObject(piece)) return fail(piecePath, 'is not an object');
         checkCell(piece.cell, `${piecePath}.cell`);
-        if (!isInteger(piece.height) || piece.height < 0 || piece.height > coasterConfig.absoluteMaximumHeight) {
-          fail(`${piecePath}.height`, `must be an integer 0..${coasterConfig.absoluteMaximumHeight}`);
+        if (!isInteger(piece.height) || piece.height < 0 || piece.height > coasterConfig.launchMaximumHeight) {
+          fail(`${piecePath}.height`, `must be an integer 0..${coasterConfig.launchMaximumHeight}`);
         }
-        if (piece.special !== undefined && piece.special !== 'loop' && piece.special !== 'boost') {
-          fail(`${piecePath}.special`, 'is not loop or boost');
+        if (piece.special !== undefined && piece.special !== 'loop' && piece.special !== 'boost' && piece.special !== 'launch') {
+          fail(`${piecePath}.special`, 'is not loop, boost or launch');
         }
         if (piece.freeClimb !== undefined && piece.freeClimb !== true) fail(`${piecePath}.freeClimb`, 'is not true');
       });

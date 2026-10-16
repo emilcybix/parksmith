@@ -68,6 +68,7 @@ const sweep = (pieces: readonly CoasterPiece[]): Sweep => {
     const current = pieces[index];
     const next = pieces[(index + 1) % pieces.length];
     if (current.special === 'boost') speed = Math.max(speed, speedConfig.boost);
+    if (current.special === 'launch') speed = Math.max(speed, speedConfig.launch);
     if (current.special === 'loop') speed = Math.max(speedConfig.minimum, speed - speedConfig.loopDrag);
     const heightChange = next.height - current.height;
     let segmentSpeed: number;

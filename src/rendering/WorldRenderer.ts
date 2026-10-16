@@ -1359,7 +1359,7 @@ export class WorldRenderer implements RendererPort {
     if (pieces.length < 2 && !closed) return;
     const boostTiles: number[] = [];
     for (const [index, piece] of pieces.entries()) {
-      if (piece.special === 'boost') boostTiles.push(index + offset);
+      if (piece.special === 'boost' || piece.special === 'launch') boostTiles.push(index + offset);
     }
     const geometry = buildClassicTrack(line, offset, offset + pieces.length - 1, { closed, stationLength, boostTiles });
     this.strokeCoasterGeometry(graphic, geometry, palette, alpha);

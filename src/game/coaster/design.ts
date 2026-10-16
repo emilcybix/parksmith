@@ -40,6 +40,8 @@ export type CoasterValidationFailure =
   | 'lift-run-mixed'
   /** Phase 39: a wild mouse turns only on the flat (the piece and both neighbours at one height). */
   | 'mouse-turn-not-flat'
+  /** Phase 39 step 2: a launch coaster needs at least one launch piece. */
+  | 'launch-missing'
   /** Designer only (checkCoasterDesign): never raised when a save loads. */
   | 'free-climb-stalls';
 
@@ -133,7 +135,7 @@ export const validateCoasterLayout = (
   if (pieces.length < config.minimumPieces) return failure('too-short');
   if (pieces.length > config.maximumPieces) return failure('too-long');
 
-  const maximumHeight = Math.min(type.maximumHeight, config.absoluteMaximumHeight);
+  const maximumHeight = Math.min(type.maximumHeight, type.family === 'launch' ? config.launchMaximumHeight : config.absoluteMaximumHeight);
   // Phase 38: a cell may be visited again when the two pieces are far enough apart in height and neither keeps
   // its cell to itself (station, special, under a loop ring); `overlapping` stays for an exact repeat height.
   const seen = new Map<string, number[]>();
@@ -196,6 +198,7 @@ export const validateCoasterLayout = (
   if (highest < 2 || !hasDrop) return failure('no-drop');
 
   // Phase 39: family rules (a steel layout never meets one).
+  if (type.family === 'launch' && !pieces.some((piece) => piece.special === 'launch')) return failure('launch-missing');
   if (type.family === 'wild-mouse') {
     for (let index = 0; index < pieces.length; index += 1) {
       if (isStraightAt(pieces, index)) continue;
@@ -260,6 +263,8 @@ export const deriveCoasterStats = (
   const highestHeight = Math.max(...pieces.map((piece) => piece.height));
   const loops = pieces.filter((piece) => piece.special === 'loop').length;
   const boosts = pieces.filter((piece) => piece.special === 'boost').length;
+  // Phase 39 step 2: not a saved stat (adding a key would change every coaster's record); 0 on every older layout.
+  const launches = pieces.filter((piece) => piece.special === 'launch').length;
   const speed = coasterSpeedProfile(pieces);
 
   // Free climbs add a bounded bonus; a layout without one takes the exact expressions it always did.
@@ -271,10 +276,12 @@ export const deriveCoasterStats = (
   const rawExcitement = 16 + pieces.length * 0.5 + turns * family.turn + totalDescent * family.descent + highestHeight * 3
     + loops * specials.loop.excitement + boosts * specials.boost.excitement
     + (speed.topSpeed - GAME_CONFIG.coaster.speed.cruise) * 2.5
-    + airtime;
+    + airtime
+    + launches * specials.launch.excitement;
   const rawIntensity = 8 + biggestDrop * family.biggestDrop + totalDescent * 2.5 + steepTurnPairs * family.steepTurns
     + loops * specials.loop.intensity + boosts * specials.boost.intensity
-    + speed.topSpeed * 1.2;
+    + speed.topSpeed * 1.2
+    + launches * specials.launch.intensity;
   // Phase 38: each crossing is a near miss (capped); a layout without one takes the exact expressions it always did.
   const crossings = coasterCrossings(pieces);
   const crossing = GAME_CONFIG.coaster.crossing;
@@ -291,7 +298,7 @@ export const deriveCoasterStats = (
     0,
     100,
   ));
-  const baseRunningCost = 4 + pieces.length * 0.12 + loops * 0.8 + boosts * 0.5;
+  const baseRunningCost = 4 + pieces.length * 0.12 + loops * 0.8 + boosts * 0.5 + launches * 1.2;
   return {
     pieces: pieces.length,
     turns,
@@ -392,5 +399,6 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'lift-flag-not-climbing': 'Only climbing track can be chain-free.',
   'lift-run-mixed': 'A hill is either all chain or all free.',
   'mouse-turn-not-flat': 'Wild mouse turns must be flat: climb and drop on the straights.',
+  'launch-missing': 'A launch coaster needs a launch: put one on a straight after the station.',
   'free-climb-stalls': 'Free climb too long: the train would crawl. Chain this hill.',
 };

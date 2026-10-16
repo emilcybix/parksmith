@@ -493,6 +493,8 @@ export const GAME_CONFIG = {
     minimumPieces: 12,
     maximumPieces: 64,
     absoluteMaximumHeight: 4,
+    /** Phase 39 step 2: the launch family's height cap (its top hat); the rest keep `absoluteMaximumHeight`. */
+    launchMaximumHeight: 5,
     pathClearanceHeight: 2,
     /** Phase 38: two track pieces may share a cell when their heights differ by at least this many levels. */
     trackClearanceLevels: 2,
@@ -506,6 +508,7 @@ export const GAME_CONFIG = {
       steel: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, airtimePerDrop: 0, airtimeDrops: 0 },
       'wild-mouse': { turn: 2.4, descent: 3, biggestDrop: 6, steepTurns: 4, airtimePerDrop: 0, airtimeDrops: 0 },
       wooden: { turn: 1.5, descent: 4.5, biggestDrop: 13, steepTurns: 2.2, airtimePerDrop: 1.5, airtimeDrops: 4 },
+      launch: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, airtimePerDrop: 0, airtimeDrops: 0 },
     },
     stationLoadSeconds: 6,
     speed: {
@@ -516,6 +519,8 @@ export const GAME_CONFIG = {
       dropBoostPerLevel: 1.9,
       flatDrag: 0.25,
       boost: 5.2,
+      /** Phase 39 step 2: the speed a launch piece fires the train out at (above the drop cap `maximum`). */
+      launch: 8.5,
       loopDrag: 0.6,
       loopLengthFactor: 3,
     },
@@ -552,6 +557,7 @@ export const GAME_CONFIG = {
     specials: {
       loop: { cost: 260, excitement: 9, intensity: 12 },
       boost: { cost: 140, excitement: 3, intensity: 4 },
+      launch: { cost: 420, excitement: 6, intensity: 8 },
     },
   },
   operations: {

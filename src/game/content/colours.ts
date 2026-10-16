@@ -306,6 +306,7 @@ export const COASTER_COLOUR_SLOTS: Readonly<Record<string, readonly ColourSlotDe
   // Phase 39: catalog colours only, so the voxel palette gains no material.
   'whisker-mouse': coaster(0x4c9fd4, 0xef6f8f, 0xef6f8f, 0x4d7f86),
   'timber-twister': coaster(0xc0392b, 0xffd166, 0xffd166, 0x79543a),
+  'thunder-launch': coaster(0x9557d1, 0xf5f06c, 0xf5f06c, 0x2c5b64),
 });
 
 const shop = (walls: number, roof: number): readonly ColourSlotDef[] => table([

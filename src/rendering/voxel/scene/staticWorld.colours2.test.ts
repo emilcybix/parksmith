@@ -11,7 +11,7 @@ vi.mock('../../../game/config', async (importOriginal) => {
 });
 import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS, PHASE39_DEFINITION_IDS } from '../../../game/content/catalog';
 import { coasterBaseCost, deriveCoasterStats } from '../../../game/coaster/design';
-import { ovalLayout } from '../../../game/coaster/testLayouts';
+import { layoutFromMoves, ovalLayout } from '../../../game/coaster/testLayouts';
 import {
   COLOUR_SWATCHES,
   COLOURABLE_DEFINITION_IDS,
@@ -97,8 +97,15 @@ const setup = (options: { gated?: boolean } = {}) => {
       let placed = false;
       for (let y = 0; y + 5 <= game.height && !placed; y += 1) {
         for (let x = 0; x + 9 <= game.width && !placed; x += 1) {
-          const pieces = ovalLayout({ x, y });
-          placed = !('error' in game.placeCoaster(id, pieces, deriveCoasterStats(pieces, type), coasterBaseCost(pieces, type)));
+          // The launch coaster takes a compact 6 x 2 loop: the colour park has no 9 x 5 space left after the other two.
+          // It must still cross a chunk edge (the recolour test below checks several chunks rebuild).
+          if (type.family === 'launch' && Math.floor(x / 8) === Math.floor((x + 5) / 8) && Math.floor(y / 8) === Math.floor((y + 1) / 8)) continue;
+          const pieces = type.family === 'launch'
+            ? layoutFromMoves({ x, y }, 'EEEEESWWWWWN', [0, 0, 0, 1, 2, 2, 1, 0, 0, 0, 0, 0], { 3: 'launch' })
+            : ovalLayout({ x, y });
+          const result = game.placeCoaster(id, pieces, deriveCoasterStats(pieces, type), coasterBaseCost(pieces, type));
+          placed = !('error' in result);
+          if ('error' in result && result.error !== 'blocked') throw new Error(`${id}: ${result.error}`);
         }
       }
       expect(placed, `${id} is placed`).toBe(true);

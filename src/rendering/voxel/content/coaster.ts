@@ -264,6 +264,8 @@ const TYPE_LOOK: Readonly<Record<string, { tie?: number; spine: number; support:
   // Phase 39: a grey steel mouse track; a wooden coaster with wood ties and a timber spine and lattice.
   'whisker-mouse': { spine: MAT.PANTS_DARK, support: MAT.STEEL_LIGHT },
   'timber-twister': { tie: MAT.WOOD, spine: MAT.TIMBER, support: MAT.TIMBER },
+  // Phase 39 step 2: a launch coaster in steel blue-grey.
+  'thunder-launch': { spine: MAT.INK, support: MAT.STEEL },
 };
 
 /**
@@ -600,7 +602,8 @@ const layoutBand = (
 /** Lays out the piece's track columns (tops, layers, chevrons) for `frame`. */
 const layoutColumns = (frame: PieceFrame, pieces: readonly CoasterPiece[], special: CoasterPiece['special']): void => {
   layoutBand(frame, pieces, COLUMN_FLAGS, COLUMN_TOP, COLUMN_TOP_KIND);
-  if (frame.straight && special === 'boost') {
+  // Phase 39 step 2: a launch track shows the boost's glowing chevrons too (it is a longer, stronger boost).
+  if (frame.straight && (special === 'boost' || special === 'launch')) {
     const acrossX = frame.outY !== 0 ? 1 : 0;
     const acrossY = frame.outX !== 0 ? 1 : 0;
     for (let chevron = 0; chevron < CHEVRON_TIPS.length; chevron += 1) {
@@ -1238,6 +1241,7 @@ const kindOf = (definition: BuildDefinition): CoasterKind => {
   const family = COASTER_TYPE_BY_ID.get(definition.id)?.family;
   if (family === 'wild-mouse') return 'mouse';
   if (family === 'wooden') return 'timber';
+  if (family === 'launch') return 'star';
   return 'comet';
 };
 

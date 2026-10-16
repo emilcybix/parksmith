@@ -277,11 +277,15 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
     id: 'timber-twister', name: 'Timber Twister', kind: 'ride', category: 'rides', icon: '⋕', custom: 'coaster',
     description: 'A wooden coaster: rattling drops and airtime hills up to level 3, no loops. Wears faster.', buildCost: 450, footprint: [1, 1], color: 0xc0392b, accent: 0xffd166,
   },
+  {
+    id: 'thunder-launch', name: 'Thunder Launch', kind: 'ride', category: 'rides', icon: '⚡', custom: 'coaster',
+    description: 'A launch coaster: no chain lift, a launch fires the train up a top hat to level 5.', buildCost: 900, footprint: [1, 1], color: 0x9557d1, accent: 0xf5f06c,
+  },
 ] as const;
 
 /** Phase 29: the entries appended for guest life and souvenirs (five souvenir stalls and the warm drink barrow), in order. */
 export const PHASE29_DEFINITION_IDS: readonly string[] = ['brolly-booth', 'hat-hutch', 'balloon-bouquet', 'plushie-parlour', 'glow-cart', 'bean-barrow'];
 /** Phase 39: the coaster families' catalog cards, appended last. */
-export const PHASE39_DEFINITION_IDS: readonly string[] = ['whisker-mouse', 'timber-twister'];
+export const PHASE39_DEFINITION_IDS: readonly string[] = ['whisker-mouse', 'timber-twister', 'thunder-launch'];
 
 export const BUILD_BY_ID = new Map(BUILD_CATALOG.map((definition) => [definition.id, definition]));

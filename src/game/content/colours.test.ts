@@ -169,7 +169,7 @@ describe('the step-2 slot tables', () => {
 
   it('exactly these definitions are colourable, by kind', () => {
     expect(ids(RIDE_COLOUR_SLOTS)).toEqual([...FLAT_RIDES]);
-    expect(ids(COASTER_COLOUR_SLOTS)).toEqual(['comet-trail', 'star-chaser', 'skyline-serpent', 'whisker-mouse', 'timber-twister']);
+    expect(ids(COASTER_COLOUR_SLOTS)).toEqual(['comet-trail', 'star-chaser', 'skyline-serpent', 'whisker-mouse', 'timber-twister', 'thunder-launch']);
     expect(ids(STALL_COLOUR_SLOTS)).toEqual(['picnic-pocket', 'fizz-foundry', 'glacier-scoop', 'lemon-light', 'waffle-windmill', 'snack-sprint', 'cactus-cooler', 'cocoa-chalet', 'comfort-cabin', 'comfort-pavilion', 'pretzel-pram', 'coconut-cove',
       // Phase 29 souvenir stalls and the warm drink barrow.
       'brolly-booth', 'hat-hutch', 'balloon-bouquet', 'plushie-parlour', 'glow-cart', 'bean-barrow']);

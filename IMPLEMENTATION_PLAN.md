@@ -2767,7 +2767,7 @@ new failures), `GameWorld` (`trackLayers`, `coasterPieceConflict`, `objectsAt`, 
   `rendering/voxel/content/coasterCrossing.test.ts` (no bent on the upper piece, the `supports` flag, model heights),
   `GameApp.coasterLift.test.ts` (designer re-entry at clearance, refusal with the message).
 
-## Phase 39 — More Coaster Types (step 1 built 2026-10-16: wild mouse and wooden)
+## Phase 39 — More Coaster Types (built 2026-10-16: wild mouse, wooden, launch; inverted open)
 
 **Before.** Three coaster types (`comet-trail`, `star-chaser`, `skyline-serpent`), the same steel coaster with different
 numbers. **Now** every `CoasterTypeDefinition` has a `family` (`steel`, `wild-mouse`, `wooden`) that selects build
@@ -2793,8 +2793,12 @@ coaster stores its type id).
   harness drops appended definitions and projects, as for Phase 16).
 
 **Not built yet (step 2+).**
-- [ ] **Launch** (a `launch` special after the station, a launch segment in `speedModel`, a taller cap for the family):
-  needs speed-model work and its own balance pass.
+- [x] **Launch: Thunder Launch** (`thunder-launch`, step 2, research *Launch Lab*, tier 3 after Vertical Motion). A new
+  special `launch` (straight, not on the station; the boost's chevrons), at least one required (`launch-missing`). The
+  speed model fires the train out at `speed.launch` (8.5, above the drop cap 6), so a chain-free climb after it rides
+  the momentum up a top hat; the family's height cap is `coaster.launchMaximumHeight` (5). Launches add excitement 6,
+  intensity 8, $420 and running cost; no saved stat changed shape (a layout without a launch derives exactly as
+  before). On a 32-piece top hat: excitement 97.8, intensity 91.7, top speed 8.3, $4,610 (BALANCE_NOTES Phase 39).
 - [ ] **Inverted** (the train under the track, supports from above, every piece outside the station at
   `pathClearanceHeight` + 1 or higher): needs a hanging car pose and new support art; Phase 38's layered cells are in.
 - [ ] Candidates after these: mine train, spinning, bobsled, flying, water coaster.

@@ -6,6 +6,7 @@ import type { TimeLock } from '../game/calendar/calendarMath';
 import type { WeatherSeverity } from '../game/weather/types';
 import type { GameSpeed } from '../game/types';
 import type { StaffRole } from '../game/operations/types';
+import type { CoasterSpecial } from '../game/coaster/content';
 import type { SaveCommands, SaveFailure, SaveResult } from './saves/types';
 import type { RecoveryCommands, RecoveryFailure, RecoveryResult } from './saves/recoveryTypes';
 import type { UndoCommands } from './undo/types';
@@ -115,7 +116,7 @@ export interface GameCommands extends UndoCommands {
   coasterUndo(): void;
   coasterClear(): void;
   coasterBuild(): void;
-  coasterToggleSpecial(kind: 'loop' | 'boost'): void;
+  coasterToggleSpecial(kind: CoasterSpecial): void;
   /** Flips the lift under the cursor, else the last one laid. */
   coasterToggleLift(): void;
   /** Sets the lift that starts at the piece index to chained or free. */
@@ -215,7 +216,7 @@ export const gameBridge = {
   coasterUndo: () => commands?.coasterUndo(),
   coasterClear: () => commands?.coasterClear(),
   coasterBuild: () => commands?.coasterBuild(),
-  coasterToggleSpecial: (kind: 'loop' | 'boost') => commands?.coasterToggleSpecial(kind),
+  coasterToggleSpecial: (kind: CoasterSpecial) => commands?.coasterToggleSpecial(kind),
   coasterToggleLift: () => commands?.coasterToggleLift(),
   coasterSetLift: (runStart: number, chained: boolean) => commands?.coasterSetLift(runStart, chained),
   menuContinue: () => commands?.menuContinue() ?? Promise.resolve(),

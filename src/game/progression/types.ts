@@ -18,7 +18,8 @@ export type ResearchProjectId =
   | 'future-styling'
   // Phase 39
   | 'tight-turns'
-  | 'timber-framing';
+  | 'timber-framing'
+  | 'launch-lab';
 
 /** Phase 16: 1 = an opener (no prerequisite), 2 = its fork, 3 = the late tier. */
 export type ResearchTier = 1 | 2 | 3;

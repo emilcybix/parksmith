@@ -1538,6 +1538,16 @@ export const CoasterPanel = (): React.JSX.Element | null => {
                 title="Toggle a launch boost on the last placed piece (straight track only)"
               ><span aria-hidden="true">»</span> Boost</button>
             )}
+            {/* Phase 39 step 2: the launch family's launch track. */}
+            {draft.allowedSpecials.includes('launch') && (
+              <button
+                className={draft.lastPieceSpecial === 'launch' ? 'active' : ''}
+                aria-pressed={draft.lastPieceSpecial === 'launch'}
+                onClick={() => gameBridge.coasterToggleSpecial('launch')}
+                disabled={draft.pieces === 0}
+                title="Toggle a launch on the last placed piece (straight track only): it fires the train out at full speed"
+              ><span aria-hidden="true">⚡</span> Launch</button>
+            )}
           </div>
         </div>
       )}

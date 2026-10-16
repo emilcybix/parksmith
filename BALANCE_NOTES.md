@@ -937,6 +937,12 @@ Set on 2026-10-16 from the ride model only (no play, no bot). Same layouts, ever
 | flat zig-zag | Whisker Mouse | 65.7 | 51.5 | 8 | 92 | 1,084 |
 | flat zig-zag | Timber Twister | 63 | 56.5 | 10 | 76 | 1,494 |
 
+**Step 2, the launch family.** The 32-piece top hat (launch on piece 3, a chain-free climb to level 5, the flat way
+home) on the Thunder Launch: excitement 97.8, intensity 91.7, top speed 8.3, capacity 12, reliability 80 (82 less the
+free run), base cost $4,610, ticket $10. The same shape chained and capped at level 4 on the Skyline Serpent: 77, 67.4,
+6.0, 8, 80, $3,910. The launch buys the top of the excitement range with intensity guests mind; open: whether 91.7
+scares too many riders away to pay back the price.
+
 Reading: the mouse is the cheap, exciting small-park coaster with less throughput; the wooden coaster is the cheap way
 to a tall, exciting ride, paid for in intensity (fewer guests ride it) and in breakdowns (reliability 76 against 86).
 Neither has loops, so the Star Chaser and Skyline Serpent keep the top of the excitement range. Open: a played check

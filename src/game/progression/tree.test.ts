@@ -45,9 +45,9 @@ describe('Phase 16 research tree', () => {
       'family-favorites', 'water-works', 'thrill-engineering',
       'refreshment-lab', 'temple-expeditions', 'seaside-styling', 'adventure-styling', 'future-styling',
       // Phase 39: the coaster families, appended.
-      'tight-turns', 'timber-framing',
+      'tight-turns', 'timber-framing', 'launch-lab',
     ]);
-    expect(new Set(RESEARCH_PROJECTS.map((project) => project.id)).size).toBe(16);
+    expect(new Set(RESEARCH_PROJECTS.map((project) => project.id)).size).toBe(17);
   });
 
   it('the new projects are exactly the design table (base RP, cash, prerequisite, milestone, unlocks)', () => {
@@ -102,10 +102,10 @@ describe('Phase 16 research tree', () => {
     expect(Math.max(...costsOf(1))).toBeLessThanOrEqual(Math.min(...costsOf(2)));
     expect(Math.max(...costsOf(2))).toBeLessThanOrEqual(Math.min(...costsOf(3)));
     const total = (tier: number) => costsOf(tier).reduce((sum, cost) => sum + scaledResearchPoints(cost, 10), 0);
-    // Phase 39 adds two tier-2 projects (500 and 700 RP at scale 10).
-    expect([total(1), total(2), total(3)]).toEqual([1_250, 6_050, 2_050]);
-    // The design rounds this to "$9,000"; the per-project cash costs of its table sum to $8,950, plus Phase 39's $1,300.
-    expect(RESEARCH_PROJECTS.reduce((sum, project) => sum + project.cashCost, 0)).toBe(10_250);
+    // Phase 39 adds two tier-2 projects (500 and 700 RP at scale 10) and, step 2, Launch Lab at tier 3 (1,000).
+    expect([total(1), total(2), total(3)]).toEqual([1_250, 6_050, 3_050]);
+    // The design rounds this to "$9,000"; the per-project cash costs of its table sum to $8,950, plus Phase 39's $2,500.
+    expect(RESEARCH_PROJECTS.reduce((sum, project) => sum + project.cashCost, 0)).toBe(11_450);
   });
 
   it('every opener forks (Phase 39) at the next tier, and every project belongs to an opener\'s branch', () => {
@@ -113,7 +113,8 @@ describe('Phase 16 research tree', () => {
     expect(openers.map((project) => project.id)).toEqual(['spin-studies', 'express-service', 'garden-appeal', 'family-favorites']);
     // Phase 39: Tight Turns gave Spin Studies its second fork, so now every opener forks.
     expect(openers.filter((project) => childrenOf(project.id).length < 2).map((project) => project.id)).toEqual([]);
-    expect(childrenOf('vertical-motion').length).toBe(2);
+    // Phase 39 step 2: Launch Lab is Vertical Motion's third fork.
+    expect(childrenOf('vertical-motion').length).toBe(3);
     for (const project of RESEARCH_PROJECTS) {
       expect(openers.map((opener) => opener.id), project.id).toContain(researchBranchOf(project.id));
     }

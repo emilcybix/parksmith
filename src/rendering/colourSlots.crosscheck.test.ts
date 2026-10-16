@@ -63,10 +63,10 @@ const ALL_IDS = [...COLOURABLE_DEFINITION_IDS, ENTRANCE_COLOUR_ID];
 const PHASE16_CLASSIC_GENERIC_RIDES: ReadonlySet<string> = new Set(['puddle-jumpers', 'rocket-pendulum', 'temple-trek']);
 
 describe('both renderers repaint the slots the table declares', () => {
-  it('covers 49 catalog definitions and the gate, every one with at least one slot and unique slot ids and tags', () => {
-    // 29 before Phase 16, plus its 3 rides, 2 stalls and 7 themed scenery pieces, Phase 29's 6 stalls and Phase 39's 2 coasters.
-    expect(COLOURABLE_DEFINITION_IDS).toHaveLength(49);
-    expect(Object.keys(COLOUR_SLOTS)).toHaveLength(50);
+  it('covers 50 catalog definitions and the gate, every one with at least one slot and unique slot ids and tags', () => {
+    // 29 before Phase 16, plus its 3 rides, 2 stalls and 7 themed scenery pieces, Phase 29's 6 stalls and Phase 39's 3 coasters.
+    expect(COLOURABLE_DEFINITION_IDS).toHaveLength(50);
+    expect(Object.keys(COLOUR_SLOTS)).toHaveLength(51);
     for (const id of ALL_IDS) {
       const slots = colourSlotsFor(id);
       expect(slots.length, id).toBeGreaterThanOrEqual(1);
