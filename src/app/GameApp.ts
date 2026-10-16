@@ -2096,18 +2096,13 @@ export class GameApp implements GameCommands, RunCommands {
   }
 
   /**
-   * Boot has the save list and the recovery decision. The first run (no profile, no saves) keeps the
-   * Phase 13 flow and drops the menu (Phase 23: it lands in the Sandbox First Day park, and nothing opens over it); everyone else gets the park behind the start screen chosen.
+   * Boot has the save list and the recovery decision: the park behind the start screen is chosen (a first run too; only
+   * `&menu=0` skips the menu).
    */
   private onBootReady(): void {
     if (this.destroyed) return;
     if (this.menuHold) {
-      const decision = bootMenuDecision({
-        enabled: this.startMenuEnabled,
-        isFirstRun: this.profile.isFirstRun,
-        developerMode: DEVELOPER_MODE,
-        hasSlots: this.saves.snapshot().slots.length > 0,
-      });
+      const decision = bootMenuDecision({ enabled: this.startMenuEnabled });
       if (decision === 'menu') {
         void this.refreshMenuPreview();
         return;

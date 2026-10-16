@@ -919,13 +919,17 @@ describe('Quit to menu', () => {
 });
 
 describe('boot decision in GameApp', () => {
-  it('keeps the Phase 13 first run: no profile and no saves skips the menu and runs the Sandbox First Day park (Phase 23: nothing opens over it)', async () => {
+  it('a first run (no profile, no saves) opens on the start screen too; New park gives the Sandbox First Day park', async () => {
     const { game } = await makeGame(new MemorySaveStore(), { profileStorage: memoryStorage() });
+    expect(ui().menuKind).toBe('start');
+    expect(game.clock.speed).toBe(0);
+    game.menuNewPark();
     expect(ui().menuKind).toBeNull();
     expect(game.clock.speed).toBe(1);
     expect(ui().scenarioPickerOpen, 'the Parks map is gone').toBe(false);
     expect(ui().runView).toBeNull();
     expect(ui().sessionMode).toBe('sandbox');
+    expect(ui().onboarding, 'the First Day tracker runs').not.toBeNull();
     expect(['world', 'build']).toContain(context());
     game.destroy();
   });

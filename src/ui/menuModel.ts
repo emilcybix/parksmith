@@ -410,22 +410,13 @@ export const menuEscapeStep = (kind: MenuKind, panel: MenuPanel): MenuEscapeStep
 export interface BootMenuInput {
   /** `&menu=0` turns it off. */
   enabled: boolean;
-  /** The browser holds no profile yet (ProfileManager.isFirstRun). */
-  isFirstRun: boolean;
-  developerMode: boolean;
-  hasSlots: boolean;
 }
 
 /**
- * First run (no profile, no saves) keeps the Sandbox First Day (Phase 23 decision): the park opens at once, with no menu
- * in front of it and no map over it, and the one-time "Ready for The Map?" offer follows once the park is stable.
- * Developer mode never skips, so a developer with a clean profile still sees the menu.
+ * Every boot opens on the start screen, a first run included (it replaces the Phase 23 decision that dropped a new player
+ * straight into the Sandbox First Day park): New park from the menu still gives the First Day hints. `&menu=0` skips it.
  */
-export const bootMenuDecision = (input: BootMenuInput): 'menu' | 'skip' => {
-  if (!input.enabled) return 'skip';
-  if (input.isFirstRun && !input.hasSlots && !input.developerMode) return 'skip';
-  return 'menu';
-};
+export const bootMenuDecision = (input: BootMenuInput): 'menu' | 'skip' => (input.enabled ? 'menu' : 'skip');
 
 // --- Messages ------------------------------------------------------------------------------------
 

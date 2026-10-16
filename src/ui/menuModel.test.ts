@@ -205,21 +205,11 @@ describe('quit, keys and escape', () => {
 });
 
 describe('boot decision', () => {
-  const base = { enabled: true, isFirstRun: false, developerMode: false, hasSlots: true };
-  it('shows the menu by default, including in developer mode', () => {
-    expect(bootMenuDecision(base)).toBe('menu');
-    expect(bootMenuDecision({ ...base, developerMode: true })).toBe('menu');
-    expect(bootMenuDecision({ ...base, hasSlots: false })).toBe('menu');
-  });
-  it('keeps the Phase 13 first-run flow: no profile and no saves skips the menu (unless developer mode)', () => {
-    expect(bootMenuDecision({ ...base, isFirstRun: true, hasSlots: false })).toBe('skip');
-    expect(bootMenuDecision({ ...base, isFirstRun: true, hasSlots: false, developerMode: true })).toBe('menu');
-    // a save without a profile is an existing player
-    expect(bootMenuDecision({ ...base, isFirstRun: true, hasSlots: true })).toBe('menu');
+  it('shows the menu on every boot, a first run included', () => {
+    expect(bootMenuDecision({ enabled: true })).toBe('menu');
   });
   it('&menu=0 always skips', () => {
-    expect(bootMenuDecision({ ...base, enabled: false })).toBe('skip');
-    expect(bootMenuDecision({ ...base, enabled: false, developerMode: true })).toBe('skip');
+    expect(bootMenuDecision({ enabled: false })).toBe('skip');
   });
 });
 
