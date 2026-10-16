@@ -50,8 +50,10 @@ const set = (out: CinematicView, ex: number, ey: number, ez: number, tx: number,
   const rightX = dy / flat;
   const rightY = -dx / flat;
   out.eye[0] = ex; out.eye[1] = ey; out.eye[2] = ez;
-  out.target[0] = tx - rightX * flat * MENU_FRAMING;
-  out.target[1] = ty - rightY * flat * MENU_FRAMING;
+  // The picture is mirrored like the isometric view (perspective.ts), so the physical right is the screen's left:
+  // moving the look point toward it puts the subject right of the middle.
+  out.target[0] = tx + rightX * flat * MENU_FRAMING;
+  out.target[1] = ty + rightY * flat * MENU_FRAMING;
   out.target[2] = tz;
   out.fovY = FOV;
   return out;

@@ -22,6 +22,7 @@ uniform highp sampler2D uBoxes;
 uniform highp sampler2D uTransforms;
 uniform mat4 uViewProj;
 uniform vec3 uEye;
+uniform float uZScale;
 
 flat out int vMaterial;
 flat out int vPattern;
@@ -50,13 +51,16 @@ void main() {
   }
   vec3 axisWorld = vxQuatRotate(rotation, vxAxis(axisIndex));
   vec3 centre = pivot + vxQuatRotate(rotation, lower.xyz + extent.xyz * 0.5);
-  float side = dot(axisWorld, uEye - centre) >= 0.0 ? 1.0 : -1.0;
+  float side = dot(axisWorld, uEye - vec3(centre.xy, centre.z * uZScale)) >= 0.0 ? 1.0 : -1.0;
   vec3 local = lower.xyz + extent.xyz * vxFaceCorner(axisIndex, corner, side > 0.0 ? 1.0 : 0.0);
   vec3 world = pivot + vxQuatRotate(rotation, local);
   vec3 normal = axisWorld * side;
-  gl_Position = uViewProj * vec4(world, 1.0);
-  // The G-buffer is a render texture whose row 0 is the top (vxClip flips the isometric path the same way).
+  gl_Position = uViewProj * vec4(world.xy, world.z * uZScale, 1.0);
+  // The G-buffer is a render texture whose row 0 is the top (vxClip flips the isometric path the same way), and the
+  // isometric projection is the mirror image of a physical camera (+x runs right AND toward the viewer): x is flipped
+  // too, so the cinematic picture has the game's handedness (signs read the right way, a turn lands on the isometric).
   gl_Position.y = -gl_Position.y;
+  gl_Position.x = -gl_Position.x;
   vMaterial = word & 255;
   vGroup = (word >> 8) & 255;
   vPattern = (word >> 16) & 31;
@@ -88,14 +92,16 @@ export const perspectiveFigureShaderSource = (): ShaderSource => {
     if (!source.includes(from)) throw new Error(`perspectiveFigureShaderSource: the figure program changed (${from.slice(0, 40)})`);
     return source.replace(from, to);
   };
-  let vertex = replace(base.vertex, 'uniform int uModelBoxCount;', 'uniform int uModelBoxCount;\nuniform mat4 uViewProj;\nuniform vec3 uEye;');
+  let vertex = replace(base.vertex, 'uniform int uModelBoxCount;', 'uniform int uModelBoxCount;\nuniform mat4 uViewProj;\nuniform vec3 uEye;\nuniform float uZScale;');
   vertex = replace(vertex, '  vec3 offset = turnedMin + turnedSize * vxFaceCorner(axisIndex, corner, 1.0);',
     `  vec3 centre = place.xyz + turnedMin + turnedSize * 0.5;
-  float side = dot(vxAxis(axisIndex), uEye - centre) >= 0.0 ? 1.0 : -1.0;
+  float side = dot(vxAxis(axisIndex), uEye - vec3(centre.xy, centre.z * uZScale)) >= 0.0 ? 1.0 : -1.0;
   vec3 offset = turnedMin + turnedSize * vxFaceCorner(axisIndex, corner, side > 0.0 ? 1.0 : 0.0);`);
   vertex = replace(vertex, '  gl_Position = vxClip(snapped + vxProject(offset), uCameraTexel, uClipSize, vxDepthNdc(key, uDepthRange));',
-    `  gl_Position = uViewProj * vec4(place.xyz + offset, 1.0);
-  gl_Position.y = -gl_Position.y;`);
+    `  vec3 placed = place.xyz + offset;
+  gl_Position = uViewProj * vec4(placed.xy, placed.z * uZScale, 1.0);
+  gl_Position.y = -gl_Position.y;
+  gl_Position.x = -gl_Position.x;`);
   vertex = replace(vertex, '  vec3 normal = vxAxis(axisIndex);', '  vec3 normal = vxAxis(axisIndex) * side;');
   vertex = replace(vertex, '  vLambert = vxLambert(normal);', '  vLambert = vxLambert(vec3(abs(normal.x), abs(normal.y), normal.z));');
   return { vertex, fragment: base.fragment };

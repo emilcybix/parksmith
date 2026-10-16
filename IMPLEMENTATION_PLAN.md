@@ -2873,7 +2873,7 @@ cells; a stall facing the path is a destination and one facing away is not, a tw
 non-player placement turns, the player's is exact; every starting park faces its paths; every dev park service sells),
 `app/GameApp.fronts.test.ts` (auto-facing, R override with the warning, rides not turned), migration 15→16.
 
-## Phase 41 — Cinematic 3D Camera (owner go 2026-10-16; steps 0-2 built)
+## Phase 41 — Cinematic 3D Camera (owner go 2026-10-16; steps 0-3 built)
 
 **Why it is closer than it sounds.** The voxel renderer already holds the park as real 3D data: axis-aligned boxes (32
 voxels per tile) with heights, drawn by vertex pulling. What makes the picture isometric is the projection in the
@@ -2931,9 +2931,14 @@ is a different projection of the same boxes; the scene, the blueprints and the s
   renderer draws them, Graphics detail is Full (Lite = the old isometric drift: the Settings switch the plan asked
   for, without a new setting) and motion is allowed (reduced motion keeps the still frame). Leaving the menu hands
   back the isometric camera.
-- [ ] **3. Smooth view turns.** Q / E turns the camera in yaw continuously (about 400 ms) through the 3D projection, and
-  lands exactly on the next isometric view, where building and picking take over again. Input waits for the turn to
-  finish, as it already does for a held drag.
+- [x] **3. Smooth view turns.** Q / E yaw through the cinematic camera in 420 ms (smoothstep) about the ground point at
+  the middle of the screen (`viewTurnCamera.ts`, tested): the isometric projection is an orthographic camera at 30°
+  elevation, √2 texels per voxel, with z drawn at √(2/3); a 6° perspective camera far away with that z scale lands
+  within a texel of it, so the snap to the new isometric view at the end does not show. The CPU side (picking, the
+  scene sort, overlays) is in the new view from the first frame. A press during the yaw is dropped
+  (`RendererPort.viewTurning`). Reduced motion, Lite graphics and loads snap as before. **Found on the way:** the
+  isometric picture is the mirror image of a physical camera (+x runs right and toward the viewer), so every
+  cinematic frame is flipped in x: signs read the right way, and the menu framing was turned round to match.
 - [ ] **4. Ride-along.** A "Ride" button in the ride inspector: the camera rides in the front car of a coaster (the
   train's interpolated position and direction from `coasterTrain.ts`) or on a flat ride's moving part (the rigid ride
   parts). Esc returns to the park at the same spot. The simulation runs on; the HUD hides except a small "Exit ride"

@@ -86,6 +86,10 @@ export interface CinematicView {
   eye: [number, number, number];
   target: [number, number, number];
   fovY: number;
+  /** World z is drawn scaled by this (default 1); a view turn uses ISO_Z_SCALE to match the isometric picture. */
+  zScale?: number;
+  /** Distance fog and the sky (default on); a view turn, framed like the isometric view, has neither. */
+  atmosphere?: boolean;
 }
 
 /**
@@ -208,6 +212,8 @@ export interface RendererPort {
    * only); `cinematicSupported` says whether this GPU drew it. Presentation only.
    */
   setCinematic?(view: Readonly<CinematicView> | null): void;
+  /** Phase 41 step 3: true while a smooth view turn is on screen (a second turn waits for it). */
+  readonly viewTurning?: boolean;
   readonly cinematicSupported?: boolean;
 
   setGridVisible(visible: boolean): void;

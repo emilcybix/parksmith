@@ -471,6 +471,7 @@ class PixiVoxelGpu implements VoxelGpu {
   private readonly perspectiveUniforms = new UniformGroup({
     uViewProj: { value: new Float32Array(16), type: 'mat4x4<f32>' },
     uEye: { value: vec3(), type: 'vec3<f32>' },
+    uZScale: { value: 1, type: 'f32' },
   });
   private readonly skyUniforms = new UniformGroup({
     uSkyZenith: { value: vec3(), type: 'vec3<f32>' },
@@ -1340,6 +1341,8 @@ class PixiVoxelGpu implements VoxelGpu {
       held.target[axis] = view.target[axis];
     }
     held.fovY = view.fovY;
+    held.zScale = view.zScale ?? 1;
+    held.atmosphere = view.atmosphere ?? true;
   }
 
   get perspectiveOk(): boolean {
@@ -1442,13 +1445,15 @@ class PixiVoxelGpu implements VoxelGpu {
     uniforms.uEye[0] = view.eye[0];
     uniforms.uEye[1] = view.eye[1];
     uniforms.uEye[2] = view.eye[2];
+    uniforms.uZScale = view.zScale ?? 1;
     this.perspectiveUniforms.update();
     const sky = this.skyUniforms.uniforms;
     sky.uHorizonY = horizonRow(view, view.fovY);
     sky.uNearFar[0] = near;
     sky.uNearFar[1] = far;
-    sky.uFog[0] = 1.4 * size;
-    sky.uFog[1] = 3.2 * size;
+    const atmosphere = view.atmosphere ?? true;
+    sky.uFog[0] = atmosphere ? 1.4 * size : far * 2;
+    sky.uFog[1] = atmosphere ? 3.2 * size : far * 3;
     const night = this.look.backgroundAlpha;
     const background = this.look.backgroundRgb;
     for (let channel = 0; channel < 3; channel += 1) {

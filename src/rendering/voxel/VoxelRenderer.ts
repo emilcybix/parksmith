@@ -1,5 +1,6 @@
 import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from 'pixi.js';
 import { lowPassCamera, orbitCamera } from './cameraOrbit';
+import { VIEW_TURN_MS, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
 import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
 import type { CinematicView } from '../RendererPort';
 import type { CoasterPiece } from '../../game/coaster/design';
@@ -732,9 +733,22 @@ export class VoxelRenderer implements RendererPort {
    * that did not move. Any failure inside puts everything back to view 0 and gives the rotation up for this
    * session (`no-view-rotation`); the voxel renderer stays.
    */
-  setViewRotation(rotation: ViewRotation): void {
+  setViewRotation(rotation: ViewRotation, instant = true): void {
     if (!this.viewTurnOk) return;
     if (rotation === this.viewFrame.rotation) return;
+    // Phase 41 step 3: unless asked to snap (reduced motion, Lite graphics, a load), the camera yaws through the
+    // cinematic projection about the ground point at the middle of the screen, while the CPU side is already in the
+    // new view; the isometric picture takes over when it lands.
+    const camera = this.frame.camera;
+    if (!instant && this.mounted && this.gpu?.perspectiveOk === true && camera !== undefined && camera.lowHeight > 0) {
+      this.viewTurn = {
+        target: groundAtCentre(this.viewFrame, camera.cameraTexelX, camera.cameraTexelY, camera.lowWidth, camera.lowHeight),
+        from: viewAzimuth(this.viewFrame.rotation),
+        to: viewAzimuth(rotation),
+        startMs: this.lastElapsedMs,
+        lowHeight: camera.lowHeight,
+      };
+    }
     try {
       this.applyView(rotation);
     } catch (error) {
@@ -843,6 +857,7 @@ export class VoxelRenderer implements RendererPort {
 
   update(deltaMs: number, elapsedMs: number, stepFraction = 0): void {
     const started = performance.now();
+    this.lastElapsedMs = elapsedMs;
     if (this.revalidatePending) this.revalidate();
     this.input?.keyPan(deltaMs);
     // Phase 11: a focus glide advances here (key pan above cancels it where it is).
@@ -1272,7 +1287,25 @@ export class VoxelRenderer implements RendererPort {
 
   private requestedCinematic: CinematicView | null = null;
 
+  /** Phase 41 step 3: whether a smooth view turn is still on screen (GameApp refuses another turn meanwhile). */
+  get viewTurning(): boolean {
+    return this.viewTurn !== null;
+  }
+
+  private viewTurn: { target: [number, number]; from: number; to: number; startMs: number; lowHeight: number } | null = null;
+  private lastElapsedMs = 0;
+  private readonly turnScratch: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 1 };
+
   private cinematicView(): CinematicView | null {
+    const turn = this.viewTurn;
+    if (turn !== null) {
+      const t = (this.lastElapsedMs - turn.startMs) / VIEW_TURN_MS;
+      if (t >= 1) {
+        this.viewTurn = null;
+      } else {
+        return turnView(turn.target, turnAzimuth(turn.from, turn.to, t), turn.lowHeight, this.turnScratch);
+      }
+    }
     if (CAMERA_3D === null || CAMERA_3D === undefined) return this.requestedCinematic;
     const width = this.session.world.width * VOXELS_PER_TILE;
     const height = this.session.world.height * VOXELS_PER_TILE;

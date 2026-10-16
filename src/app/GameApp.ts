@@ -939,6 +939,8 @@ export class GameApp implements GameCommands, RunCommands {
       this.toast('Release the mouse button to turn the view');
       return;
     }
+    // Phase 41: one turn at a time; a press during the yaw is dropped (it lasts under half a second).
+    if (renderer.viewTurning === true) return;
     this.viewRotation = turnView(this.viewRotation, step);
     this.applyViewRotation(false);
     // The view rides in the save's app block: the autosave (and crash recovery) must pick it up even
@@ -960,7 +962,8 @@ export class GameApp implements GameCommands, RunCommands {
   private applyViewRotation(instant: boolean): void {
     const renderer = this.renderer;
     const turning = renderer?.supportsViewRotation === true && renderer.setViewRotation !== undefined;
-    if (turning) renderer.setViewRotation?.(this.viewRotation, instant || reducedMotion());
+    // Phase 41: the turn yaws through the cinematic camera unless it must snap (reduced motion, Lite graphics, a load).
+    if (turning) renderer.setViewRotation?.(this.viewRotation, instant || reducedMotion() || getSettings().graphicsDetail === 'lite');
     // A renderer may give the rotation up while turning (a runtime failure puts the picture back at view 0).
     const gaveUp = turning && renderer.supportsViewRotation !== true;
     if (gaveUp) this.toast(VIEW_ROTATION_UNAVAILABLE);

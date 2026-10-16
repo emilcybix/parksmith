@@ -49,6 +49,7 @@ describe('Phase 41 spike: camera maths', () => {
     const source = perspectiveWorldShaderSource();
     expect(source.vertex).toContain('uniform mat4 uViewProj;');
     expect(source.vertex).toContain('gl_Position.y = -gl_Position.y;');
+    expect(source.vertex).toContain('gl_Position.x = -gl_Position.x;');
     expect(source.fragment).toBe(worldShaderSource('opaque', false).fragment);
   });
 });
