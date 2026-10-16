@@ -124,13 +124,13 @@ describe('Phase 14 ruleset key: crowdFeedback', () => {
 });
 
 describe('schema 13 and content version 4', () => {
-  it('stamps schema 15 (Phase 21 and Phase 29 followed) and content 5 (Phase 29); a content-3 save reports an older balance', () => {
+  it('stamps schema 15 (Phase 21 and Phase 29 followed) and content 6 (Phase 39); a content-3 save reports an older balance', () => {
     expect(SAVE_SCHEMA_VERSION).toBe(15);
-    expect(SAVE_CONTENT_VERSION).toBe(5);
+    expect(SAVE_CONTENT_VERSION).toBe(6);
     expect(contentDriftOf({ contentVersion: 3 })).toBe('older');
     const state = sandboxState();
     const save = createParkSave(state, { clock: { speed: 1, simulationTimeMs: 0 }, tourNodeId: null }, 1);
-    expect([save.schemaVersion, save.contentVersion]).toEqual([15, 5]);
+    expect([save.schemaVersion, save.contentVersion]).toEqual([15, 6]);
     expect(() => migrateSave(JSON.parse(JSON.stringify(save)))).not.toThrow();
   });
 

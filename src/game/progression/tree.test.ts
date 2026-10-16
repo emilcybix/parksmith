@@ -44,8 +44,10 @@ describe('Phase 16 research tree', () => {
       'spin-studies', 'express-service', 'garden-appeal', 'vertical-motion', 'guest-flow', 'skyline-engineering',
       'family-favorites', 'water-works', 'thrill-engineering',
       'refreshment-lab', 'temple-expeditions', 'seaside-styling', 'adventure-styling', 'future-styling',
+      // Phase 39: the coaster families, appended.
+      'tight-turns', 'timber-framing',
     ]);
-    expect(new Set(RESEARCH_PROJECTS.map((project) => project.id)).size).toBe(14);
+    expect(new Set(RESEARCH_PROJECTS.map((project) => project.id)).size).toBe(16);
   });
 
   it('the new projects are exactly the design table (base RP, cash, prerequisite, milestone, unlocks)', () => {
@@ -100,15 +102,17 @@ describe('Phase 16 research tree', () => {
     expect(Math.max(...costsOf(1))).toBeLessThanOrEqual(Math.min(...costsOf(2)));
     expect(Math.max(...costsOf(2))).toBeLessThanOrEqual(Math.min(...costsOf(3)));
     const total = (tier: number) => costsOf(tier).reduce((sum, cost) => sum + scaledResearchPoints(cost, 10), 0);
-    expect([total(1), total(2), total(3)]).toEqual([1_250, 4_850, 2_050]);
-    // The design rounds this to "$9,000"; the per-project cash costs of its table sum to $8,950.
-    expect(RESEARCH_PROJECTS.reduce((sum, project) => sum + project.cashCost, 0)).toBe(8_950);
+    // Phase 39 adds two tier-2 projects (500 and 700 RP at scale 10).
+    expect([total(1), total(2), total(3)]).toEqual([1_250, 6_050, 2_050]);
+    // The design rounds this to "$9,000"; the per-project cash costs of its table sum to $8,950, plus Phase 39's $1,300.
+    expect(RESEARCH_PROJECTS.reduce((sum, project) => sum + project.cashCost, 0)).toBe(10_250);
   });
 
-  it('every opener but one forks at the next tier, and every project belongs to an opener\'s branch', () => {
+  it('every opener forks (Phase 39) at the next tier, and every project belongs to an opener\'s branch', () => {
     const openers = RESEARCH_PROJECTS.filter((project) => project.tier === 1);
     expect(openers.map((project) => project.id)).toEqual(['spin-studies', 'express-service', 'garden-appeal', 'family-favorites']);
-    expect(openers.filter((project) => childrenOf(project.id).length < 2).map((project) => project.id)).toEqual(['spin-studies']);
+    // Phase 39: Tight Turns gave Spin Studies its second fork, so now every opener forks.
+    expect(openers.filter((project) => childrenOf(project.id).length < 2).map((project) => project.id)).toEqual([]);
     expect(childrenOf('vertical-motion').length).toBe(2);
     for (const project of RESEARCH_PROJECTS) {
       expect(openers.map((opener) => opener.id), project.id).toContain(researchBranchOf(project.id));

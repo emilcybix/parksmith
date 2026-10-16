@@ -38,6 +38,8 @@ export type CoasterValidationFailure =
   | 'specials-too-close'
   | 'lift-flag-not-climbing'
   | 'lift-run-mixed'
+  /** Phase 39: a wild mouse turns only on the flat (the piece and both neighbours at one height). */
+  | 'mouse-turn-not-flat'
   /** Designer only (checkCoasterDesign): never raised when a save loads. */
   | 'free-climb-stalls';
 
@@ -193,6 +195,16 @@ export const validateCoasterLayout = (
   const hasDrop = pieces.some((piece, index) => index > 0 && piece.height < pieces[index - 1].height);
   if (highest < 2 || !hasDrop) return failure('no-drop');
 
+  // Phase 39: family rules (a steel layout never meets one).
+  if (type.family === 'wild-mouse') {
+    for (let index = 0; index < pieces.length; index += 1) {
+      if (isStraightAt(pieces, index)) continue;
+      const previous = pieces[(index - 1 + pieces.length) % pieces.length];
+      const next = pieces[(index + 1) % pieces.length];
+      if (previous.height !== pieces[index].height || next.height !== pieces[index].height) return failure('mouse-turn-not-flat', index);
+    }
+  }
+
   // Lift flags are data rules (safe at load): a flag only on a climbing segment, one mode per run.
   for (const [index, piece] of pieces.entries()) {
     if (piece.freeClimb === true && !isClimbingSegment(pieces, index)) return failure('lift-flag-not-climbing', index);
@@ -253,10 +265,14 @@ export const deriveCoasterStats = (
   // Free climbs add a bounded bonus; a layout without one takes the exact expressions it always did.
   const lift = GAME_CONFIG.coaster.lift;
   const { free: freePieces, freeRuns } = liftCounts(pieces);
-  const rawExcitement = 16 + pieces.length * 0.5 + turns * 1.5 + totalDescent * 4.5 + highestHeight * 3
+  // Phase 39: the family's weights; `steel` is exactly the numbers every coaster had before families.
+  const family = GAME_CONFIG.coaster.families[type.family];
+  const airtime = family.airtimeDrops > 0 ? Math.min(family.airtimeDrops, drops) * family.airtimePerDrop : 0;
+  const rawExcitement = 16 + pieces.length * 0.5 + turns * family.turn + totalDescent * family.descent + highestHeight * 3
     + loops * specials.loop.excitement + boosts * specials.boost.excitement
-    + (speed.topSpeed - GAME_CONFIG.coaster.speed.cruise) * 2.5;
-  const rawIntensity = 8 + biggestDrop * 10 + totalDescent * 2.5 + steepTurnPairs * 2.2
+    + (speed.topSpeed - GAME_CONFIG.coaster.speed.cruise) * 2.5
+    + airtime;
+  const rawIntensity = 8 + biggestDrop * family.biggestDrop + totalDescent * 2.5 + steepTurnPairs * family.steepTurns
     + loops * specials.loop.intensity + boosts * specials.boost.intensity
     + speed.topSpeed * 1.2;
   // Phase 38: each crossing is a near miss (capped); a layout without one takes the exact expressions it always did.
@@ -375,5 +391,6 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'specials-too-close': 'Leave at least one plain piece between special pieces.',
   'lift-flag-not-climbing': 'Only climbing track can be chain-free.',
   'lift-run-mixed': 'A hill is either all chain or all free.',
+  'mouse-turn-not-flat': 'Wild mouse turns must be flat: climb and drop on the straights.',
   'free-climb-stalls': 'Free climb too long: the train would crawl. Chain this hill.',
 };

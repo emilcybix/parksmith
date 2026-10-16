@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS } from '../game/content/catalog';
+import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS, PHASE39_DEFINITION_IDS } from '../game/content/catalog';
 import { COLOUR_SWATCHES, COLOURABLE_DEFINITION_IDS, ENTRANCE_COLOUR_ID, colourKindOf, colourSlotsFor, type ObjectColours } from '../game/content/colours';
 import { COASTER_TYPE_BY_ID } from '../game/coaster/content';
 import { ParkSession } from '../game/session/ParkSession';
@@ -99,7 +99,8 @@ describe('classic non-ride art: defaults are pixel-identical to before step 2', 
     for (const [key, hash] of expected) expect(seen.get(key), key).toBe(hash);
     expect(entrance).toEqual(baseline.entrance);
     renderer.setViewRotation(0, true);
-    for (const definition of BUILD_CATALOG.filter((candidate) => candidate.custom === 'coaster')) {
+    // Phase 39's coasters came after the baseline (their classic trains have their own tests).
+    for (const definition of BUILD_CATALOG.filter((candidate) => candidate.custom === 'coaster' && !PHASE39_DEFINITION_IDS.includes(candidate.id))) {
       const type = COASTER_TYPE_BY_ID.get(definition.id)!;
       const train = createClassicTrain(type.trainCars, classicTrainStyle(definition.id), type.trainCapacity);
       expect(await sha16(fingerprintNode(train.container)), `${definition.id} train`).toBe((baseline.trains as Record<string, string>)[definition.id]);

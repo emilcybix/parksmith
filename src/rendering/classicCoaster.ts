@@ -129,6 +129,8 @@ const PALETTES: Readonly<Record<string, ClassicCoasterPalette>> = {
   'comet-trail': { rail: 0xffd166, tie: 0x9a6b44, spine: 0x8c3b22, support: 0x79543a, canopy: 0xe4572e, edge: 0x9a6b44, ground: 0xffd166 },
   'star-chaser': { rail: 0x61e7d3, tie: 0x7048c9, spine: 0x2d3446, support: 0x2c5b64, canopy: 0x7048c9, edge: 0x7048c9, ground: 0x61e7d3 },
   'skyline-serpent': { rail: 0xf5f06c, tie: 0x1b7f79, spine: 0x173f3b, support: 0x4d7f86, canopy: 0x1b7f79, edge: 0x1b7f79, ground: 0xf5f06c },
+  'whisker-mouse': { rail: 0xef6f8f, tie: 0x4c9fd4, spine: 0x2d3446, support: 0x4d7f86, canopy: 0x4c9fd4, edge: 0x4c9fd4, ground: 0xef6f8f },
+  'timber-twister': { rail: 0xffd166, tie: 0x9a6b44, spine: 0x8c3b22, support: 0x79543a, canopy: 0xc0392b, edge: 0x9a6b44, ground: 0xffd166 },
 };
 
 /** Footings, the stone platform, the chain, the brake pad and the dispatch bulb: shared by every type. */

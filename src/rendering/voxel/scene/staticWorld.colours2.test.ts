@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS } from '../../../game/content/catalog';
+import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS, PHASE39_DEFINITION_IDS } from '../../../game/content/catalog';
+import { coasterBaseCost, deriveCoasterStats } from '../../../game/coaster/design';
+import { ovalLayout } from '../../../game/coaster/testLayouts';
 import {
   COLOUR_SWATCHES,
   COLOURABLE_DEFINITION_IDS,
@@ -75,6 +77,19 @@ const setup = (options: { gated?: boolean } = {}) => {
       let placed = false;
       for (let y = 0; y < game.height && !placed; y += 1) {
         for (let x = 0; x < game.width && !placed; x += 1) placed = game.seedScenarioObject(id, { x, y }, 0) !== null;
+      }
+      expect(placed, `${id} is placed`).toBe(true);
+    }
+    // Phase 39: one oval of each new coaster family where it fits (research lock lifted for the placement only).
+    game.setBuildAccessPolicy(null);
+    for (const id of PHASE39_DEFINITION_IDS) {
+      const type = COASTER_TYPE_BY_ID.get(id)!;
+      let placed = false;
+      for (let y = 0; y + 5 <= game.height && !placed; y += 1) {
+        for (let x = 0; x + 9 <= game.width && !placed; x += 1) {
+          const pieces = ovalLayout({ x, y });
+          placed = !('error' in game.placeCoaster(id, pieces, deriveCoasterStats(pieces, type), coasterBaseCost(pieces, type)));
+        }
       }
       expect(placed, `${id} is placed`).toBe(true);
     }

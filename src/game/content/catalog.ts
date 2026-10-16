@@ -268,9 +268,20 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
     stats: { serviceType: 'drink', serviceDuration: 2.6, needRelief: 55, itemPrice: 4.5 },
     serves: 'warm',
   },
+  // Phase 39: the first coaster families after steel (wild mouse, wooden), APPENDED like Phase 16's and 29's entries.
+  {
+    id: 'whisker-mouse', name: 'Whisker Mouse', kind: 'ride', category: 'rides', icon: 'ಎ', custom: 'coaster',
+    description: 'A wild mouse: short two-car trains, tight flat turns, hills up to level 3. Small and cheap.', buildCost: 300, footprint: [1, 1], color: 0x4c9fd4, accent: 0xef6f8f,
+  },
+  {
+    id: 'timber-twister', name: 'Timber Twister', kind: 'ride', category: 'rides', icon: '⋕', custom: 'coaster',
+    description: 'A wooden coaster: rattling drops and airtime hills up to level 3, no loops. Wears faster.', buildCost: 450, footprint: [1, 1], color: 0xc0392b, accent: 0xffd166,
+  },
 ] as const;
 
 /** Phase 29: the entries appended for guest life and souvenirs (five souvenir stalls and the warm drink barrow), in order. */
 export const PHASE29_DEFINITION_IDS: readonly string[] = ['brolly-booth', 'hat-hutch', 'balloon-bouquet', 'plushie-parlour', 'glow-cart', 'bean-barrow'];
+/** Phase 39: the coaster families' catalog cards, appended last. */
+export const PHASE39_DEFINITION_IDS: readonly string[] = ['whisker-mouse', 'timber-twister'];
 
 export const BUILD_BY_ID = new Map(BUILD_CATALOG.map((definition) => [definition.id, definition]));

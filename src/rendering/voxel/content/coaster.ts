@@ -261,6 +261,9 @@ const TYPE_LOOK: Readonly<Record<string, { tie?: number; spine: number; support:
   'comet-trail': { tie: MAT.WOOD, spine: MAT.TRACK, support: MAT.TIMBER },
   'star-chaser': { spine: MAT.PANTS_DARK, support: MAT.STEEL },
   'skyline-serpent': { spine: MAT.INK, support: MAT.STEEL_LIGHT },
+  // Phase 39: a grey steel mouse track; a wooden coaster with wood ties and a timber spine and lattice.
+  'whisker-mouse': { spine: MAT.PANTS_DARK, support: MAT.STEEL_LIGHT },
+  'timber-twister': { tie: MAT.WOOD, spine: MAT.TIMBER, support: MAT.TIMBER },
 };
 
 /**
@@ -735,6 +738,34 @@ const emitSupportClass = (frame: PieceFrame, minClass: number, z: number, height
   emitTileRectangles(frame, mergeRectangles(TILE, TILE), z, height, word, out);
 };
 
+/**
+ * Phase 39: a wooden coaster's lattice bay: both diagonals of the bay as one cross, emitted per brace step as the union
+ * of the two diagonals' z ranges (one box where they meet, two where they do not), so no two boxes overlap.
+ */
+const emitCrossBrace = (frame: PieceFrame, bayZ: number, word: number, out: BoxWriter): void => {
+  for (let step = 0; step < BRACE_STEPS; step += 1) {
+    for (let index = 0; index < TILE * TILE; index += 1) {
+      GRID_KEYS[index] = SUPPORT_CLASS[index] === SUPPORT_BAY_CLASS && SUPPORT_STEP[index] === step ? 0 : EMPTY;
+    }
+    const rectangles = mergeRectangles(TILE, TILE);
+    const top = bayZ + SUPPORT_BAY;
+    const z0 = bayZ + step * BRACE_RISE;
+    const z1 = bayZ + (BRACE_STEPS - 1 - step) * BRACE_RISE;
+    const end0 = Math.min(z0 + BRACE_HEIGHT, top);
+    const end1 = Math.min(z1 + BRACE_HEIGHT, top);
+    const low = Math.min(z0, z1);
+    const lowEnd = z0 <= z1 ? end0 : end1;
+    const high = Math.max(z0, z1);
+    const highEnd = z0 <= z1 ? end1 : end0;
+    if (high <= lowEnd) {
+      emitTileRectangles(frame, rectangles, low, Math.max(lowEnd, highEnd) - low, word, out);
+    } else {
+      emitTileRectangles(frame, rectangles, low, lowEnd - low, word, out);
+      emitTileRectangles(frame, rectangles, high, highEnd - high, word, out);
+    }
+  }
+};
+
 /** Emits one diagonal brace over the bay strip: `BRACE_STEPS` steps from `bayZ`, leaning the way `direction` says. */
 const emitBrace = (frame: PieceFrame, bayZ: number, direction: number, word: number, out: BoxWriter): void => {
   for (let step = 0; step < BRACE_STEPS; step += 1) {
@@ -753,7 +784,7 @@ const emitBrace = (frame: PieceFrame, bayZ: number, direction: number, word: num
  * that grows with height (see the file comment). The strip between the legs follows the frame's
  * rolled normal at the bent, so a corner's bent is a rotated staircase of columns.
  */
-const emitSupports = (frame: PieceFrame, look: CoasterLook, out: BoxWriter): void => {
+const emitSupports = (frame: PieceFrame, look: CoasterLook, out: BoxWriter, lattice = false): void => {
   if (frame.height <= 0) return;
   const line = frame.line;
   sampleCentreLineFrame(line, centreLineSupportDistance(line, frame.index), BENT);
@@ -855,7 +886,8 @@ const emitSupports = (frame: PieceFrame, look: CoasterLook, out: BoxWriter): voi
   let z = SUPPORT_RUNG_Z + SUPPORT_RUNG_HEIGHT;
   let bay = 0;
   while (z + SUPPORT_BAY <= beamTop - SUPPORT_BEAM_HEIGHT) {
-    emitBrace(frame, z, bay % 2 === 0 ? 1 : -1, supportWord, out);
+    if (lattice) emitCrossBrace(frame, z, supportWord, out);
+    else emitBrace(frame, z, bay % 2 === 0 ? 1 : -1, supportWord, out);
     z += SUPPORT_BAY;
     bay += 1;
     if (z + SUPPORT_RUNG_HEIGHT + SUPPORT_BAY > beamTop - SUPPORT_BEAM_HEIGHT) break;
@@ -1151,7 +1183,9 @@ const pieceBoxes = (
   emitTopLayer(frame, TOP_CHEVRON, packBoxWord(MAT.BULB, outlineGroup, PATTERN.PLAIN, 0), out);
   // Phase 38: a piece crossing over other track (or a low object) stands on no bent: its legs would come down on
   // what is below. Its neighbours' bents carry it.
-  if (supports && !hasLowerPieceInCell(pieces, index)) emitSupports(frame, look, out);
+  if (supports && !hasLowerPieceInCell(pieces, index)) {
+    emitSupports(frame, look, out, COASTER_TYPE_BY_ID.get(definition.id)?.family === 'wooden');
+  }
   if (special === 'loop') emitLoopRing(pieces, index, frame, look, out);
   emitStation(pieces, index, frame, definition, palette, out, paint);
   emitBrakeFin(pieces, frame, out);
@@ -1195,10 +1229,17 @@ const carBox = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: 
 const mirrored = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, material: number, pattern: number = PATTERN.PLAIN): Shape[] =>
   [carBox(x0, y0, z0, x1, y1, z1, material, pattern), carBox(x0, -y1, z0, x1, -y0, z1, material, pattern)];
 
-type CoasterKind = 'comet' | 'star' | 'serpent';
+type CoasterKind = 'comet' | 'star' | 'serpent' | 'mouse' | 'timber';
 
-const kindOf = (definition: BuildDefinition): CoasterKind =>
-  definition.id === 'star-chaser' ? 'star' : definition.id === 'skyline-serpent' ? 'serpent' : 'comet';
+const kindOf = (definition: BuildDefinition): CoasterKind => {
+  if (definition.id === 'star-chaser') return 'star';
+  if (definition.id === 'skyline-serpent') return 'serpent';
+  // Phase 39: the families after steel get their own car by family, so a second type of a family looks the part.
+  const family = COASTER_TYPE_BY_ID.get(definition.id)?.family;
+  if (family === 'wild-mouse') return 'mouse';
+  if (family === 'wooden') return 'timber';
+  return 'comet';
+};
 
 /** Colours of one car: a catalog colour pair and a per-type trim. */
 interface CarLook {
@@ -1215,7 +1256,7 @@ const carLook = (definition: BuildDefinition, kind: CoasterKind, palette: Palett
   const tag = slotTagger(definition.id);
   const body = tag('primary', palette.material(definition.color));
   const seat = tag('secondary', palette.material(definition.accent));
-  return { body, seat, trim: kind === 'comet' ? MAT.WHITE : seat };
+  return { body, seat, trim: kind === 'comet' ? MAT.WHITE : kind === 'timber' ? MAT.WOOD : seat };
 };
 
 /** Rows of seats: the front row's rider sits at x [1, 3), the back row's at x [−3, −1). */
@@ -1250,6 +1291,24 @@ const noseShapes = (kind: CoasterKind, look: CarLook): Shape[] => {
       carBox(7, -1, BODY_BOTTOM, 8, 1, 3, look.body),
       ...mirrored(6, 1, 3, 7, 2, 4, MAT.LAMP_GLOW),
       carBox(3, -1, RIM, 5, 1, 9, look.seat),
+    );
+  } else if (kind === 'mouse') {
+    // Phase 39: a mouse's face: a short rounded snout with a pink nose and dark whiskers, two round ears at the back.
+    shapes.push(
+      carBox(5, -3, BODY_BOTTOM, 7, 3, 6, look.body),
+      carBox(7, -2, BODY_BOTTOM + 1, 8, 2, 4, look.body),
+      carBox(7, -1, 4, 8, 1, 5, look.seat),
+      ...mirrored(5, 1, 5, 6, 2, 6, MAT.INK),
+      ...mirrored(7, 2, 4, 8, 4, 5, MAT.INK),
+      ...mirrored(-5, 1, RIM, -3, 4, RIM + 3, look.body),
+      ...mirrored(-5, 2, RIM + 1, -4, 3, RIM + 2, look.seat),
+    );
+  } else if (kind === 'timber') {
+    // Phase 39: a mine-cart front: a blunt wooden bumper, iron straps and one lantern.
+    shapes.push(
+      carBox(5, -4, BODY_BOTTOM, 7, 4, 5, MAT.WOOD),
+      carBox(5, -4, 3, 7, 4, 4, MAT.STEEL),
+      carBox(6, -1, 5, 7, 1, 7, MAT.LAMP_GLOW),
     );
   } else {
     // A serpent's head: a long snout, white eyes with a dark pupil, a dark jaw line, glowing nostrils.
@@ -1362,7 +1421,7 @@ const riderBlueprint = (definition: BuildDefinition, carIndex: number, palette: 
       carBox(x0 + 1, side, RIM, x0 + 2, side + 2, RIM + 2, colours.skin),
       carBox(x0, side, RIM, x0 + 1, side + 2, RIM + 3, colours.hair),
     );
-    if (kind !== 'comet') shapes.push(carBox(x0, side, RIM + 3, x0 + 2, side + 2, RIM + 5, colours.shirt));
+    if (kind !== 'comet' && kind !== 'mouse') shapes.push(carBox(x0, side, RIM + 3, x0 + 2, side + 2, RIM + 5, colours.shirt));
   }
   // A car without seats (a type whose capacity is below its car count) still needs a valid model:
   // an empty one would not compile, so it gets a one-voxel seat cushion that the collapse pose hides.

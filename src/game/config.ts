@@ -493,6 +493,15 @@ export const GAME_CONFIG = {
     trackClearanceLevels: 2,
     /** Phase 38: excitement per crossing of the track over or under itself (a near miss), up to `maximumCounted`. */
     crossing: { excitement: 2, maximumCounted: 3 },
+    /**
+     * Phase 39: the ride model's weights per family (design.ts deriveCoasterStats). `steel` holds the numbers every
+     * coaster had before families; `airtimePerDrop` (wooden) adds excitement per drop, up to `airtimeDrops`.
+     */
+    families: {
+      steel: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, airtimePerDrop: 0, airtimeDrops: 0 },
+      'wild-mouse': { turn: 2.4, descent: 3, biggestDrop: 6, steepTurns: 4, airtimePerDrop: 0, airtimeDrops: 0 },
+      wooden: { turn: 1.5, descent: 4.5, biggestDrop: 13, steepTurns: 2.2, airtimePerDrop: 1.5, airtimeDrops: 4 },
+    },
     stationLoadSeconds: 6,
     speed: {
       lift: 1.6,

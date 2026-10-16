@@ -176,6 +176,31 @@ export const RESEARCH_PROJECTS: readonly ResearchProjectDefinition[] = [
     requiredMilestoneIds: ['rating-60'],
     unlockDefinitionIds: ['neon-pylon', 'orbit-globe'],
   },
+  // Phase 39: the new coaster families, APPENDED like Phase 16's projects.
+  {
+    id: 'tight-turns',
+    tier: 2,
+    name: 'Tight Turns',
+    category: 'rides',
+    description: 'Spin research, put on rails: little cars whipping round flat hairpins.',
+    researchPointCost: 50,
+    cashCost: 500,
+    prerequisiteIds: ['spin-studies'],
+    requiredMilestoneIds: [],
+    unlockDefinitionIds: ['whisker-mouse'],
+  },
+  {
+    id: 'timber-framing',
+    tier: 2,
+    name: 'Timber Framing',
+    category: 'rides',
+    description: 'Raise a rattling wooden coaster on a lattice of beams.',
+    researchPointCost: 70,
+    cashCost: 800,
+    prerequisiteIds: ['family-favorites'],
+    requiredMilestoneIds: [],
+    unlockDefinitionIds: ['timber-twister'],
+  },
 ] as const;
 
 export const RESEARCH_PROJECT_BY_ID = new Map<ResearchProjectId, ResearchProjectDefinition>(

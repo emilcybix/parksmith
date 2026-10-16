@@ -691,6 +691,13 @@ panel in `chooserAfterQuit` (read once by `quitToMenu`, cleared when the menu op
 
 Coaster design is pure data and pure functions: a layout is an ordered closed loop of track pieces (cell + height + optional special), validated per coaster type (height limits, allowed specials) and converted to a deterministic ride profile in `src/game/coaster/design.ts` with no world or rendering dependencies. A marble-physics speed sweep assigns each piece a travel time — chain lift up (or, on a free climb, a fixed-point momentum climb, see Lift hills), acceleration down drops, drag on flats, loop scrub, launch boosts — which yields duration, top speed, and the timing the renderer uses to move the train. Ground cells under track at clearance height stay open for walkways, and bulldozing removes the walkway before the track above it. The world stores built coasters beside placed objects, occupies every track cell, and answers two queries the rest of the game uses for all rides: `objectFootprint` (a coaster's whole track, a normal object's rectangle) and `rideProfile` (custom stats win over catalog stats). RideSimulation, guests, scenery, and management read profiles and footprints through those two calls, so a coaster behaves like any other ride — queues, cycles, tickets, wear, breakdowns, rating — without duplicated logic. Bulldozing any track cell removes the whole ride and refunds from the actually paid cost.
 
+**Families (Phase 39).** `CoasterTypeDefinition.family` (`steel`, `wild-mouse`, `wooden`) picks the build rules in
+`validateCoasterLayout` (a wild mouse turns only on the flat), the ride-model weights in
+`GAME_CONFIG.coaster.families` (the `steel` row is the pre-family numbers, so every older coaster derives exactly what
+it did) and the art: `TYPE_LOOK` per type, lattice bents (`emitCrossBrace`) for `wooden`, and a car kind per family
+(`kindOf`: `mouse`, `timber`). New types are appended to the catalog and the research tree, so the determinism
+harness's appended-content filters keep every pin.
+
 **Crossings (Phase 38).** A layout may visit a cell again when the two pieces are at least
 `GAME_CONFIG.coaster.trackClearanceLevels` (2) apart and neither is exclusive (`isExclusiveCoasterPiece`: a station
 piece, a loop or boost, or the piece after a loop, which its ring overhangs); `validateCoasterLayout` raises

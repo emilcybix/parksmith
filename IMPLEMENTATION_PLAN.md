@@ -2767,55 +2767,39 @@ new failures), `GameWorld` (`trackLayers`, `coasterPieceConflict`, `objectsAt`, 
   `rendering/voxel/content/coasterCrossing.test.ts` (no bent on the upper piece, the `supports` flag, model heights),
   `GameApp.coasterLift.test.ts` (designer re-entry at clearance, refusal with the message).
 
-## Phase 39 — More Coaster Types (planned, not started)
+## Phase 39 — More Coaster Types (step 1 built 2026-10-16: wild mouse and wooden)
 
-**Today.** There are three coaster types (`comet-trail`, `star-chaser`, `skyline-serpent` in `src/game/coaster/content.ts`).
-They are the same steel coaster with different numbers: maximum height, train size, reliability, prices, and which of
-`loop` / `boost` are allowed. They share one track look and one ride model.
+**Before.** Three coaster types (`comet-trail`, `star-chaser`, `skyline-serpent`), the same steel coaster with different
+numbers. **Now** every `CoasterTypeDefinition` has a `family` (`steel`, `wild-mouse`, `wooden`) that selects build
+rules (`validateCoasterLayout`), ride-model weights (`GAME_CONFIG.coaster.families`, read by `deriveCoasterStats`; the
+`steel` row is exactly the old numbers) and art (track look, supports, cars). Content version 6; no schema change (a
+coaster stores its type id).
 
-**Goal.** Coaster families that look, build and ride differently, so choosing one is a real decision. Each family is a
-`CoasterTypeDefinition` with a new `family` field that selects the track and car art, the build rules and the ride
-model. Within a family, types still differ by numbers (a small and a large wooden coaster).
+**Built (step 1).**
+- [x] **Wild mouse: Whisker Mouse** (`whisker-mouse`, research *Tight Turns*, tier 2 after Spin Studies). Height cap 3,
+  no specials, **flat turns only** (`mouse-turn-not-flat`: "Wild mouse turns must be flat: climb and drop on the
+  straights."). Turns weigh 2.4 (steel 1.5), steep turn pairs 4 (2.2), drops less (biggest drop 6, descent 3). Cheap
+  (station 280, piece 32). **Deviation:** two four-seat cars (capacity 8), not one: a single car carried a third of a
+  family coaster for 70 % of its price and lost on every axis. Lead car with a mouse face (ears, whiskers, nose).
+- [x] **Wooden: Timber Twister** (`timber-twister`, research *Timber Framing*, tier 2 after Family Favorites). Height
+  cap 3, no loops or boosts, rougher (biggest drop weighs 13, steel 10) with an airtime bonus of 1.5 per drop (up to
+  4), reliability 76 (wears faster), cheaper track (piece 42). Wood ties, a timber spine and **lattice bents** (every
+  bay braced both ways, `emitCrossBrace`, no overlapping boxes), a mine-cart lead car with a lantern.
+- [x] Catalog cards and colour slots use existing catalog colours only, so the voxel palette gained no material.
+  Classic renderer: palettes for both (the classic train falls back to the comet style).
+- [x] Tests: `game/coaster/families.test.ts` (families, mouse rule, ride model, save round trip),
+  `rendering/voxel/content/coasterFamilies.test.ts` (lattice in timber, no overlaps, cars compile); the enumeration
+  tests (colour slots, filters, research tree, branch copy) name the two new cards; determinism pins unchanged (the
+  harness drops appended definitions and projects, as for Phase 16).
 
-**Families (proposed, simplest first).**
-- [ ] **Wild mouse.** Single four-seat cars, a low maximum height (3), tight flat hairpin turns (a one-cell turn that
-  other families may not take), and no specials. Cheap and compact, with high lateral intensity and low nausea. Fits
-  small parks and early unlocks.
-- [ ] **Wooden.** Lattice supports in wood, no inversions (no `loop`), and a rougher ride: more intensity per drop and an
-  airtime bonus on hills. Lower piece cost, lower reliability and faster wear, so it needs more mechanic time. A
-  classic look that draws guests who like thrills.
-- [ ] **Launch.** A new special, `launch`: a launch track right after the station replaces the chain lift and sends the
-  train out at speed (`speedModel` gains a launch segment; `lift.ts` treats a launched run as powered). It allows a
-  tall "top hat" (height cap raised for this family only, to be decided in balance). Expensive, with very high
-  excitement and intensity.
-- [ ] **Inverted.** The train hangs under the track, and the supports reach down from above. Every piece outside the
-  station must be at least `pathClearanceHeight` + 1 high so the cars clear the ground. Guests may walk under it
-  from level 3. Allows `loop`. Depends on Phase 38 (layered cells and clearance) for its height checks and its
-  crossings.
-- [ ] **Candidates after these:** mine train (low and long, following the ground), spinning coaster (cars turn on the
-  track), bobsled (a trough with no rails and no lift after the first hill), flying coaster, water coaster (a splash
-  section, which links to the water ideas under Future Candidates).
-
-**Per family.**
-- [ ] Content: one or more types with their numbers, a catalog card, a research unlock (Phase 7) and a place in
-  scenarios and cards where it fits. Content version bump.
-- [ ] Rules: validation hooks per family (minimum turn radius, minimum height outside the station, allowed specials),
-  with player-facing failure messages like the existing ones.
-- [ ] Ride model: excitement, intensity and nausea weighting per family in `deriveCoasterStats`; launch in
-  `speedModel`. A balance pass in BALANCE_NOTES, so no family is simply better than another.
-- [ ] Art (voxel first, classic as a plain fallback): track profile, supports, station and cars per family, in all four
-  view rotations and in the Phase 28 colour slots. Covered by the Phase 27 visual matrix.
-- [ ] Sound: a lift or launch sound per family (Phase 15 synth).
-- [ ] Saves: a coaster already stores its type id, so new ids load without a migration. Old saves are unaffected.
-  Determinism fixtures gain one coaster per family.
-
-**Order and dependencies.** Wild mouse, then wooden, then launch, then inverted (after Phase 38). Each family ships on
-its own: content, rules, ride model, art, tests.
-
-**Tests.** Each family has a valid sample layout that builds and runs; each family-specific rule refuses its bad case
-with the right message; the launch reaches its target speed without a chain; an inverted piece too low is refused;
-stats stay inside the balance bands; save, load and determinism round-trip one coaster of each family; each family
-renders in all four view rotations.
+**Not built yet (step 2+).**
+- [ ] **Launch** (a `launch` special after the station, a launch segment in `speedModel`, a taller cap for the family):
+  needs speed-model work and its own balance pass.
+- [ ] **Inverted** (the train under the track, supports from above, every piece outside the station at
+  `pathClearanceHeight` + 1 or higher): needs a hanging car pose and new support art; Phase 38's layered cells are in.
+- [ ] Candidates after these: mine train, spinning, bobsled, flying, water coaster.
+- [ ] Per family still open: a lift/launch sound per family (Phase 15 synth), a classic train style per family,
+  determinism fixtures with one coaster per family, and a played balance check (BALANCE_NOTES Phase 39).
 
 ## Phase 40 — Building Fronts: Four Directions and Front-Only Access (planned, not started)
 

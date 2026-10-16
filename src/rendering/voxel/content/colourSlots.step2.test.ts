@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS } from '../../../game/content/catalog';
+import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS, PHASE39_DEFINITION_IDS } from '../../../game/content/catalog';
 import {
   COLOUR_SLOT_TAG,
   COLOUR_SLOTS,
@@ -170,7 +170,8 @@ describe('slot tables and the art agree', () => {
   it('covers every colourable kind: rides (step 1), coasters, stalls, comforts, scenery and the gate', () => {
     expect(colourSlotsFor(ENTRANCE_COLOUR_ID).map((slot) => slot.id)).toEqual(['primary', 'secondary', 'trim']);
     expect(OBJECT_IDS.slice().sort()).toEqual(Object.keys(OBJECT_CENSUS).sort());
-    expect([...COASTER_IDS].sort()).toEqual(COLOURABLE_DEFINITION_IDS.filter((id) => colourKindOf(id) === 'coaster').sort());
+    // Phase 39's coasters came after the step-2 baseline; they are covered by the slot-table checks above.
+    expect([...COASTER_IDS, ...PHASE39_DEFINITION_IDS].sort()).toEqual(COLOURABLE_DEFINITION_IDS.filter((id) => colourKindOf(id) === 'coaster').sort());
   });
 });
 

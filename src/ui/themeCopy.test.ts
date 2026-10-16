@@ -132,18 +132,18 @@ describe('research panel copy', () => {
       expect(tiers).toEqual([...tiers].sort());
     }
     const spin = branches.find((branch) => branch.id === 'spin-studies')!;
-    expect(spin.projects.map((project) => project.id)).toEqual(['spin-studies', 'vertical-motion', 'skyline-engineering', 'thrill-engineering']);
+    expect(spin.projects.map((project) => project.id)).toEqual(['spin-studies', 'vertical-motion', 'tight-turns', 'skyline-engineering', 'thrill-engineering']);
     expect(branches.find((branch) => branch.id === 'garden-appeal')!.projects).toHaveLength(4);
   });
 
   it('says where a branch leads, by name', () => {
     const branches = researchBranches(projects());
     const family = branches.find((branch) => branch.id === 'family-favorites')!;
-    expect(researchBranchLine(family)).toBe('Opens with Family Favorites, then Water Works or Temple Expeditions.');
+    expect(researchBranchLine(family)).toBe('Opens with Family Favorites, then Water Works, Temple Expeditions or Timber Framing.');
     const garden = branches.find((branch) => branch.id === 'garden-appeal')!;
     expect(researchBranchLine(garden)).toBe('Opens with Garden Appeal, then Seaside Styling, Adventure Styling or Future Styling.');
     const spin = branches.find((branch) => branch.id === 'spin-studies')!;
-    expect(researchBranchLine(spin)).toBe('Opens with Spin Studies, then Vertical Motion; at tier 3, Skyline Engineering or Thrill Engineering.');
+    expect(researchBranchLine(spin)).toBe('Opens with Spin Studies, then Vertical Motion or Tight Turns; at tier 3, Skyline Engineering or Thrill Engineering.');
   });
 
   it('labels tiers and reads milestone rewards as findings', () => {

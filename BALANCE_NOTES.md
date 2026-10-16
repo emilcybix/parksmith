@@ -899,6 +899,28 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 39: coaster families (wild mouse, wooden) · **PROVISIONAL**
+
+Set on 2026-10-16 from the ride model only (no play, no bot). Same layouts, every type that may build them
+(`excitement | intensity | capacity | reliability | base cost`):
+
+| Layout | Type | E | I | Cap | Rel | Cost |
+|---|---|---|---|---|---|---|
+| oval (24) | Comet Trail | 58 | 40.2 | 12 | 92 | 1,900 |
+| oval | Star Chaser | 58 | 40.2 | 10 | 86 | 2,430 |
+| oval | Whisker Mouse | 58.6 | 32.2 | 8 | 92 | 1,398 |
+| oval | Timber Twister | 59.5 | 46.2 | 10 | 76 | 1,878 |
+| hill and dip (32, to level 3) | Star Chaser | 92 | 65.2 | 10 | 86 | 3,430 |
+| hill and dip | Timber Twister | 98 | 74.2 | 10 | 76 | 2,634 |
+| flat zig-zag (22, mouse rules) | Comet Trail | 61.5 | 50.5 | 12 | 92 | 1,510 |
+| flat zig-zag | Whisker Mouse | 65.7 | 51.5 | 8 | 92 | 1,084 |
+| flat zig-zag | Timber Twister | 63 | 56.5 | 10 | 76 | 1,494 |
+
+Reading: the mouse is the cheap, exciting small-park coaster with less throughput; the wooden coaster is the cheap way
+to a tall, exciting ride, paid for in intensity (fewer guests ride it) and in breakdowns (reliability 76 against 86).
+Neither has loops, so the Star Chaser and Skyline Serpent keep the top of the excitement range. Open: a played check
+that the Timber Twister does not replace the Star Chaser outright, and whether a mouse needs a third car.
+
 ## Phase 38: coaster crossings · **PROVISIONAL**
 
 Set on 2026-10-16 from the voxel model heights; no play. A crossing is a near miss: +2 excitement per crossing, at most

@@ -223,7 +223,7 @@ describe('colour swatch readability (voxel composite twin and classic tint, Phas
       'night sunny', 'night cloudy', 'night rain', 'night storm',
     ]);
     expect(GROUNDS.length, 'six materials and the plot tint of every catalog definition (rides, coasters, stalls, facilities, comforts, scenery)').toBe(6 + STANDING.length);
-    expect(GROUNDS.length, '37 before Phase 16, plus the plot tints of its 12 entries and the 6 Phase 29 stalls').toBe(55);
+    expect(GROUNDS.length, '37 before Phase 16, plus the plot tints of its 12 entries, the 6 Phase 29 stalls and the 2 Phase 39 coasters').toBe(57);
     // Calibration against the reviewer's CPU twin and frames: the catalog Sunflower's top face at night.
     const night = LOOKS.find((look) => look.name === 'night sunny')!;
     expect(rgb255(night.surface(0xffd166, 1, false))).toBe('95,97,84');

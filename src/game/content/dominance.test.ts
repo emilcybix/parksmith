@@ -101,8 +101,8 @@ describe('Phase 16: no dominated catalog entry', () => {
 
   it('no Phase 16 entry takes part in a dominated pair, and the legacy pair is the only one', () => {
     const appended = new Set(BUILD_CATALOG.slice(BUILD_CATALOG.findIndex((definition) => definition.id === 'puddle-jumpers')).map((definition) => definition.id));
-    // Phase 16's 12 and Phase 29's 6.
-    expect(appended.size).toBe(18);
+    // Phase 16's 12, Phase 29's 6 and Phase 39's 2 coasters (coasters are not compared).
+    expect(appended.size).toBe(20);
     for (const pair of FAMILIES.flatMap(dominatedPairs)) {
       const [winner, , loser] = pair.split(' ');
       expect(appended.has(winner) || appended.has(loser), pair).toBe(false);

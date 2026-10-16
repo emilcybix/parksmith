@@ -26,9 +26,11 @@ export const SAVE_SCHEMA_VERSION = 15;
  * History: 1 = the first shipped balance; 2 = weather and the arrival curve; 3 = Phase 16 (12 catalog entries, 5 research
  * projects, and the `themeAffinity` / `researchCostScale` ruleset keys a NEW park stores; a v2 park keeps neither and
  * plays exactly as it did); 4 = Phase 14 (`crowdFeedback` for new parks; a v3 park keeps it off); 5 = Phase 29 (guest life:
- * benches, nausea, warmth, pauses, six new stalls; every park, old or new, plays by it once loaded).
+ * benches, nausea, warmth, pauses, six new stalls; every park, old or new, plays by it once loaded); 6 = Phase 39 (two
+ * coaster families, the Whisker Mouse and the Timber Twister, and their research projects Tight Turns and Timber
+ * Framing; an older park can research them too, and its coasters keep the numbers they were built with).
  */
-export const SAVE_CONTENT_VERSION = 5;
+export const SAVE_CONTENT_VERSION = 6;
 
 export type SaveErrorCode =
   /** The data is not a save envelope at all (not an object, no integer schemaVersion). */
