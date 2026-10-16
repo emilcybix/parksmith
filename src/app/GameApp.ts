@@ -156,6 +156,7 @@ import type { RecoveryController, RecoveryMonitor, RecoveryParkInfo } from './sa
 import { cardPlayedLabel, demolitionLabel, objectBuiltLabel, pathsBuiltLabel, recolourLabel } from './undo/gestureLabels';
 import { withSlotColour } from './colourEdit';
 import { lineCells } from './lineCells';
+import { blockedDraftCells, extendPathDraft } from './pathDraft';
 import { ENTRANCE_COLOUR_ID, isColourable, normaliseObjectColours, sameObjectColours, type ObjectColours } from '../game/content/colours';
 import { recolourCharge, type ColourCostMode } from '../game/content/colourCost';
 import { COLOUR_PRESET_BY_ID, brushPrimaryRgb, paintTargetFor, placementRecord, presetRecord, sameBrush, type ColourPresetId, type PaintBrush } from '../game/content/colourPresets';
@@ -2920,9 +2921,8 @@ export class GameApp implements GameCommands, RunCommands {
       return;
     }
     if (definition?.kind !== 'path' || !this.lastDraftCell || sameCell(cell, this.lastDraftCell)) return;
-    for (const next of lineCells(this.lastDraftCell, cell).slice(1)) {
-      if (!this.draftPath.some((draft) => sameCell(draft, next))) this.draftPath.push(next);
-    }
+    // Phase 37: a cell already in the draft cuts it back there, so pulling back takes the path back with it.
+    extendPathDraft(this.draftPath, this.lastDraftCell, cell);
     this.lastDraftCell = cell;
     this.previewDraftPath();
   }
@@ -3015,10 +3015,13 @@ export class GameApp implements GameCommands, RunCommands {
     const definition = BUILD_BY_ID.get('sunstone-path')!;
     const placeable = this.draftPath.filter((cell) => this.world.canPlacePath(cell));
     const cost = placeable.length * this.world.pathCost;
-    const valid = placeable.length > 0
-      && this.draftPath.every((cell) => this.world.paths.has(`${cell.x},${cell.y}`) || this.world.canPlacePath(cell))
-      && cost <= this.world.cash;
-    this.renderer?.drawPreview(this.draftPath, definition, valid);
+    const affordable = cost <= this.world.cash;
+    const blocked = blockedDraftCells(this.draftPath, (cell) => this.world.paths.has(`${cell.x},${cell.y}`) || this.world.canPlacePath(cell));
+    const valid = placeable.length > 0 && blocked.length === 0 && affordable;
+    // Phase 37: the cells that cannot take a path are drawn red and the rest normally, so the player sees what to
+    // steer round; a draft the park cannot afford is all red, as before.
+    const allRed = !affordable || placeable.length === 0;
+    this.renderer?.drawPreview(this.draftPath, definition, !allRed, false, 0, null, allRed ? null : blocked);
     useUiStore.getState().setHover(this.lastDraftCell, cost, valid, valid
       ? null
       : cost > this.world.cash ? shortfallMessage(cost, this.world.cash) : this.draftBlockedMessage());

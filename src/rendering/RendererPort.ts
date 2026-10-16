@@ -221,6 +221,11 @@ export interface RendererPort {
     rotation?: Rotation,
     /** Phase 28: the colours the NEXT object will get (colour before placing); null/absent = defaults. */
     colours?: ObjectColours | null,
+    /**
+     * Phase 37: cells of `cells` drawn with the refused fill whatever `valid` says (the path draft's blocked cells,
+     * so the player sees what to steer round). Null/absent/empty = every cell takes `valid`'s fill.
+     */
+    blocked?: readonly Cell[] | null,
   ): void;
   clearPreview(): void;
   /**

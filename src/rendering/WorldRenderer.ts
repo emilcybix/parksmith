@@ -269,6 +269,7 @@ interface PreviewArgs {
   bulldoze: boolean;
   rotation: Rotation;
   colours: ObjectColours | null;
+  blocked: readonly Cell[] | null;
 }
 
 interface DraftArgs {
@@ -888,10 +889,11 @@ export class WorldRenderer implements RendererPort {
     bulldoze = false,
     rotation: Rotation = 0,
     colours: ObjectColours | null = null,
+    blocked: readonly Cell[] | null = null,
   ): void {
     this.clearPreview();
     if (cells.length === 0) return;
-    this.lastPreview = { cells, definition, valid, bulldoze, rotation, colours };
+    this.lastPreview = { cells, definition, valid, bulldoze, rotation, colours, blocked };
     this.previewCells = cells;
     this.previewMode = bulldoze ? 'bulldoze' : definition?.kind === 'path' ? 'cell' : 'place';
     if (definition?.kind === 'scenery' && definition.stats?.sceneryAppeal) {
@@ -899,9 +901,12 @@ export class WorldRenderer implements RendererPort {
     }
     const graphic = new Graphics();
     const fill = previewFill(valid, bulldoze);
+    const refused = previewFill(false, bulldoze);
+    const blockedKeys = blocked && blocked.length > 0 ? new Set(blocked.map((cell) => `${cell.x},${cell.y}`)) : null;
     for (const cell of cells) {
       const point = this.project(cell.x, cell.y);
-      graphic.poly(diamondPoints(point.x, point.y, 3)).fill({ color: fill, alpha: 0.5 }).stroke({ color: 0xffffff, alpha: 0.88, width: 2 });
+      const color = blockedKeys?.has(`${cell.x},${cell.y}`) ? refused : fill;
+      graphic.poly(diamondPoints(point.x, point.y, 3)).fill({ color, alpha: 0.5 }).stroke({ color: 0xffffff, alpha: 0.88, width: 2 });
     }
     this.previewLayer.addChild(graphic);
     if (definition && definition.kind !== 'path') this.drawPreviewArt(cells, definition, rotation, valid, bulldoze ? null : colours);
@@ -2190,8 +2195,8 @@ export class WorldRenderer implements RendererPort {
       this.drawCoasterDraft(pieces, color, armed, definitionId, colours);
     }
     if (this.lastPreview) {
-      const { cells, definition, valid, bulldoze, rotation, colours } = this.lastPreview;
-      this.drawPreview(cells, definition, valid, bulldoze, rotation, colours);
+      const { cells, definition, valid, bulldoze, rotation, colours, blocked } = this.lastPreview;
+      this.drawPreview(cells, definition, valid, bulldoze, rotation, colours, blocked);
     }
     if (this.paintHoverCells !== null) {
       // The hover outline is drawn in view space: draw it again for the new orientation.

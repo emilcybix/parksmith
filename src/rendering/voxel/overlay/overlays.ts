@@ -295,7 +295,9 @@ export class VoxelOverlays {
   /** The view the layers are drawn in (rotation and the world map size); view 0 until `setView`. */
   private readonly frame: MutableViewFrame = createViewFrame();
   /** What was last asked for, in WORLD cells, so a turn can redraw it. */
-  private preview: { cells: Cell[]; definition: BuildDefinition | null; valid: boolean; bulldoze: boolean } | null = null;
+  private preview: {
+    cells: Cell[]; definition: BuildDefinition | null; valid: boolean; bulldoze: boolean; blocked: Cell[] | null;
+  } | null = null;
   private draft: { pieces: CoasterPiece[]; armed: boolean } | null = null;
   /** The paint hover as asked for, in WORLD cells (a copy), so a turn can redraw it. */
   private paintHover: { cells: Cell[]; tint: number | null } | null = null;
@@ -361,7 +363,7 @@ export class VoxelOverlays {
     this.refreshSelection();
     this.drawPaintHover();
     const preview = this.preview;
-    if (preview !== null) this.drawPreview(preview.cells, preview.definition, preview.valid, preview.bulldoze);
+    if (preview !== null) this.drawPreview(preview.cells, preview.definition, preview.valid, preview.bulldoze, preview.blocked);
     const draft = this.draft;
     if (draft !== null) this.drawCoasterDraft(draft.pieces, draft.armed);
     this.version = before + 1;
@@ -439,17 +441,25 @@ export class VoxelOverlays {
     if (!wasShown && this.crowdLayer.children.length > 0) this.changed();
   }
 
-  /** Footprint diamonds (and a decoration's influence) for a build, bulldoze or path preview. */
-  drawPreview(cells: readonly Cell[], definition: BuildDefinition | null, valid: boolean, bulldoze = false): void {
+  /**
+   * Footprint diamonds (and a decoration's influence) for a build, bulldoze or path preview. Phase 37: `blocked`
+   * cells take the refused fill whatever `valid` says (the path draft's cells that cannot take a path).
+   */
+  drawPreview(
+    cells: readonly Cell[], definition: BuildDefinition | null, valid: boolean, bulldoze = false, blocked: readonly Cell[] | null = null,
+  ): void {
     this.clearPreview();
     if (cells.length === 0) return;
     // Retained in WORLD cells for setView (a copy: callers reuse their arrays).
-    this.preview = { cells: cells.slice(), definition, valid, bulldoze };
+    const held = blocked && blocked.length > 0 ? blocked.slice() : null;
+    this.preview = { cells: cells.slice(), definition, valid, bulldoze, blocked: held };
     if (definition?.kind === 'scenery' && definition.stats?.sceneryAppeal) {
       this.drawSceneryPreview(cells, definition);
     }
     const graphic = new Graphics();
     const fill = previewFill(valid, bulldoze);
+    const refused = previewFill(false, bulldoze);
+    const blockedKeys = held ? new Set(held.map((cell) => `${cell.x},${cell.y}`)) : null;
     const fillAlpha = bulldoze && valid ? BULLDOZE_FILL_ALPHA : PREVIEW_FILL_ALPHA;
     const paths = this.session().world.paths;
     const shown = viewCells(this.frame, cells);
@@ -458,7 +468,8 @@ export class VoxelOverlays {
       // A path's top face stands PATH_PREVIEW_LIFT texels up: its diamond sits on that face, not under it (QA 2026-10-14).
       const world = cells[index];
       const lift = paths.has(`${world.x},${world.y}`) ? PATH_PREVIEW_LIFT : 0;
-      graphic.poly(texelDiamond(point.x, point.y - lift, 1)).fill({ color: fill, alpha: fillAlpha }).stroke({ color: OUTLINE_WHITE, alpha: 1, width: 1 });
+      const color = blockedKeys?.has(`${world.x},${world.y}`) ? refused : fill;
+      graphic.poly(texelDiamond(point.x, point.y - lift, 1)).fill({ color, alpha: fillAlpha }).stroke({ color: OUTLINE_WHITE, alpha: 1, width: 1 });
     });
     this.previewLayer.addChild(graphic);
     this.changed();

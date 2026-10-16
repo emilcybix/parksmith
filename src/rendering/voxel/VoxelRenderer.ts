@@ -116,9 +116,12 @@ const FPS_SMOOTHING = 0.08;
 const PAINT_TARGET_FALLBACK_HEIGHT = 64;
 
 /** Everything the overlay preview is drawn from (rotation only turns the ghost, not the diamonds). */
-const previewKeyOf = (cells: readonly Cell[], definition: BuildDefinition | null, valid: boolean, bulldoze: boolean): string => {
+const previewKeyOf = (
+  cells: readonly Cell[], definition: BuildDefinition | null, valid: boolean, bulldoze: boolean, blocked: readonly Cell[] | null,
+): string => {
   let key = `${definition?.id ?? '-'}|${valid ? 1 : 0}|${bulldoze ? 1 : 0}`;
   for (const cell of cells) key += `|${cell.x},${cell.y}`;
+  if (blocked) for (const cell of blocked) key += `!${cell.x},${cell.y}`;
   return key;
 };
 
@@ -980,11 +983,12 @@ export class VoxelRenderer implements RendererPort {
     bulldoze = false,
     rotation: Rotation = 0,
     colours: ObjectColours | null = null,
+    blocked: readonly Cell[] | null = null,
   ): void {
-    const key = previewKeyOf(cells, definition, valid, bulldoze);
+    const key = previewKeyOf(cells, definition, valid, bulldoze, blocked);
     if (key !== this.previewKey) {
       this.previewKey = key;
-      this.overlays.drawPreview(cells, definition, valid, bulldoze);
+      this.overlays.drawPreview(cells, definition, valid, bulldoze, blocked);
     }
     // Phase 28: the colours the next object will get tint the ghost's boxes (a new box list only when they change).
     this.scene.setPreview(cells, definition, valid, bulldoze, rotation, colours);

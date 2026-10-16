@@ -2698,35 +2698,31 @@ Asked for directly; no save field, schema or determinism pin changed. Code: `src
   park's own time, easing in like the drift. The zoom the park had is put back when the sweep stops. Reduced motion
   keeps the still frame (no zoom steps, the park's own light); `&time=` still pins the light.
 
-## Phase 37 — Path Drag Re-route (planned, not started)
+## Phase 37 — Path Drag Re-route (2026-10-16)
 
-**Problem.** If a path drag runs into something it cannot cross (a building, a prop, water), the whole draft turns red
-and stays red: the draft only grows (`handleMove` appends `lineCells` and never removes a cell), so moving the pointer
-back does not take the bad cells out. The only fix is to release (refused, with a toast) and start the drag again.
+**Problem.** If a path drag ran into something it cannot cross (a building, a prop, water), the whole draft turned red
+and stayed red: the draft only grew, so moving the pointer back did not take the bad cells out.
 
-**Goal.** Moving the pointer back along the draft takes the path back with it ("snake" backtracking), so the player can
-steer around the obstacle without letting go.
+**Built.** Code: `src/app/pathDraft.ts` (`extendPathDraft`, `blockedDraftCells`), `GameApp.handleMove` /
+`previewDraftPath`, a `blocked` argument on `RendererPort.drawPreview` (classic `WorldRenderer`, voxel
+`VoxelRenderer` → `VoxelOverlays.drawPreview`, part of the voxel preview key). No save, schema or pin change.
 
-- [ ] **Backtrack.** In `handleMove`, a cell of the line that is already in the draft cuts the draft back to that cell:
-  every cell after it is dropped, and `lastDraftCell` becomes that cell. The line is walked cell by cell as today, so a
-  fast pointer move that crosses the trail cuts at the first trail cell it meets. The preview and the hover card (cost,
-  message) redraw at once.
-- [ ] **Decide: a drag that crosses its own trail.** With the rule above, the drag cannot cross itself in one gesture
-  (crossing cuts back). Alternative: cut only when the pointer re-enters one of the last few cells (stepwise
-  backtracking), which keeps self-crossing but makes a fast pull-back less reliable. Recommended: cut on any trail cell;
-  existing paths are world paths, not draft cells, so crossing them is unaffected.
-- [ ] **Show which cells are the problem.** `previewDraftPath` draws the whole draft with one `valid` flag. Draw the
-  cells that cannot take a path red and the rest in the normal colour, so the player can see what to steer around (a
-  per-cell flag to `drawPreview`, or a second `drawPreview` call for the blocked cells; both renderers). Not affording
-  the draft still turns all of it red, as today.
-- [ ] **Step back from the keyboard too (optional).** Backspace or right-click while the button is held removes the last
-  draft cell, like Esc / right-click on the coaster draft. Check it against the existing mid-drag Ctrl+Z, which empties
-  the draft.
-- [ ] Unchanged: the release still builds only an all-valid, affordable draft, as one undo entry; the refusal toast
-  still names the first blocked cell.
-- [ ] Tests: a drag into a building, pulled back and steered round it, builds exactly the final route; a pull-back all
-  the way to the first cell leaves a one-cell draft; the hover cost follows the cut; blocked cells are drawn apart from
-  the valid ones in both renderers; a mid-drag Ctrl+Z still empties the draft.
+- [x] **Backtrack.** A cell of the pointer's line that is already in the draft cuts the draft back to that cell. The
+  line is walked cell by cell, so a fast move that crosses the trail cuts at the first trail cell it meets and grows on
+  from there. The preview and the hover card (cost, message) redraw at once.
+- [x] **Decided: cut on any trail cell.** A drag cannot cross its own trail in one gesture (crossing cuts back); a
+  crossing is two drags. Existing world paths are not draft cells, so crossing them is unaffected.
+- [x] **Blocked cells are drawn apart.** The cells that cannot take a path are red and the rest mint, in both
+  renderers, kept through a view turn. A draft the park cannot afford (or one with nothing new to build) is all red,
+  as before; the hover card still refuses a draft with any blocked cell.
+- [ ] **Step back from the keyboard: not built.** Backspace while the button is held would drop the last cell, but
+  the next pointer move re-adds it at once (the line runs from the draft's end to the pointer), so it only helps
+  with a still pointer. Pulling back does the same job. Revisit if playtests ask for it.
+- [x] Unchanged: the release builds only an all-valid, affordable draft, as one undo entry; the refusal toast names
+  the first blocked cell; a mid-drag Ctrl+Z empties the draft.
+- [x] Tests: `pathDraft.test.ts` (cut, full pull-back, steer round, fast cross, no duplicates),
+  `GameApp.pathDraft.test.ts` (into a bench, pulled back and round it builds exactly the final route; hover cost
+  follows the cut; unaffordable is all red; mid-drag Ctrl+Z), `rendering/pathDraftPreview.test.ts` (both renderers).
 
 ## Phase 38 — Coaster Track Over and Under (planned, not started)
 
