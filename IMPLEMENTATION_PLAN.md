@@ -2873,7 +2873,7 @@ cells; a stall facing the path is a destination and one facing away is not, a tw
 non-player placement turns, the player's is exact; every starting park faces its paths; every dev park service sells),
 `app/GameApp.fronts.test.ts` (auto-facing, R override with the warning, rides not turned), migration 15→16.
 
-## Phase 41 — Cinematic 3D Camera (step 0 spike done 2026-10-16: go/no-go for the owner; owner request 2026-10-16)
+## Phase 41 — Cinematic 3D Camera (owner go 2026-10-16; steps 0-2 built)
 
 **Why it is closer than it sounds.** The voxel renderer already holds the park as real 3D data: axis-aligned boxes (32
 voxels per tile) with heights, drawn by vertex pulling. What makes the picture isometric is the projection in the
@@ -2915,11 +2915,22 @@ is a different projection of the same boxes; the scene, the blueprints and the s
     so a moving camera would shimmer; the spike renders at the low-res target and upscales like the isometric view.
   - **Recommendation:** go for steps 1 to 3 (sky, menu shots, smooth view turns) after a perspective composite; ride-
     along (step 4) after them. Decision for the owner.
-- [ ] **1. Sky and horizon.** Beyond the map edge: sky gradient by time of day (Phase 20 looks), a distance fog, and a
-  ground skirt, so a low camera does not look into nothing.
-- [ ] **2. Menu shots.** The start-screen sweep (2026-10-16) gets real angles: orbiting shots, a low shot down the
-  avenue, a shot rising over the coaster. Keyframed camera paths per shot with cuts or blends; reduced motion keeps the
-  still frame.
+- [x] **1. Sky and horizon (with the light fixed).** Owner go 2026-10-16 ("kör allt på rad"). `VoxelGpu.setPerspective(view
+  | null)` replaced the spike's built-in orbit: the renderer sends a view per frame (`RendererPort.setCinematic`; the
+  `&camera3d` flag still orbits or glides). A cinematic composite (`compositeShaderSource('lite', 'rain',
+  { perspective: true })`): the lite face light (the G-buffer's perspective depth breaks the full look's outline,
+  shadow and weather taps), a sky gradient above the horizon row (`horizonRow`) graded by the park's day look (night
+  mixes toward the backdrop), and distance fog toward the horizon colour from the linear depth. Faces turned away
+  from the isometric light are lit like their opposite (the cause of the spike's dark picture, with the dawn light of
+  the test). A grass skirt five map widths out, a few voxels under the ground. Guests and staff draw through a
+  perspective figure program (`perspectiveFigureShaderSource`). Still not drawn: litter, shadow decals, light pools,
+  outlines. A failure to build the programs sets `perspectiveOk` false for good, and everything stays isometric.
+- [x] **2. Menu shots.** `app/cinematicShots.ts` (pure, tested): four 14-second shots with cuts (a high orbit, a low
+  dolly in from the gate along the inward way, a rise circling the first coaster or ride, a closer orbit the other
+  way), eased inside each shot, the subject framed right of the menu card. The start screen's sweep plays them when the
+  renderer draws them, Graphics detail is Full (Lite = the old isometric drift: the Settings switch the plan asked
+  for, without a new setting) and motion is allowed (reduced motion keeps the still frame). Leaving the menu hands
+  back the isometric camera.
 - [ ] **3. Smooth view turns.** Q / E turns the camera in yaw continuously (about 400 ms) through the 3D projection, and
   lands exactly on the next isometric view, where building and picking take over again. Input waits for the turn to
   finish, as it already does for a held drag.

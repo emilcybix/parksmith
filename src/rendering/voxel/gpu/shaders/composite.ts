@@ -130,6 +130,13 @@ export interface CompositeOptions {
    * of the `full` variant contains any view code; with this false every source is the pre-rotation one.
    */
   viewTurn?: boolean;
+  /**
+   * Phase 41: the cinematic camera's composite (with the `lite` variant): the lite face light (the G-buffer's depth is
+   * a perspective depth, which the full look's outline, shadow and weather taps cannot read), a sky gradient by time
+   * of day above the horizon, and distance fog from the linear depth (uniforms `uSkyZenith`, `uSkyHorizon`,
+   * `uHorizonY`, `uNearFar`, `uFog`).
+   */
+  perspective?: boolean;
 }
 
 /** Everything both variants share: uniforms, constants, the tap helpers and the overlay. */
@@ -388,6 +395,46 @@ void main() {
 }
 `;
 
+/** Phase 41: the cinematic camera's main (see CompositeOptions.perspective). */
+const perspectiveMain = `
+${VX_COMPOSITE_LOOK_LITE}
+uniform vec3 uSkyZenith;
+uniform vec3 uSkyHorizon;
+/** The horizon's row as a fraction of the target from the top (row 0); may lie outside 0..1. */
+uniform float uHorizonY;
+uniform vec2 uNearFar;
+/** Fog start and end distance (voxels). */
+uniform vec2 uFog;
+
+vec3 vxSky(float rowFraction) {
+  float up = clamp((uHorizonY - rowFraction) / max(uHorizonY, 0.05), 0.0, 1.0);
+  vec3 sky = mix(uSkyHorizon, uSkyZenith, sqrt(up));
+  return vxGrade(sky);
+}
+
+float vxLinearDepth(float depth) {
+  float z = depth * 2.0 - 1.0;
+  return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x));
+}
+
+void main() {
+  ivec2 texel = ivec2(gl_FragCoord.xy);
+  float rowFraction = (gl_FragCoord.y) / uLowSize.y;
+  float depth = texelFetch(uDepth, texel, 0).r;
+  vec3 horizon = vxGrade(uSkyHorizon);
+  vec4 color;
+  if (depth < 1.0) {
+    vec3 lit = vxLook(texelFetch(uAlbedo, texel, 0), texelFetch(uGData, texel, 0));
+    float fog = smoothstep(uFog.x, uFog.y, vxLinearDepth(depth));
+    color = vec4(clamp(mix(lit, horizon, fog), 0.0, 1.0), 1.0);
+  } else {
+    color = vec4(clamp(rowFraction <= uHorizonY ? vxSky(rowFraction) : horizon, 0.0, 1.0), 1.0);
+  }
+  color = vxApplyRain(color, texel);
+  outColor = color;
+}
+`;
+
 /**
  * The composite program of a variant and weather tier (compositeWeather.ts). The default tier is
  * the whole weather pass for `full` and rain only for `lite`.
@@ -402,7 +449,8 @@ export const compositeShaderSource = (
   const viewWorld = (options.viewTurn ?? true) && variant === 'full' && tier === 'full';
   return {
     vertex,
-    fragment: prelude({ translucent, front, viewWorld }) + (translucent || front ? seeCoverage : '') + weatherChunks(tier, viewWorld) + (variant === 'full' ? fullMain(front) : liteMain),
+    fragment: prelude({ translucent, front, viewWorld }) + (translucent || front ? seeCoverage : '') + weatherChunks(tier, viewWorld)
+      + (variant === 'full' ? fullMain(front) : options.perspective === true ? perspectiveMain : liteMain),
   };
 };
 

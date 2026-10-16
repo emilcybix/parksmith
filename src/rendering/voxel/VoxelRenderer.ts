@@ -1,5 +1,7 @@
 import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from 'pixi.js';
+import { lowPassCamera, orbitCamera } from './cameraOrbit';
 import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
+import type { CinematicView } from '../RendererPort';
 import type { CoasterPiece } from '../../game/coaster/design';
 import { BUILD_BY_ID } from '../../game/content/catalog';
 import type { ObjectColours } from '../../game/content/colours';
@@ -150,6 +152,9 @@ const DEFAULT_PHASE = 0.5;
 const presetNameOf = (weights: DayWeights): LightPresetName => (
   weights.day >= weights.dusk && weights.day >= weights.night ? 'day' : weights.dusk >= weights.night ? 'dusk' : 'night'
 );
+
+/** Phase 41: the cinematic camera's vertical field of view (50°). */
+const CINEMATIC_FOV = (50 * Math.PI) / 180;
 
 /**
  * The voxel pixel-art renderer, the game's main renderer (design §3–§5, §10); `?renderer=classic`
@@ -1198,7 +1203,6 @@ export class VoxelRenderer implements RendererPort {
       translucentSeeThrough: rung.translucent && this.seeEnabled,
       onTranslucentFailed: this.handleTranslucentFailed,
       onContextRestored: this.handleContextRestored,
-      camera3d: CAMERA_3D ?? null,
     });
     this.gpu = gpu;
     this.viewTurnOk = gpu.supportsViewTurn;
@@ -1245,6 +1249,42 @@ export class VoxelRenderer implements RendererPort {
     );
   }
 
+  /**
+   * Phase 41: the cinematic camera's view this frame, or null for the isometric one. The developer flag `&camera3d`
+   * (orbit or a low pass) wins; otherwise a menu shot, a view turn or a ride-along asks for it.
+   */
+  setCinematic(view: Readonly<CinematicView> | null): void {
+    if (view === null) {
+      this.requestedCinematic = null;
+      return;
+    }
+    const held = this.requestedCinematic ?? (this.requestedCinematic = { eye: [0, 0, 0], target: [0, 0, 0], fovY: CINEMATIC_FOV });
+    for (let axis = 0; axis < 3; axis += 1) {
+      held.eye[axis] = view.eye[axis];
+      held.target[axis] = view.target[axis];
+    }
+    held.fovY = view.fovY;
+  }
+
+  get cinematicSupported(): boolean {
+    return this.gpu?.perspectiveOk ?? false;
+  }
+
+  private requestedCinematic: CinematicView | null = null;
+
+  private cinematicView(): CinematicView | null {
+    if (CAMERA_3D === null || CAMERA_3D === undefined) return this.requestedCinematic;
+    const width = this.session.world.width * VOXELS_PER_TILE;
+    const height = this.session.world.height * VOXELS_PER_TILE;
+    const seconds = this.frame.elapsedMs / 1000;
+    if (CAMERA_3D === 'low') lowPassCamera(width, height, seconds, this.cinematic);
+    else orbitCamera(width, height, seconds, this.cinematic);
+    this.cinematic.fovY = CINEMATIC_FOV;
+    return this.cinematic;
+  }
+
+  private readonly cinematic: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: CINEMATIC_FOV };
+
   /** The snapped camera and the look into the GPU's frame uniforms (also resizes its targets). */
   private pushFrame(snap: SnappedCamera): void {
     const gpu = this.gpu;
@@ -1253,7 +1293,9 @@ export class VoxelRenderer implements RendererPort {
     frame.camera = snap;
     frame.grid = this.showGrid;
     this.updateLook();
-    if (CAMERA_3D) gpu.setCameraMap(this.session.world.width, this.session.world.height);
+    // Optional calls: test doubles of the GPU predate the cinematic camera.
+    gpu.setCameraMap?.(this.session.world.width, this.session.world.height);
+    gpu.setPerspective?.(this.cinematicView());
     gpu.setFrame(frame);
   }
 

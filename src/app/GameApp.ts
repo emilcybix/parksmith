@@ -116,6 +116,8 @@ import { autosavedRunAtStake, latestRunSlot } from './runSlots';
 import { slotDisplayName } from './saves/autosaveGenerations';
 import { pickGuest } from './guestPick';
 import { createCameraSweep, sweepDayPhase, sweepZoomStep, type SweepPoint } from './cameraSweep';
+import { inwardOf, menuShot, type ShotScene } from './cinematicShots';
+import type { CinematicView } from '../rendering/RendererPort';
 import { START_MENU_DEFAULT } from './menuFlag';
 import { onReducedMotionChange, reducedMotion } from '../settings/motion';
 import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type LandUi, type LeaveRunPrompt, type ToolMode, type UiState } from '../ui/store';
@@ -2335,6 +2337,35 @@ export class GameApp implements GameCommands, RunCommands {
     this.starterShown = false;
   }
 
+  private shotScene: ShotScene | null = null;
+  private readonly shotView: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 1 };
+
+  /** Phase 41: cinematic menu shots: a renderer that draws them, full graphics, and motion allowed. */
+  private cinematicMenuOn(): boolean {
+    const renderer = this.renderer;
+    return renderer?.setCinematic !== undefined && renderer.cinematicSupported !== false && !this.sweepStill
+      && getSettings().graphicsDetail !== 'lite';
+  }
+
+  /** What the menu shots frame: the park's middle (the dev park's own centre), the gate, and its first coaster or ride. */
+  private buildShotScene(): ShotScene {
+    const world = this.world;
+    const focus = this.starterIsDevPark ? DEV_PARK_CENTRE : { x: world.width / 2, y: world.height / 2 };
+    const inward = inwardOf(world.entranceFacing);
+    const landmarkObject = [...world.coasters.keys()].map((id) => world.objects.get(id)).find((object) => object !== undefined)
+      ?? [...world.objects.values()].find((object) => BUILD_BY_ID.get(object.definitionId)?.kind === 'ride');
+    const cells = landmarkObject ? world.objectFootprint(landmarkObject) : [];
+    const landmark = cells.length > 0
+      ? { x: cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length, y: cells.reduce((sum, cell) => sum + cell.y, 0) / cells.length }
+      : null;
+    this.shotScene = {
+      width: world.width, height: world.height, focusX: focus.x, focusY: focus.y,
+      gateX: world.entrance.x, gateY: world.entrance.y, inwardX: inward.x, inwardY: inward.y,
+      landmarkX: landmark?.x ?? null, landmarkY: landmark?.y ?? null,
+    };
+    return this.shotScene;
+  }
+
   /** Whether the sweep may run: a renderer that can place the camera, and no voxel failure (a software or broken GPU). */
   private sweepAllowed(): boolean {
     if (!this.renderer?.setCameraCentre) return false;
@@ -2358,6 +2389,8 @@ export class GameApp implements GameCommands, RunCommands {
 
   private stopSweep(): void {
     this.sweepActive = false;
+    this.shotScene = null;
+    this.renderer?.setCinematic?.(null);
     this.stopWatchingMotion?.();
     this.stopWatchingMotion = null;
     // The sweep's zoom steps were presentation for the menu: the park is handed back at the zoom it had.
@@ -2376,6 +2409,12 @@ export class GameApp implements GameCommands, RunCommands {
     const renderer = this.renderer;
     if (!renderer?.setCameraCentre) return;
     const point = this.sweepStill ? this.sweep.current(this.sweepPoint) : this.sweep.advance(deltaMs, this.sweepPoint);
+    // Phase 41: on a GPU that draws it, with full graphics and motion allowed, the menu plays cinematic shots instead.
+    if (this.cinematicMenuOn()) {
+      renderer.setCinematic?.(menuShot(this.sweep.elapsedSeconds, this.shotScene ?? this.buildShotScene(), this.shotView));
+      return;
+    }
+    renderer.setCinematic?.(null);
     if (this.sweepBaseZoom !== null && renderer.setCameraZoom) {
       const zoom = this.sweepBaseZoom + (this.sweepStill ? 0 : sweepZoomStep(this.sweep.elapsedSeconds));
       if (zoom !== this.sweepLastZoom) {

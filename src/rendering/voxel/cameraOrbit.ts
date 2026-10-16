@@ -8,6 +8,21 @@ export interface CameraPose {
   target: [number, number, number];
 }
 
+/** Phase 41: what the GPU draws a cinematic frame from (RendererPort's type). */
+export type { CinematicView } from '../RendererPort';
+
+/**
+ * Phase 41: the horizon's row as a fraction of the picture from the top: where a level line of sight lands for this
+ * pose and field of view (0.5 when looking level; above the middle when looking down). May lie outside 0..1.
+ */
+export const horizonRow = (pose: CameraPose, fovY: number): number => {
+  const fx = pose.target[0] - pose.eye[0];
+  const fy = pose.target[1] - pose.eye[1];
+  const fz = pose.target[2] - pose.eye[2];
+  const down = Math.atan2(-fz, Math.hypot(fx, fy) || 1e-6);
+  return 0.5 - (0.5 * Math.tan(down)) / Math.tan(fovY / 2);
+};
+
 export const orbitCamera = (mapWidthVoxels: number, mapHeightVoxels: number, seconds: number, out: CameraPose): CameraPose => {
   const cx = mapWidthVoxels / 2;
   const cy = mapHeightVoxels / 2;

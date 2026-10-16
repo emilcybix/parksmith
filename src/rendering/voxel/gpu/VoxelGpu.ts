@@ -24,6 +24,7 @@ import {
   BOX_TEX_WIDTH,
   BOX_TEXELS,
   buildBoxIndices,
+  packBoxWord,
   DYNAMIC_BOX_TEX_WIDTH,
   INDICES_PER_BOX,
   TRANSFORM_TEX_WIDTH,
@@ -46,7 +47,7 @@ import {
   type VoxelGpuSink,
 } from '../contracts/frame';
 import { GHOST_DEPTH_BIAS, GHOST_TINT_MIX } from '../contracts/gbuffer';
-import { PALETTE_TEX_ROWS, PALETTE_TEX_WIDTH } from '../contracts/palette';
+import { MAT, PALETTE_TEX_ROWS, PALETTE_TEX_WIDTH, PATTERN } from '../contracts/palette';
 import type { DepthRange } from '../contracts/space';
 import { blendLightPreset, createDayLook, type DayLook } from '../dayLook';
 import type { LightPresetName } from '../lightPresets';
@@ -87,8 +88,8 @@ import type { WeatherTier } from './shaders/compositeWeather';
 import { WeatherUniformSync, type WeatherUniformTarget } from './weatherUniforms';
 import { rgbToUnit } from './shaders/glsl';
 import { GpuPassTimer, PASS_COMPOSITE, PASS_GBUFFER, PASS_LIGHT, PASS_UPSCALE, type GpuPassTimings } from './timing';
-import { perspectiveWorldShaderSource } from './shaders/perspective';
-import { lowPassCamera, orbitCamera, viewProjection, type CameraPose } from '../cameraOrbit';
+import { perspectiveCompositeShaderSource, perspectiveFigureShaderSource, perspectiveWorldShaderSource } from './shaders/perspective';
+import { horizonRow, viewProjection, type CinematicView } from '../cameraOrbit';
 
 /**
  * The voxel renderer's GPU side (design §5–§7): every Pixi resource and every pass of a frame.
@@ -184,8 +185,6 @@ export interface VoxelGpuOptions {
    * owner must re-render the overlay target and re-send anything it only sends on change.
    */
   onContextRestored?: () => void;
-  /** Phase 41 step 0 (spike, developer flag `&camera3d`): draw the static chunks through a moving perspective camera. */
-  camera3d?: 'orbit' | 'low' | null;
 }
 
 /** Everything that changes per frame outside the scene. */
@@ -246,8 +245,16 @@ export interface VoxelGpuSurfaces {
 }
 
 export interface VoxelGpu extends VoxelGpuSink {
-  /** Phase 41 spike: the map size in tiles, for the perspective camera (`&camera3d`); otherwise unused. */
+  /**
+   * Phase 41: the cinematic camera. A view draws the frame through it (the static chunks, the train, the ground skirt,
+   * a sky and fog; no figures, overlays or ghosts); null is the isometric view. The renderer sends it every frame it
+   * wants it; the programs compile on first use.
+   */
+  setPerspective(view: Readonly<CinematicView> | null): void;
+  /** Phase 41: the map size in tiles (the ground skirt around it). */
   setCameraMap(widthTiles: number, heightTiles: number): void;
+  /** Phase 41: whether the cinematic programs compiled and drew (false after a failure: the caller stays isometric). */
+  readonly perspectiveOk: boolean;
   /** The sources were built with the view-rotation code (VoxelGpuOptions.viewTurn); false = view 0 only. */
   readonly supportsViewTurn: boolean;
   /** The stage child that runs every pass; add it to `app.stage` once. */
@@ -460,15 +467,26 @@ class PixiVoxelGpu implements VoxelGpu {
     /** Phase 26: (c, s, ox, oy) of the view transform, written when its revision moves (view 0 = (1, 0, 0, 0)). */
     uView: { value: new Float32Array([1, 0, 0, 0]), type: 'vec4<f32>' },
   });
-  /** Phase 41 spike: the perspective camera (only read with `&camera3d`). */
+  /** Phase 41: the cinematic camera (read only while a view is set). */
   private readonly perspectiveUniforms = new UniformGroup({
     uViewProj: { value: new Float32Array(16), type: 'mat4x4<f32>' },
     uEye: { value: vec3(), type: 'vec3<f32>' },
   });
-  private readonly camera3d: 'orbit' | 'low' | null;
+  private readonly skyUniforms = new UniformGroup({
+    uSkyZenith: { value: vec3(), type: 'vec3<f32>' },
+    uSkyHorizon: { value: vec3(), type: 'vec3<f32>' },
+    uHorizonY: { value: 0.4, type: 'f32' },
+    uNearFar: { value: vec2(), type: 'vec2<f32>' },
+    uFog: { value: vec2(), type: 'vec2<f32>' },
+  });
+  private perspectiveView: CinematicView | null = null;
   private perspectiveProgram: GlProgram | null = null;
-  private readonly cameraPose: CameraPose = { eye: [0, 0, 0], target: [0, 0, 0] };
-  private cameraSeconds = 0;
+  private perspectiveComposite: Shader | null = null;
+  private perspectiveFigures: Shader | null = null;
+  private perspectiveFailed = false;
+  private skirtSource: VoxelDataSource | null = null;
+  private skirtShader: Shader | null = null;
+  private skirtMap = '';
   private cameraMapWidth = 32;
   private cameraMapHeight = 32;
   private readonly ghostUniforms = new UniformGroup({
@@ -646,11 +664,7 @@ class PixiVoxelGpu implements VoxelGpu {
     this.onContextRestored = options.onContextRestored ?? null;
     this.onTranslucentFailed = options.onTranslucentFailed ?? null;
     this.programSet = createVoxelPrograms(options.compositeVariant ?? 'full', options.weatherTier, this.translucent, this.supportsViewTurn);
-    this.camera3d = options.camera3d ?? null;
-    if (this.camera3d !== null) {
-      const { vertex, fragment } = perspectiveWorldShaderSource();
-      this.perspectiveProgram = new GlProgram({ name: 'voxel-worldPerspective', vertex, fragment, preferredVertexPrecision: 'highp', preferredFragmentPrecision: 'highp' });
-    }
+
     this.timer = options.timing ? GpuPassTimer.create(renderer.gl as WebGL2RenderingContext) : null;
 
     this.indexCapacity = indexCapacityFor(0, 0);
@@ -965,7 +979,6 @@ class PixiVoxelGpu implements VoxelGpu {
     uniforms.uDepthRange[0] = frame.depthRange.min;
     uniforms.uDepthRange[1] = frame.depthRange.max;
     uniforms.uTime = wrapShaderSeconds(frame.elapsedMs);
-    this.cameraSeconds = frame.elapsedMs / 1000;
     uniforms.uGrid = frame.grid ? 1 : 0;
     this.zoom = Math.max(1, camera.zoom);
     this.offsetX = camera.offsetX;
@@ -1172,9 +1185,9 @@ class PixiVoxelGpu implements VoxelGpu {
     // viewport it set, so it is restored before anything else binds.
     const frame = this.frameUniforms.uniforms;
     gl.viewport(0, 0, frame.uClipSize[0], frame.uClipSize[1]);
-    // Phase 41 spike: the static chunks only, through the perspective camera (figures, litter, shadows, the draft and
-    // the ghost are drawn in the isometric projection, so they are left out).
-    const perspective = this.camera3d !== null && this.perspectiveProgram !== null;
+    // Phase 41: the cinematic camera draws the static chunks (the train included), the guests and staff and the ground
+    // skirt; litter, shadows, the draft and the ghost are drawn in the isometric projection, so they are left out.
+    const perspective = this.perspectiveView !== null && this.ensurePerspective();
     const frontActive = perspective ? this.drawChunksPerspective() : this.drawChunks();
     if (!perspective) {
       this.drawFigures();
@@ -1244,6 +1257,14 @@ class PixiVoxelGpu implements VoxelGpu {
 
   private drawLightAndComposite(renderTargets: WebGLRenderer['renderTarget'], lightDraws: number): void {
     const timer = this.timer;
+    // Phase 41: the cinematic frame has its own composite (no light pools: their pass reads isometric positions).
+    if (this.perspectiveView !== null && this.perspectiveComposite !== null) {
+      timer?.begin(PASS_COMPOSITE);
+      renderTargets.bind(this.compositeBinding);
+      this.drawFullscreen(this.perspectiveComposite);
+      timer?.end();
+      return;
+    }
     if (lightDraws > 0) {
       timer?.begin(PASS_LIGHT);
       renderTargets.bind(this.lightBinding);
@@ -1302,44 +1323,150 @@ class PixiVoxelGpu implements VoxelGpu {
     return frontActive;
   }
 
-  /** Phase 41 spike: the map size in tiles (the camera orbits its centre). */
+  /** Phase 41: the map size in tiles (the ground skirt is laid around it). */
   setCameraMap(widthTiles: number, heightTiles: number): void {
     this.cameraMapWidth = widthTiles;
     this.cameraMapHeight = heightTiles;
   }
 
-  /**
-   * Phase 41 spike: every live chunk (no cull yet) through the perspective program into the G-buffer, over the low
-   * target's own viewport. Never opens the see-through front layer.
-   */
-  private drawChunksPerspective(): boolean {
-    const frame = this.frameUniforms.uniforms;
+  setPerspective(view: Readonly<CinematicView> | null): void {
+    if (view === null || this.perspectiveFailed) {
+      this.perspectiveView = null;
+      return;
+    }
+    const held = this.perspectiveView ?? (this.perspectiveView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 1 });
+    for (let axis = 0; axis < 3; axis += 1) {
+      held.eye[axis] = view.eye[axis];
+      held.target[axis] = view.target[axis];
+    }
+    held.fovY = view.fovY;
+  }
+
+  get perspectiveOk(): boolean {
+    return !this.perspectiveFailed;
+  }
+
+  /** Builds the cinematic programs and the ground skirt on first use; false (for good) if they cannot be built. */
+  private ensurePerspective(): boolean {
+    if (this.perspectiveFailed) return false;
+    try {
+      if (this.perspectiveProgram === null) {
+        const world = perspectiveWorldShaderSource();
+        this.perspectiveProgram = new GlProgram({ name: 'voxel-worldPerspective', vertex: world.vertex, fragment: world.fragment, preferredVertexPrecision: 'highp', preferredFragmentPrecision: 'highp' });
+        const composite = perspectiveCompositeShaderSource();
+        this.perspectiveComposite = new Shader({
+          glProgram: new GlProgram({ name: 'voxel-compositePerspective', vertex: composite.vertex, fragment: composite.fragment, preferredVertexPrecision: 'highp', preferredFragmentPrecision: 'highp' }),
+          resources: {
+            uAlbedo: this.albedo,
+            uGData: this.gdata,
+            uDepth: this.depth,
+            uLight: this.lightTarget,
+            uOverlay: this.overlayTexture.source,
+            uFront: this.albedo,
+            frameUniforms: this.frameUniforms,
+            compositeUniforms: this.compositeUniforms,
+            seeThroughUniforms: this.seeThroughUniforms,
+            skyUniforms: this.skyUniforms,
+          },
+        });
+        const figures = perspectiveFigureShaderSource();
+        this.perspectiveFigures = new Shader({
+          glProgram: new GlProgram({ name: 'voxel-figurePerspective', vertex: figures.vertex, fragment: figures.fragment, preferredVertexPrecision: 'highp', preferredFragmentPrecision: 'highp' }),
+          resources: {
+            uEntities: this.figures,
+            uTemplates: this.templates,
+            uPalette: this.palette,
+            frameUniforms: this.frameUniforms,
+            rangeUniforms: this.rangeUniforms,
+            perspectiveUniforms: this.perspectiveUniforms,
+          },
+        });
+        this.skirtSource = new VoxelDataSource({ width: BOX_TEX_WIDTH, label: 'voxel-skirt' });
+        this.skirtShader = this.perspectiveShaderFor(this.skirtSource);
+      }
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.perspectiveFailed = true;
+      this.perspectiveView = null;
+      return false;
+    }
+  }
+
+  private perspectiveShaderFor(source: VoxelDataSource): Shader {
+    return new Shader({
+      glProgram: this.perspectiveProgram as GlProgram,
+      resources: {
+        uBoxes: source,
+        uTransforms: this.transforms,
+        uPalette: this.palette,
+        frameUniforms: this.frameUniforms,
+        perspectiveUniforms: this.perspectiveUniforms,
+      },
+    });
+  }
+
+  /** One grass box well past the map on every side, a voxel under its ground, so a low camera never sees the void. */
+  private syncSkirt(): void {
+    const key = `${this.cameraMapWidth}x${this.cameraMapHeight}`;
+    if (key === this.skirtMap || this.skirtSource === null) return;
+    this.skirtMap = key;
     const width = this.cameraMapWidth * VOXELS_PER_TILE_SPIKE;
     const height = this.cameraMapHeight * VOXELS_PER_TILE_SPIKE;
-    const pose = this.camera3d === 'low' ? lowPassCamera(width, height, this.cameraSeconds, this.cameraPose) : orbitCamera(width, height, this.cameraSeconds, this.cameraPose);
+    const reach = 5 * Math.max(width, height);
+    const box = new Float32Array(BOX_FLOATS);
+    box[0] = -reach;
+    box[1] = -reach;
+    box[2] = -3;
+    box[3] = packBoxWord(MAT.GRASS, 0, PATTERN.PLAIN, 0);
+    box[4] = width + 2 * reach;
+    box[5] = height + 2 * reach;
+    box[6] = 2;
+    box[7] = 0;
+    this.skirtSource.writePrefix(box, BOX_FLOATS);
+    this.ensureIndexCapacity(1);
+  }
+
+  /**
+   * Phase 41: the ground skirt and every live chunk through the perspective program into the G-buffer, over the low
+   * target's own viewport, and the sky and fog uniforms for the cinematic composite. Never opens the front layer.
+   */
+  private drawChunksPerspective(): boolean {
+    const view = this.perspectiveView as CinematicView;
+    const frame = this.frameUniforms.uniforms;
+    const size = Math.max(this.cameraMapWidth, this.cameraMapHeight) * VOXELS_PER_TILE_SPIKE;
+    const near = 2;
+    const far = 12 * size;
     const uniforms = this.perspectiveUniforms.uniforms;
-    viewProjection(pose, frame.uLowSize[0] / Math.max(1, frame.uLowSize[1]), (50 * Math.PI) / 180, 4, 8 * Math.max(width, height), uniforms.uViewProj);
-    uniforms.uEye[0] = pose.eye[0];
-    uniforms.uEye[1] = pose.eye[1];
-    uniforms.uEye[2] = pose.eye[2];
+    viewProjection(view, frame.uLowSize[0] / Math.max(1, frame.uLowSize[1]), view.fovY, near, far, uniforms.uViewProj);
+    uniforms.uEye[0] = view.eye[0];
+    uniforms.uEye[1] = view.eye[1];
+    uniforms.uEye[2] = view.eye[2];
     this.perspectiveUniforms.update();
+    const sky = this.skyUniforms.uniforms;
+    sky.uHorizonY = horizonRow(view, view.fovY);
+    sky.uNearFar[0] = near;
+    sky.uNearFar[1] = far;
+    sky.uFog[0] = 1.4 * size;
+    sky.uFog[1] = 3.2 * size;
+    const night = this.look.backgroundAlpha;
+    const background = this.look.backgroundRgb;
+    for (let channel = 0; channel < 3; channel += 1) {
+      sky.uSkyZenith[channel] = SKY_ZENITH_DAY[channel] * (1 - night) + background[channel] * 0.7 * night;
+      sky.uSkyHorizon[channel] = SKY_HORIZON_DAY[channel] * (1 - night) + background[channel] * night;
+    }
+    this.skyUniforms.update();
     const gl = this.renderer.gl;
     gl.viewport(0, 0, frame.uLowSize[0], frame.uLowSize[1]);
+    this.syncSkirt();
+    if (this.skirtShader !== null) this.drawBoxes(this.skirtShader, 1, this.opaque);
     for (const chunk of this.chunks) {
       if (!chunk || chunk.count === 0) continue;
-      const shader = chunk.perspectiveShader ?? (chunk.perspectiveShader = new Shader({
-        glProgram: this.perspectiveProgram as GlProgram,
-        resources: {
-          uBoxes: chunk.source,
-          uTransforms: this.transforms,
-          uPalette: this.palette,
-          frameUniforms: this.frameUniforms,
-          perspectiveUniforms: this.perspectiveUniforms,
-        },
-      }));
+      const shader = chunk.perspectiveShader ?? (chunk.perspectiveShader = this.perspectiveShaderFor(chunk.source));
       this.drawBoxes(shader, chunk.count, this.opaque);
       this.stats.chunksDrawn += 1;
     }
+    if (this.perspectiveFigures !== null) this.drawFigures(this.perspectiveFigures);
     return false;
   }
 
@@ -1453,7 +1580,7 @@ class PixiVoxelGpu implements VoxelGpu {
     uniforms.uSeeC.set(saved.subarray(8, 12));
   }
 
-  private drawFigures(): void {
+  private drawFigures(shader: Shader = this.figureShader): void {
     const uniforms = this.rangeUniforms.uniforms;
     for (let index = 0; index < this.rangeTotal; index += 1) {
       const model = this.rangeModel[index];
@@ -1463,7 +1590,7 @@ class PixiVoxelGpu implements VoxelGpu {
       uniforms.uEntityBase = this.rangeFirst[index];
       uniforms.uModelFirstBox = this.templateFirst[model];
       uniforms.uModelBoxCount = boxesPerEntity;
-      this.drawBoxes(this.figureShader, boxes, this.opaque);
+      this.drawBoxes(shader, boxes, this.opaque);
     }
   }
 
@@ -1735,8 +1862,11 @@ class PixiVoxelGpu implements VoxelGpu {
   }
 }
 
-/** Voxels per tile (contracts/space VOXELS_PER_TILE), local to the spike so the import list stays as it was. */
+/** Voxels per tile (contracts/space VOXELS_PER_TILE), local to the cinematic camera so the import list stays as it was. */
 const VOXELS_PER_TILE_SPIKE = 32;
+/** Phase 41: the day sky (0..1 sRGB) the cinematic composite grades like the park; night mixes toward the backdrop. */
+const SKY_ZENITH_DAY: readonly number[] = [0.42, 0.66, 0.93];
+const SKY_HORIZON_DAY: readonly number[] = [0.8, 0.89, 0.97];
 
 /**
  * Builds the voxel GPU pipeline on a WebGL2 renderer whose app was created with the voxel data

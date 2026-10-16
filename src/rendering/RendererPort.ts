@@ -79,6 +79,16 @@ export type RendererKind = 'classic' | 'voxel';
 export type CameraMotion = 'instant' | 'ease';
 
 /**
+ * Phase 41: a cinematic camera view: world voxels (z up), a look-at pose and a vertical field of view in radians.
+ * Presentation only (the menu shots, the view-turn transition, ride-along).
+ */
+export interface CinematicView {
+  eye: [number, number, number];
+  target: [number, number, number];
+  fovY: number;
+}
+
+/**
  * Everything GameApp asks of a renderer: the eighteen members it has always used, a frame hook in
  * place of the Pixi ticker it used to reach into, and which renderer it is. Keeping GameApp on this
  * seam is what lets the voxel renderer draw the whole picture — and the classic one take over when
@@ -193,6 +203,12 @@ export interface RendererPort {
   readonly cameraZoom?: number;
   /** Presentation only: sets the whole zoom level, clamped into the renderer's levels, keeping the viewport's centre. */
   setCameraZoom?(zoom: number): void;
+  /**
+   * Phase 41: draws the next frames through a cinematic camera (null: back to the isometric view). Optional (voxel
+   * only); `cinematicSupported` says whether this GPU drew it. Presentation only.
+   */
+  setCinematic?(view: Readonly<CinematicView> | null): void;
+  readonly cinematicSupported?: boolean;
 
   setGridVisible(visible: boolean): void;
   setSceneryInfluenceVisible(visible: boolean): void;

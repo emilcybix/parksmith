@@ -3,6 +3,8 @@ import { VX_COMMON, VX_PRECISION } from './common';
 import { VX_GEOMETRY_COMMON } from './geometryCommon';
 import { glslInt } from './glsl';
 import { worldShaderSource, type ShaderSource } from './world';
+import { compositeShaderSource } from './composite';
+import { figureShaderSource } from './figure';
 
 /**
  * Phase 41 step 0 (spike, `&camera3d=1`): the static boxes through a perspective camera instead of the isometric
@@ -61,7 +63,9 @@ void main() {
   vQuarterTurn = (word >> 21) & 3;
   vPatternFace = vxFaceOfAxis(axisIndex);
   vFaceCode = vxFaceOfNormal(normal);
-  vLambert = vxLambert(normal);
+  // Phase 41: the isometric light comes from the viewer's side, so a face turned away (-x, -y) would be black; the
+  // cinematic camera lights both sides of an axis alike.
+  vLambert = vxLambert(vec3(abs(normal.x), abs(normal.y), normal.z));
   bool rigid = slot > 0;
   vPatternNormal = rigid ? vxAxis(axisIndex) * side : normal;
   vPatternPosition = rigid ? local : world;
@@ -70,3 +74,29 @@ void main() {
 
 /** The spike's program: the vertex stage above with the isometric opaque fragment shader (no view rotation). */
 export const perspectiveWorldShaderSource = (): ShaderSource => ({ vertex, fragment: worldShaderSource('opaque', false).fragment });
+
+/** Phase 41: the cinematic camera's composite: the lite look, sky and fog (composite.ts CompositeOptions.perspective). */
+export const perspectiveCompositeShaderSource = (): ShaderSource => compositeShaderSource('lite', 'rain', { perspective: true });
+
+/**
+ * Phase 41: the guests and staff through the cinematic camera: the isometric figure program (no view rotation) with
+ * its face choice and projection replaced, as for the static boxes. The figure fragment shader is unchanged.
+ */
+export const perspectiveFigureShaderSource = (): ShaderSource => {
+  const base = figureShaderSource('opaque', false);
+  const replace = (source: string, from: string, to: string): string => {
+    if (!source.includes(from)) throw new Error(`perspectiveFigureShaderSource: the figure program changed (${from.slice(0, 40)})`);
+    return source.replace(from, to);
+  };
+  let vertex = replace(base.vertex, 'uniform int uModelBoxCount;', 'uniform int uModelBoxCount;\nuniform mat4 uViewProj;\nuniform vec3 uEye;');
+  vertex = replace(vertex, '  vec3 offset = turnedMin + turnedSize * vxFaceCorner(axisIndex, corner, 1.0);',
+    `  vec3 centre = place.xyz + turnedMin + turnedSize * 0.5;
+  float side = dot(vxAxis(axisIndex), uEye - centre) >= 0.0 ? 1.0 : -1.0;
+  vec3 offset = turnedMin + turnedSize * vxFaceCorner(axisIndex, corner, side > 0.0 ? 1.0 : 0.0);`);
+  vertex = replace(vertex, '  gl_Position = vxClip(snapped + vxProject(offset), uCameraTexel, uClipSize, vxDepthNdc(key, uDepthRange));',
+    `  gl_Position = uViewProj * vec4(place.xyz + offset, 1.0);
+  gl_Position.y = -gl_Position.y;`);
+  vertex = replace(vertex, '  vec3 normal = vxAxis(axisIndex);', '  vec3 normal = vxAxis(axisIndex) * side;');
+  vertex = replace(vertex, '  vLambert = vxLambert(normal);', '  vLambert = vxLambert(vec3(abs(normal.x), abs(normal.y), normal.z));');
+  return { vertex, fragment: base.fragment };
+};
