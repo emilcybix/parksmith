@@ -127,12 +127,14 @@ describe('idle prefetch of the lazy panels', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
-  it('by default it prefetches exactly the three panel loaders', async () => {
+  it('by default it prefetches exactly the five panel loaders (Phase 42 added the two windows)', async () => {
     const idle = fakeIdle();
-    const spies = [vi.spyOn(PANEL_LOADERS, 'settings'), vi.spyOn(PANEL_LOADERS, 'saveLoad'), vi.spyOn(PANEL_LOADERS, 'paint')];
+    // Resolved at once: the real chunks would load the modules, which under a busy suite can outlast runNext's wait.
+    const spies = (['settings', 'saveLoad', 'paint', 'staff', 'buildings'] as const)
+      .map((name) => vi.spyOn(PANEL_LOADERS, name).mockResolvedValue({ default: () => null } as never));
     // The default list is read when the call is made, so the spies are what it calls.
     const settled = prefetchLazyPanels(idle.host);
-    for (let i = 0; i < 3; i += 1) await idle.runNext();
+    for (let i = 0; i < 5; i += 1) await idle.runNext();
     await settled;
     for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
   });

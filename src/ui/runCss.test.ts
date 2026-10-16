@@ -22,7 +22,7 @@ const balanced = (source: string): { depth: number; lowest: number } => {
 describe('stylesheets stay well formed', () => {
   // A stray closing brace swallows the next rule in every browser: removing the Park Tour block once left one, and the coaster
   // designer lost its position until the layout audit caught it.
-  it.each(['./styles.css', './a11y.css', './keyboardSettings.css'])('%s has balanced braces and never closes more than it opened', (file) => {
+  it.each(['./styles.css', './a11y.css', './keyboardSettings.css', './windows.css'])('%s has balanced braces and never closes more than it opened', (file) => {
     const text = nodeFs.readFileSync(new URL(file, import.meta.url).pathname, 'utf8');
     expect(balanced(text)).toEqual({ depth: 0, lowest: 0 });
   });

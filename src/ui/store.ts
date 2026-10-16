@@ -23,6 +23,9 @@ import type { PulseCardId } from '../game/cards/types';
 import type { RunSnapshot, RunSummary } from '../game/run/types';
 import type { ScenerySnapshot } from '../game/scenery/types';
 import type { BuildingSnapshot } from '../game/session/types';
+import type { WorkerSnapshot } from '../game/operations/types';
+import type { BuildingsView } from './buildingsWindowModel';
+import { loadWindowPrefs, saveWindowPrefs, type WindowId } from './windowPrefs';
 import type { SavesSnapshot } from '../app/saves/types';
 import type { RecoverySnapshot } from '../app/saves/recoveryTypes';
 import type { UndoStatus } from '../app/undo/types';
@@ -374,6 +377,15 @@ export interface UiState {
   /** Phase 22: what the last scenario result granted (null while running). */
   scenarioRewards: ScenarioRewardResult | null;
   managementOpen: boolean;
+  /** Phase 42: the open windows (Staff, Buildings), oldest first: the last is on top and the first Esc closes it. */
+  openWindows: WindowId[];
+  /** Phase 42: every worker, published while the Staff window is open. */
+  workers: WorkerSnapshot[];
+  /** Phase 42: the Buildings window's filters, search and sort (remembered per player). */
+  buildingsView: BuildingsView;
+  toggleWindow: (id: WindowId) => void;
+  closeWindow: (id: WindowId) => void;
+  setBuildingsView: (patch: Partial<BuildingsView>) => void;
   /** Clean view: the build dock and every floating panel are hidden, nothing else changes. */
   cleanView: boolean;
   managementTab: ManagementTab;
@@ -441,6 +453,8 @@ export interface UiState {
   dismissScenarioResult: () => void;
   resetScenarioResult: () => void;
 }
+
+const INITIAL_WINDOW_PREFS = loadWindowPrefs();
 
 export const useUiStore = create<UiState>((set) => ({
   // Only the value shown before the first session snapshot arrives; the world owns the real one.
@@ -546,6 +560,27 @@ export const useUiStore = create<UiState>((set) => ({
   profileLocks: {},
   scenarioRewards: null,
   managementOpen: false,
+  openWindows: INITIAL_WINDOW_PREFS.open,
+  workers: [],
+  buildingsView: INITIAL_WINDOW_PREFS.buildings,
+  toggleWindow: (id) => set((state) => {
+    const openWindows = state.openWindows.includes(id)
+      ? state.openWindows.filter((open) => open !== id)
+      : [...state.openWindows, id];
+    saveWindowPrefs({ open: openWindows, buildings: state.buildingsView });
+    return { openWindows };
+  }),
+  closeWindow: (id) => set((state) => {
+    if (!state.openWindows.includes(id)) return {};
+    const openWindows = state.openWindows.filter((open) => open !== id);
+    saveWindowPrefs({ open: openWindows, buildings: state.buildingsView });
+    return { openWindows };
+  }),
+  setBuildingsView: (patch) => set((state) => {
+    const buildingsView = { ...state.buildingsView, ...patch };
+    saveWindowPrefs({ open: state.openWindows, buildings: buildingsView });
+    return { buildingsView };
+  }),
   cleanView: false,
   managementTab: 'overview',
   focusedResearchProjectId: null,

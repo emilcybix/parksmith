@@ -225,6 +225,9 @@ export const ANCHORS = {
   /** The ride / service inspector beside Park Pulse (`.ride-inspector`: right 300, width 292). */
   inspectorRight: 300,
   inspectorWidth: 292,
+  /** Phase 42: a docked window (`.game-window`): beside the rail, this wide. */
+  windowLeft: 70,
+  windowWidth: 380,
   /** Narrow layouts (container width at most this) use the stacked top bar; below the supported range. */
   narrowMaxWidth: 820,
 } as const;
@@ -267,10 +270,11 @@ export interface HudInsets {
  * a focus (a complaint link, a Buildings row) puts the building in the middle of what is left instead of under a panel.
  * A rectangle per side, so it is generous where the dock is narrower than the screen.
  */
-export const hudInsets = (zoom: number, inspector: boolean): HudInsets => {
+export const hudInsets = (zoom: number, inspector: boolean, windowOpen = false): HudInsets => {
   const a = ANCHORS;
   return {
-    left: (a.railLeft + a.railWidth) * zoom,
+    // Phase 42: an open window docked beside the rail covers that strip too.
+    left: (windowOpen ? a.windowLeft + a.windowWidth : a.railLeft + a.railWidth) * zoom,
     top: a.pulseTop * zoom,
     right: (inspector ? a.inspectorRight + a.inspectorWidth : a.sideGutter + a.pulseWidth) * zoom,
     bottom: a.dockReserve * zoom,

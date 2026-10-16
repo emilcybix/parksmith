@@ -10,7 +10,8 @@ import { useUiStore } from './store';
 /**
  * Phase 34 (bundle budget): panels that a session may never open are separate chunks, loaded the first time they
  * open. What stays in the main chunk is only the open check below; the bodies are `SettingsDialog.tsx` (with the
- * Keyboard section), `SaveLoadDialog.tsx` and `PaintPanel.tsx`, which no main-chunk module imports statically
+ * Keyboard section), `SaveLoadDialog.tsx`, `PaintPanel.tsx` and (Phase 42) `StaffWindow.tsx` and `BuildingsWindow.tsx`,
+ * which no main-chunk module imports statically
  * (pinned by `src/app/bundleSplit.static.test.ts`).
  *
  * While a body loads, nothing is drawn (the dialog's input context is already active, so the game ignores keys as it
@@ -23,6 +24,9 @@ export const PANEL_LOADERS = {
   settings: () => import('./SettingsDialog').then((module) => ({ default: module.SettingsDialogBody })),
   saveLoad: () => import('./SaveLoadDialog').then((module) => ({ default: module.SaveLoadDialogBody })),
   paint: () => import('./PaintPanel').then((module) => ({ default: module.PaintPanelView })),
+  // Phase 42: the Staff and Buildings windows.
+  staff: () => import('./StaffWindow').then((module) => ({ default: module.StaffWindowBody })),
+  buildings: () => import('./BuildingsWindow').then((module) => ({ default: module.BuildingsWindowBody })),
 } as const;
 
 /**
@@ -108,6 +112,29 @@ export class PanelBoundary extends Component<BoundaryProps, { failed: boolean }>
 const settingsBody = retryableLazy(PANEL_LOADERS.settings);
 const saveLoadBody = retryableLazy(PANEL_LOADERS.saveLoad);
 const paintView = retryableLazy<PaintPanelViewProps>(PANEL_LOADERS.paint);
+const staffBody = retryableLazy(PANEL_LOADERS.staff);
+const buildingsBody = retryableLazy(PANEL_LOADERS.buildings);
+
+/** Phase 42: the Staff and Buildings windows, each a lazy chunk shown while it is open. */
+export const GameWindows = (): React.JSX.Element => {
+  const open = useUiStore((state) => state.openWindows);
+  const Staff = staffBody.component();
+  const Buildings = buildingsBody.component();
+  return (
+    <>
+      {open.includes('staff') && (
+        <PanelBoundary onFailure={failed(staffBody, () => useUiStore.getState().closeWindow('staff'))}>
+          <Suspense fallback={null}><Staff /></Suspense>
+        </PanelBoundary>
+      )}
+      {open.includes('buildings') && (
+        <PanelBoundary onFailure={failed(buildingsBody, () => useUiStore.getState().closeWindow('buildings'))}>
+          <Suspense fallback={null}><Buildings /></Suspense>
+        </PanelBoundary>
+      )}
+    </>
+  );
+};
 
 const failed = (body: { reset(): void }, close: () => void) => (): void => {
   body.reset();

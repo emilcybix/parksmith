@@ -2918,59 +2918,57 @@ pose) is pure and unit-tested; the chunk frustum cull keeps every visible chunk;
 fall back to the isometric view on a GPU without the feature and under reduced motion; a view turn refuses input until
 it lands.
 
-## Phase 42 — Staff Window and Buildings Window (planned, not started; owner request 2026-10-16)
+## Phase 42 — Staff Window and Buildings Window (built 2026-10-16; owner request 2026-10-16)
 
-**Today.** Both live as tabs in the Management dashboard (`src/ui/ManagementDashboard.tsx`). Staff sit in the
-Operations tab as one card per role (cleaner, mechanic): hire one, fire one, training level, payroll, busy count. A
-single worker cannot be seen or chosen, although the simulation has each one (`StaffRuntime`: id, role, state,
-position, task). The Buildings tab ("Estate overview") is one flat list of every placed object with a few sort buttons
-(`SORTS`) and fixed columns (price, queue, served, revenue, satisfied, condition). It has no filter or search, and its
-rows are only refreshed while the dashboard is open.
+**Before.** Both lived only as tabs in the Management dashboard: staff as one card per role (no single worker could be
+seen), buildings as one flat list with a few sort buttons, refreshed only while the dashboard was open.
 
-**Goal.** Two windows of their own, each opened from the HUD with its own button and key, usable while the park runs
-(no full-screen dashboard over the park), like the inspector panels.
+**Built.** Two floating windows, usable while the park runs. Code: `ui/WindowFrame.tsx` (+ `windows.css`),
+`ui/StaffWindow.tsx` and `ui/BuildingsWindow.tsx` (lazy chunks through `lazyPanels.tsx`, prefetched when idle),
+`ui/staffWindowModel.ts`, `ui/buildingsWindowModel.ts`, `ui/windowPrefs.ts`, the store's `openWindows`, `workers`,
+`buildingsView`; `OperationsSimulation.workersSnapshot` / `fireStaffById`; `GameApp` (`fireWorker`, `focusWorker`,
+`centreBuilding`, `setObjectsOpen`, `adjustObjectPrice`, the UI tick, the keys, Esc).
 
 **Staff window.**
-- [ ] Opened from a new HUD button and a key (default to be chosen; it gets an entry in KEYBINDINGS.md). Draggable,
-  docked to the side by default, remembers whether it was open.
-- [ ] **Per role:** the existing hire, fire, training and payroll controls move here (Operations keeps a summary line
-  with a link "Manage staff").
-- [ ] **Per worker:** a list with a generated name, role, state (idle, walking, cleaning, repairing, on break if added),
-  current task and where ("Repairing Aurora Wheel"), and time since hired. Click: the camera follows the worker and
-  the worker is highlighted; a "Fire this one" button replaces the anonymous "fire one". Generated names are
-  presentation only, derived from the id, so no save field is needed.
-- [ ] **Overview figures:** litter waiting and its oldest age, rides waiting for a mechanic, and a simple "more
-  cleaners needed" hint from the same rules Park Pulse uses.
-- [ ] **Out of scope** (still under "Explicitly not now"): shifts, rosters and patrol zones. The window should leave room
-  for patrol zones later, should that change.
+- [x] Key **K** (`staffWindow`, rebindable, `yieldsDefault`), and "Manage staff in the Staff window" in the Operations
+  tab. Docked beside the utility rail, draggable by its title bar (the title bar stays on screen), remembers whether
+  it was open (local storage, per player; never in a save).
+- [x] Per role: hire, train and payroll, the busy count and the cap. (Operations keeps its cards too, for now.)
+- [x] Per worker: a generated name from the id (presentation only, no save field), what they are doing in words
+  ("Repairing Aurora Wheel", "Walking to empty Tidy Totem", "Idle"); a click eases the camera to the worker; "Fire"
+  dismisses exactly that worker. **Not built:** a highlight on the worker in the world, and "time since hired" (the
+  simulation keeps no hire time; it would need a save field).
+- [x] Overview: litter (units and tiles), rides waiting for a mechanic and broken rides, cleanliness, and the hints
+  "more cleaners needed" (dirty while every cleaner is busy) and "hire another mechanic" (a breakdown waits).
+- [x] Out of scope as planned: shifts, rosters, patrol zones.
 
 **Buildings window.**
-- [ ] Opened from a new HUD button and a key. The Buildings tab in the dashboard becomes a link to it.
-- [ ] **Filters:** by group (rides, coasters, food, drink, souvenirs, facilities, scenery), by state (open, closed,
-  broken down, no path access, unreachable after Phase 40, needs inspection), and a text search on the name. Filters
-  combine; the counts show next to each filter; the last choice is remembered per player.
-- [ ] **Columns:** the existing ones plus wait time, throughput per hour, profit (revenue minus running cost), age and
-  last inspection, chosen per group (a scenery row shows appeal, not queue). Sort by clicking a column header, both
-  directions.
-- [ ] **Actions on a row:** centre the camera (as today), open the inspector, open or close, and price up or down
-  without opening the inspector. Several selected rows can be opened, closed or repriced at once.
-- [ ] **Live:** rows refresh while the window is open, at the same throttle as the dashboard (`buildingsSnapshot`
-  every 250 ms), never per frame. A row that changes state flashes once (reduced motion: no flash).
-- [ ] Reuses the Phase 29 build-filter model (`ui/buildFilterModel.ts`) where it fits, so group names and icons match
-  the build menu.
+- [x] Key **O** (`buildingsWindow`), and a link at the top of the dashboard's Buildings tab (the tab stays for now; Phase
+  43 decides the dashboard's future).
+- [x] Filters by group (rides, coasters, food, drink, souvenirs, facilities, comforts, scenery) and by state (open,
+  closed, broken down, no path access, which includes a Phase 40 front facing no path, needs inspection), plus a name
+  search; they combine, each shows its count, and the choice is remembered per player.
+- [x] Columns per group (a scenery row shows appeal; services show price, queue, served, revenue, satisfied; rides add
+  wait, per hour and condition); a header click sorts, again flips the direction, missing values always last. **Not
+  built:** profit, age and last inspection (no such reads exist yet).
+- [x] Row actions: the name centres the camera, ⓘ opens the inspector, open or close, price − / +. Selected rows can be
+  opened or closed together.
+- [x] Live: rows come from the 250 ms `buildingsSnapshot`, published while the window (or the dashboard) is open, never
+  per frame. A row whose open state or status changed flashes once (not with reduced motion).
 
 **Shared.**
-- [ ] A small window frame component (title, close, drag, keep inside the screen, focus trap, Esc closes) that both use
-  and that later windows can reuse. It must not cover the HUD layout anchors, and Phase 36's HUD-aware camera insets
-  take an open window into account.
-- [ ] Lazy chunks like the Phase 34 panels, so the entry bundle stays inside its budget.
-- [ ] No simulation rule changes. The only new game-side read is a per-worker snapshot from `OperationsSimulation`
-  (plain data, like `buildingsSnapshot`).
+- [x] `WindowFrame`: title, close, drag (kept on screen), the focus moves in on open and back on close, Esc inside it
+  closes it; Esc with nothing else open closes the newest window before the pause menu opens. An open window widens
+  the camera's left inset (`hudInsets(…, windowOpen)`), pushed when windows open or close.
+- [x] Lazy chunks; the entry stays at 985 kB raw / 292 kB gzip, inside the Phase 34 budget (`BUNDLE_BUDGET=1` passes).
+- [x] No simulation rule changes; the only new game-side reads are `workersSnapshot` and `fireStaffById`.
+- [ ] **HUD buttons:** not on the utility rail (two more buttons push the developer rail past the smallest supported
+  height); they arrive with the Phase 43 menu bar. Until then: K, O and the dashboard links.
 
-**Tests.** The filter and sort models are pure and unit-tested (combinations, counts, empty results, search); a worker
-row follows its worker's state; "Fire this one" removes exactly that worker; a bulk close closes only the selected
-rows; both windows open by button and key, Esc closes them, and the focus returns; the camera insets include an open
-window; the bundle budget test still passes.
+**Tests.** `ui/phase42Windows.test.tsx` (names, activity lines, hints; the worker snapshot and "fire this one"; filters,
+counts, search, sort both ways, a stored view; the two windows' markup; the camera inset; the drag clamp),
+`app/GameApp.windows.test.ts` (K and O, Esc order, bulk close only the given rows, a price step by id, workers published
+only while the Staff window is open), the lazy-panel and import-graph tests (five lazy panels).
 
 ## Phase 43 — Main Menu Bar (planned, not started; owner request 2026-10-16)
 

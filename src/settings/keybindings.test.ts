@@ -38,7 +38,8 @@ describe('registry', () => {
   it('lists every action once, every default parses, and every group is known', () => {
     const ids = KEY_ACTIONS.map((def) => def.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(25);
+    // Phase 42: the Staff and Buildings windows.
+    expect(ids).toHaveLength(27);
     for (const def of KEY_ACTIONS) {
       expect(parseToken(def.defaultKey), def.id).not.toBeNull();
       expect(KEY_GROUP_ORDER).toContain(def.group);
@@ -56,7 +57,7 @@ describe('registry', () => {
   it('reproduces the shipped defaults', () => {
     const defaults = Object.fromEntries(KEY_ACTIONS.map((def) => [def.id, def.defaultKey]));
     expect(defaults).toEqual({
-      toggleGrid: 'k:g', toggleCleanView: 'k:h', rotateViewLeft: 'k:q', rotateViewRight: 'k:e', recentreView: 'k:v', peek: 'k:x', toggleCrowdHeatmap: 'k:t', toggleMute: 'k:m',
+      toggleGrid: 'k:g', toggleCleanView: 'k:h', rotateViewLeft: 'k:q', rotateViewRight: 'k:e', recentreView: 'k:v', peek: 'k:x', toggleCrowdHeatmap: 'k:t', toggleMute: 'k:m', staffWindow: 'k:k', buildingsWindow: 'k:o',
       speedPause: 'c:Digit0', speed1: 'c:Digit1', speed2: 'c:Digit2', speed4: 'c:Digit4',
       bulldozer: 'k:b', pathTool: 'k:p', paintTool: 'k:c', eyedropper: 'k:i', landTool: 'k:l', rotate: 'k:r', coasterRaise: 'k:r', coasterLower: 'k:f', coasterToggleLift: 'k:l',
       panLeft: 'c:KeyA', panRight: 'c:KeyD', panUp: 'c:KeyW', panDown: 'c:KeyS',

@@ -99,6 +99,19 @@ export interface StaffSnapshot {
   task: StaffTaskSnapshot | null;
 }
 
+/**
+ * Phase 42: one worker for the Staff window, plain data (presentation reads only: nothing here is saved or feeds the
+ * simulation). Ascending by id.
+ */
+export interface WorkerSnapshot {
+  id: number;
+  role: StaffRole;
+  state: StaffState;
+  /** The tile the worker stands on (or last left). */
+  cell: Cell;
+  task: { kind: StaffTaskKind; targetObjectId: number | null; targetCell: Cell } | null;
+}
+
 export interface OperationsSnapshot {
   elapsedSeconds: number;
   cleanliness: {

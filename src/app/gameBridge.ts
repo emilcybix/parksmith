@@ -82,6 +82,16 @@ export interface GameCommands extends UndoCommands {
   adjustSelectedServicePrice(delta: number): void;
   hireStaff(role: StaffRole): void;
   fireStaff(role: StaffRole): void;
+  /** Phase 42: dismisses one particular worker (the Staff window's "Fire this one"). */
+  fireWorker(workerId: number): void;
+  /** Phase 42: eases the camera to a worker (the Staff window's row). */
+  focusWorker(workerId: number): void;
+  /** Phase 42: eases the camera to a building without opening its inspector (the Buildings window's row). */
+  centreBuilding(objectId: number): void;
+  /** Phase 42: opens or closes rides and stalls by id (the Buildings window; one or many rows). */
+  setObjectsOpen(objectIds: readonly number[], open: boolean): void;
+  /** Phase 42: a ride's ticket price or a stall's item price up or down by `delta`, by id. */
+  adjustObjectPrice(objectId: number, delta: number): void;
   trainStaff(role: StaffRole): void;
   forceSelectedRideBreakdown(): void;
   purchaseResearch(projectId: string): void;
@@ -185,6 +195,11 @@ export const gameBridge = {
   adjustSelectedServicePrice: (delta: number) => commands?.adjustSelectedServicePrice(delta),
   hireStaff: (role: StaffRole) => commands?.hireStaff(role),
   fireStaff: (role: StaffRole) => commands?.fireStaff(role),
+  fireWorker: (workerId: number) => commands?.fireWorker(workerId),
+  focusWorker: (workerId: number) => commands?.focusWorker(workerId),
+  centreBuilding: (objectId: number) => commands?.centreBuilding(objectId),
+  setObjectsOpen: (objectIds: readonly number[], open: boolean) => commands?.setObjectsOpen(objectIds, open),
+  adjustObjectPrice: (objectId: number, delta: number) => commands?.adjustObjectPrice(objectId, delta),
   trainStaff: (role: StaffRole) => commands?.trainStaff(role),
   forceSelectedRideBreakdown: () => commands?.forceSelectedRideBreakdown(),
   purchaseResearch: (projectId: string) => commands?.purchaseResearch(projectId),

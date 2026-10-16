@@ -25,12 +25,8 @@ import { estateRowStatus, lacksPathAccess, NO_PATH_ACCESS_ROW_CLASS } from './pa
 import { NEIGHBORHOODS_TAB_LABEL } from './neighborhoodModel';
 import { NeighborhoodsTab } from './NeighborhoodsTab';
 import { describeLand } from './landModel';
+import { formatMoney } from './format';
 
-const formatMoney = (value: number, signed = false): string => {
-  const rounded = Math.round(Math.abs(value)).toLocaleString();
-  if (!signed || value === 0) return `${value < 0 ? '−' : ''}$${rounded}`;
-  return `${value > 0 ? '+' : '−'}$${rounded}`;
-};
 
 const formatWait = (seconds: number): string => {
   if (seconds < 1) return 'None';
@@ -633,6 +629,8 @@ const OperationsTab = (): React.JSX.Element | null => {
       </section>
 
       <section className="management-section">
+        {/* Phase 42: every worker, one by one, lives in the Staff window (J). */}
+        <button className="open-window-link" onClick={() => useUiStore.getState().toggleWindow('staff')}>Manage staff in the Staff window</button>
         <header>
           <span><small>STAFFING</small><strong>Park crew</strong></span>
           <b>{staff.cleaners.total + staff.mechanics.total}<small>of {staff.capacityPerRole * 2} places</small></b>
@@ -799,6 +797,8 @@ const BuildingsTab = (): React.JSX.Element => {
           <span><small>EVERY PLACED BUILDING</small><strong>Estate overview</strong></span>
           <b>{[...groups.entries()].map(([group, count]) => `${count} ${GROUP_LABELS[group].toLowerCase()}`).join(' · ') || '—'}</b>
         </header>
+        {/* Phase 42: filters, search and bulk actions live in the Buildings window (O). */}
+        <button className="open-window-link" onClick={() => useUiStore.getState().toggleWindow('buildings')}>Open the Buildings window: filters, search and bulk actions</button>
         <div className="building-sort" role="group" aria-label="Sort buildings">
           {SORTS.map((candidate) => (
             <button

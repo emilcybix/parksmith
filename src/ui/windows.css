@@ -1,0 +1,57 @@
+/* Phase 42: floating windows (Staff, Buildings), docked beside the utility rail. */
+.game-window {
+  position: absolute;
+  z-index: 6;
+  left: 70px;
+  top: 94px;
+  width: min(380px, calc(var(--ui-vw) - 90px));
+  max-height: calc(var(--ui-vh, 100vh) - 94px - var(--dock-reserve, 251px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 18px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  overflow: hidden;
+}
+.game-window:focus-visible { box-shadow: var(--shadow), 0 0 0 3px rgba(55,189,145,.6); }
+.game-window-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; cursor: grab; background: rgba(55,189,145,.12); user-select: none; touch-action: none; }
+.game-window-title:active { cursor: grabbing; }
+.game-window-close { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(19,58,51,.08); font-size: 18px; line-height: 1; cursor: pointer; }
+.game-window-body { overflow: auto; padding: 10px 12px 12px; display: grid; gap: 10px; align-content: start; }
+.window-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.window-kpis span { display: grid; padding: 6px 8px; border-radius: 10px; background: rgba(19,58,51,.05); }
+.window-kpis small { font-size: 10px; letter-spacing: .04em; opacity: .7; }
+.window-kpis em { font-size: 11px; font-style: normal; opacity: .7; }
+.window-kpis .warning { background: rgba(240,173,62,.16); }
+.window-kpis .critical { background: rgba(255,98,119,.16); }
+.window-hints { margin: 0; padding-left: 18px; font-size: 13px; }
+.window-section { display: grid; gap: 6px; }
+.window-section header { display: grid; }
+.window-section header small { opacity: .75; }
+.worker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.worker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.worker-focus { display: grid; text-align: left; padding: 5px 8px; border: 0; border-radius: 9px; background: rgba(19,58,51,.05); cursor: pointer; }
+.worker-focus small { opacity: .75; }
+.worker-row.idle .worker-focus small { opacity: .5; }
+.worker-fire { padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(138,58,58,.35); background: transparent; color: #8a3a3a; cursor: pointer; }
+.window-search { width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 9px; border: 1px solid rgba(19,58,51,.2); }
+.window-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.window-chips button { padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(19,58,51,.18); background: transparent; font-size: 12px; cursor: pointer; }
+.window-chips button.active { background: rgba(55,189,145,.2); border-color: rgba(55,189,145,.6); }
+.window-chips b { opacity: .6; font-weight: 600; }
+.window-bulk { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.buildings-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.buildings-table th { text-align: left; font-weight: 600; }
+.buildings-table th button { border: 0; background: transparent; font: inherit; cursor: pointer; padding: 2px 0; }
+.buildings-table td { padding: 3px 4px 3px 0; border-top: 1px solid rgba(19,58,51,.08); white-space: nowrap; }
+.buildings-table .row-name { border: 0; background: transparent; font: inherit; cursor: pointer; text-align: left; padding: 0; }
+.buildings-table .row-actions button { margin-right: 2px; padding: 1px 6px; border-radius: 6px; border: 1px solid rgba(19,58,51,.2); background: transparent; cursor: pointer; }
+.buildings-table tr.no-access td:first-child { box-shadow: inset 3px 0 0 #8fa6bd; }
+.buildings-table tr.flash { animation: window-row-flash 900ms ease-out 1; }
+@keyframes window-row-flash { from { background: rgba(240,173,62,.35); } to { background: transparent; } }
+.open-window-link { justify-self: start; margin-bottom: 6px; padding: 4px 10px; border-radius: 9px; border: 1px solid rgba(55,189,145,.5); background: rgba(55,189,145,.1); cursor: pointer; }
+.clean-view .game-window { display: none; }
+:root[data-motion="reduce"] .buildings-table tr.flash { animation: none; }

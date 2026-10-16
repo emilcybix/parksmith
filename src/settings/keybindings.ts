@@ -32,7 +32,7 @@ export type KeyGroup = 'camera' | 'speed' | 'view' | 'sound' | 'tools' | 'design
 
 export type ActionId =
   | 'toggleGrid' | 'toggleCleanView' | 'peek' | 'rotateViewLeft' | 'rotateViewRight' | 'recentreView'
-  | 'toggleCrowdHeatmap' | 'toggleMute'
+  | 'toggleCrowdHeatmap' | 'toggleMute' | 'staffWindow' | 'buildingsWindow'
   | 'speedPause' | 'speed1' | 'speed2' | 'speed4'
   | 'bulldozer' | 'pathTool' | 'rotate' | 'paintTool' | 'eyedropper' | 'landTool'
   | 'coasterRaise' | 'coasterLower' | 'coasterToggleLift'
@@ -95,6 +95,8 @@ export const KEY_ACTIONS: readonly KeyActionDef[] = [
   { id: 'recentreView', label: 'Recentre view', description: 'Move the camera back to the park entrance.', group: 'view', scope: 'view', defaultKey: 'k:v', match: 'auto', yieldsDefault: true },
   // Phase 35: the rail's crowd flow toggle (voxel only; the classic renderer says why, as the button does).
   { id: 'toggleCrowdHeatmap', label: 'Crowd heatmap', description: 'Show or hide the crowd flow heatmap (the same as the ≋ button).', group: 'view', scope: 'view', defaultKey: 'k:t', match: 'auto', yieldsDefault: true },
+  { id: 'staffWindow', label: 'Staff window', description: 'Open or close the Staff window: every worker, hiring and training.', group: 'view', scope: 'view', defaultKey: 'k:k', match: 'auto', yieldsDefault: true },
+  { id: 'buildingsWindow', label: 'Buildings window', description: 'Open or close the Buildings window: every building, with filters, search and bulk actions.', group: 'view', scope: 'view', defaultKey: 'k:o', match: 'auto', yieldsDefault: true },
   { id: 'peek', label: 'See through', description: 'Hold to see through buildings and scenery near the cursor.', group: 'view', scope: 'build', defaultKey: 'k:x', match: 'auto', hold: true },
   // Phase 35: master mute. Muting sets the Master volume to 0 and unmuting brings the level back, so the Sound slider
   // always shows the truth and the choice survives a reload without a new settings field.

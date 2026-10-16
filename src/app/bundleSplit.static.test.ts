@@ -133,7 +133,10 @@ describe('the static import graph keeps the lazy chunks lazy', () => {
   });
 
   it('the panels are reached through import() from lazyPanels.tsx', () => {
-    expect(dynamicImportsOf('/src/ui/lazyPanels.tsx').sort()).toEqual(['/src/ui/PaintPanel.tsx', '/src/ui/SaveLoadDialog.tsx', '/src/ui/SettingsDialog.tsx']);
+    // Phase 42: the Staff and Buildings windows too.
+    expect(dynamicImportsOf('/src/ui/lazyPanels.tsx').sort()).toEqual([
+      '/src/ui/BuildingsWindow.tsx', '/src/ui/PaintPanel.tsx', '/src/ui/SaveLoadDialog.tsx', '/src/ui/SettingsDialog.tsx', '/src/ui/StaffWindow.tsx',
+    ]);
   });
 
   it('the voxel renderer never loads the classic renderer', () => {

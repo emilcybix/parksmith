@@ -699,6 +699,16 @@ front-only building to face a path (`facingRotation`: a footprint-keeping turn f
 unless the caller passes `{ exactRotation: true }`, which the player's click does after the ghost auto-faced (R wins on
 its cell). A park saved before Phase 40 has no key and keeps every side.
 
+## Windows (Phase 42)
+
+Floating windows (`ui/WindowFrame.tsx`) sit over the park beside the utility rail and leave the world's keys working
+outside them. The store keeps `openWindows` (oldest first; Esc closes the newest before the pause menu opens) and the
+Buildings window's `buildingsView`; both are per-player preferences in local storage (`ui/windowPrefs.ts`), never in a
+save. Each window body is a lazy chunk (`lazyPanels.tsx` `GameWindows`). GameApp's 250 ms UI tick publishes
+`buildings` while the dashboard or any window is open and `workers` (`OperationsSimulation.workersSnapshot`) while the
+Staff window is; the pure models are `staffWindowModel.ts` and `buildingsWindowModel.ts`. An open window widens the
+camera's left inset.
+
 ## Custom coasters
 
 Coaster design is pure data and pure functions: a layout is an ordered closed loop of track pieces (cell + height + optional special), validated per coaster type (height limits, allowed specials) and converted to a deterministic ride profile in `src/game/coaster/design.ts` with no world or rendering dependencies. A marble-physics speed sweep assigns each piece a travel time — chain lift up (or, on a free climb, a fixed-point momentum climb, see Lift hills), acceleration down drops, drag on flats, loop scrub, launch boosts — which yields duration, top speed, and the timing the renderer uses to move the train. Ground cells under track at clearance height stay open for walkways, and bulldozing removes the walkway before the track above it. The world stores built coasters beside placed objects, occupies every track cell, and answers two queries the rest of the game uses for all rides: `objectFootprint` (a coaster's whole track, a normal object's rectangle) and `rideProfile` (custom stats win over catalog stats). RideSimulation, guests, scenery, and management read profiles and footprints through those two calls, so a coaster behaves like any other ride — queues, cycles, tickets, wear, breakdowns, rating — without duplicated logic. Bulldozing any track cell removes the whole ride and refunds from the actually paid cost.

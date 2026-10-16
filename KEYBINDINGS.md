@@ -34,6 +34,8 @@ Every shortcut below can be changed in Settings, in the Keyboard section. Esc an
 | Rotate view right | E | Park view: everywhere except overlays, dialogs and menus | Turn the whole map a quarter turn clockwise. |
 | Recentre view | V | Park view: everywhere except overlays, dialogs and menus | Move the camera back to the park entrance. |
 | Crowd heatmap | T | Park view: everywhere except overlays, dialogs and menus | Show or hide the crowd flow heatmap (the same as the ≋ button). |
+| Staff window | K | Park view: everywhere except overlays, dialogs and menus | Open or close the Staff window: every worker, hiring and training. |
+| Buildings window | O | Park view: everywhere except overlays, dialogs and menus | Open or close the Buildings window: every building, with filters, search and bulk actions. |
 | See through | X | While building: not behind the management dashboard, overlays, dialogs or menus | Hold to see through buildings and scenery near the cursor. Hold the key; release to stop. |
 
 ## Sound

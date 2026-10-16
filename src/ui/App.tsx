@@ -5,7 +5,7 @@ import { MainMenu } from './MainMenu';
 import { ManagementDashboard, ManagementNotifications } from './ManagementDashboard';
 import { RecoveryPrompt } from './RecoveryPrompt';
 import { SaveBanner, SaveStatusStrip, useSaveBannerVisible } from './SaveBanner';
-import { PaintPanel, SaveLoadDialog, SettingsDialog, prefetchLazyPanels } from './lazyPanels';
+import { GameWindows, PaintPanel, SaveLoadDialog, SettingsDialog, prefetchLazyPanels } from './lazyPanels';
 import { LeaveRunPrompt } from './LeaveRunPrompt';
 import { RunScreen } from './RunScreen';
 import { ScenarioPicker, ScenarioResultOverlay } from './ScenarioHud';
@@ -66,6 +66,7 @@ export const App = (): React.JSX.Element => {
             <ServiceInspector />
             <GuestInspector />
             <PaintPanel />
+            <GameWindows />
             <ManagementDashboard />
             <ManagementNotifications />
             <CursorReadout />

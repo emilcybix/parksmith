@@ -160,6 +160,7 @@ import { withSlotColour } from './colourEdit';
 import { lineCells } from './lineCells';
 import { blockedDraftCells, extendPathDraft } from './pathDraft';
 import { facingOnScreen } from './buildFacing';
+import { roleLabel, workerName } from '../ui/staffWindowModel';
 import { hasMeaningfulFront } from '../game/access';
 import { ENTRANCE_COLOUR_ID, isColourable, normaliseObjectColours, sameObjectColours, type ObjectColours } from '../game/content/colours';
 import { recolourCharge, type ColourCostMode } from '../game/content/colourCost';
@@ -983,7 +984,7 @@ export class GameApp implements GameCommands, RunCommands {
   private viewInsets(inspector: boolean): ReturnType<typeof hudInsets> {
     const width = typeof window === 'undefined' ? 0 : window.innerWidth;
     const height = typeof window === 'undefined' ? 0 : window.innerHeight;
-    return hudInsets(effectiveUiScale(getSettings().uiScale, width, height), inspector);
+    return hudInsets(effectiveUiScale(getSettings().uiScale, width, height), inspector, useUiStore.getState().openWindows.length > 0);
   }
 
   /** Phase 36: hands the camera clamp the HUD's cover (on mount, a resize or a UI scale change). */
@@ -1471,6 +1472,60 @@ export class GameApp implements GameCommands, RunCommands {
     }
     this.syncUi();
     this.toast(`${role === 'cleaner' ? 'Cleaner' : 'Mechanic'} dismissed`, 'routine');
+  }
+
+  fireWorker(workerId: number): void {
+    const worker = this.operations.fireStaffById(workerId);
+    if (!worker) {
+      this.toast('That worker has already left');
+      return;
+    }
+    this.syncUi();
+    this.toast(`${workerName(worker.id)} (${roleLabel(worker.role).toLowerCase()}) dismissed`, 'routine');
+  }
+
+  focusWorker(workerId: number): void {
+    const worker = this.operations.staff.get(workerId);
+    if (!worker) return;
+    this.renderer?.focusCell(worker.currentCell, 'ease', this.viewInsets(false));
+  }
+
+  centreBuilding(objectId: number): void {
+    const object = this.world.objects.get(objectId);
+    if (!object) return;
+    const footprint = this.world.objectFootprint(object);
+    const centre = footprint.reduce(
+      (total, cell) => ({ x: total.x + cell.x / footprint.length, y: total.y + cell.y / footprint.length }),
+      { x: 0, y: 0 },
+    );
+    this.renderer?.focusCell(centre, 'ease', this.viewInsets(false));
+  }
+
+  setObjectsOpen(objectIds: readonly number[], open: boolean): void {
+    let changed = 0;
+    for (const objectId of objectIds) {
+      if (this.rides.getRide(objectId)) {
+        this.rides.setOpen(objectId, open);
+        changed += 1;
+      } else if (this.shops.getService(objectId)) {
+        this.shops.setOpen(objectId, open);
+        changed += 1;
+      }
+    }
+    if (changed === 0) return;
+    this.syncUi();
+    if (objectIds.length > 1) this.toast(`${changed} building${changed === 1 ? '' : 's'} ${open ? 'opened' : 'closed'}`, 'routine');
+  }
+
+  adjustObjectPrice(objectId: number, delta: number): void {
+    const ride = this.rides.getRide(objectId);
+    if (ride) this.rides.setTicketPrice(objectId, ride.ticketPrice + delta);
+    else {
+      const service = this.shops.getService(objectId);
+      if (!service) return;
+      this.shops.setPrice(objectId, service.itemPrice + delta);
+    }
+    this.syncUi();
   }
 
   forceSelectedRideBreakdown(): void {
@@ -2649,9 +2704,12 @@ export class GameApp implements GameCommands, RunCommands {
       const performanceStats = renderer.getPerformance();
       // The estate list is only rendered inside the dashboard; while it is closed the rows
       // from the last construction change are still accurate enough to open onto.
-      const buildings = useUiStore.getState().managementOpen
+      // Phase 42: the Buildings window lists them too, and the Staff window its workers (each only while open).
+      const ui = useUiStore.getState();
+      const buildings = ui.managementOpen || ui.openWindows.length > 0
         ? this.session.buildingsSnapshot()
         : undefined;
+      const workers = ui.openWindows.includes('staff') ? this.operations.workersSnapshot() : undefined;
       updateUiSnapshot({
         tick: this.world.tick,
         ...this.calendarUi(),
@@ -2666,6 +2724,7 @@ export class GameApp implements GameCommands, RunCommands {
         pulseInsights: this.guests.thoughtInsights(),
         management: this.management.snapshot(),
         ...(buildings ? { buildings } : {}),
+        ...(workers ? { workers } : {}),
         progression: this.progression.snapshot(),
         onboarding: this.session.onboardingSnapshot(),
         gateFacing: this.world.entranceFacing,
@@ -4351,10 +4410,16 @@ export class GameApp implements GameCommands, RunCommands {
         return;
       case 'textInput':
         return;
-      case 'world':
-        // Nothing left to close: Escape opens the pause menu.
+      case 'world': {
+        // Phase 42: an open window closes first (the newest), then Escape opens the pause menu.
+        const top = ui.openWindows.at(-1);
+        if (top !== undefined) {
+          ui.closeWindow(top);
+          return;
+        }
         this.openPauseMenu();
         return;
+      }
       case 'menu': {
         const step = menuEscapeStep(ui.menuKind ?? 'start', ui.menuPanel);
         if (step === 'back') {
@@ -4407,6 +4472,8 @@ export class GameApp implements GameCommands, RunCommands {
   }
 
   /** Camera keys follow the same rule as every other shortcut: only the top context gets them. */
+  private lastOpenWindows: readonly string[] | null = null;
+
   private readonly syncInputContext = (): void => {
     const enabled = INPUT_CONTEXT_CAPABILITIES[this.inputContext()].view;
     if (enabled !== this.viewInputEnabled) {
@@ -4417,6 +4484,11 @@ export class GameApp implements GameCommands, RunCommands {
     this.syncSeeThrough();
     this.syncPaintState();
     const state = useUiStore.getState();
+    // Phase 42: an open window covers the strip beside the rail, so the camera clamp follows it.
+    if (state.openWindows !== this.lastOpenWindows) {
+      this.lastOpenWindows = state.openWindows;
+      this.pushViewInsets();
+    }
     // Phase 11: putting the bulldozer down (any tool change) disarms an armed coaster.
     if (state.tool !== 'bulldoze') this.armedCoasterId = null;
     const cursor = state.tool === 'pointer'
@@ -4637,6 +4709,8 @@ export class GameApp implements GameCommands, RunCommands {
         useUiStore.getState().setCategory('paths');
         return;
       case 'paintTool': useUiStore.getState().selectPaint(false); return;
+      case 'staffWindow': useUiStore.getState().toggleWindow('staff'); return;
+      case 'buildingsWindow': useUiStore.getState().toggleWindow('buildings'); return;
       case 'eyedropper': useUiStore.getState().selectPaint(true); return;
       case 'rotate': this.rotateBuild(); return;
       // Holding the key must not spin the map; each press is one quarter turn.

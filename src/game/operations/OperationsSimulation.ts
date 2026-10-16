@@ -29,6 +29,7 @@ import type {
   RideMaintenanceKind,
   StaffRole,
   StaffRuntime,
+  WorkerSnapshot,
   StaffState,
   StaffTaskKind,
   StaffTaskRuntime,
@@ -603,6 +604,33 @@ export class OperationsSimulation implements Serializable<OperationsState> {
     this.releaseTask(candidate, true);
     this.staff.delete(candidate.id);
     return candidate;
+  }
+
+  /**
+   * Phase 42: dismisses one particular worker (the Staff window's "Fire this one"). Their task is released exactly as
+   * `fireStaff` releases the one it picks. Null when there is no such worker.
+   */
+  fireStaffById(id: number): StaffRuntime | null {
+    const worker = this.staff.get(id);
+    if (!worker) return null;
+    this.releaseTask(worker, true);
+    this.staff.delete(worker.id);
+    return worker;
+  }
+
+  /** Phase 42: every worker as plain data, ascending by id (a pure read). */
+  workersSnapshot(): WorkerSnapshot[] {
+    return [...this.staff.values()]
+      .sort((left, right) => left.id - right.id)
+      .map((worker) => ({
+        id: worker.id,
+        role: worker.role,
+        state: worker.state,
+        cell: { x: worker.currentCell.x, y: worker.currentCell.y },
+        task: worker.task === null
+          ? null
+          : { kind: worker.task.kind, targetObjectId: worker.task.targetObjectId, targetCell: { ...worker.task.targetCell } },
+      }));
   }
 
   getBin(objectId: number): BinRuntime | undefined {
