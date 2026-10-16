@@ -1,0 +1,2613 @@
+:root {
+  font-family: 'Avenir Next', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  color: #173f3b;
+  background: #9ed789;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --ink: #173f3b;
+  --deep: #102f2c;
+  --cream: #fffaf0;
+  --paper: rgba(255, 252, 243, 0.96);
+  --mint: #57d9ad;
+  --yellow: #ffd166;
+  --coral: #ff6f86;
+  --shadow: 0 12px 30px rgba(20, 61, 52, 0.2), 0 2px 4px rgba(20, 61, 52, 0.14);
+  /* The UI layer's viewport in its own (zoomed) pixels; settingsDom.ts overwrites them. */
+  --ui-vw: 100vw;
+  --ui-vh: 100vh;
+  --ui-zoom: 1;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+.app-shell, .world-host, .ui-layer { position: absolute; inset: 0; }
+.world-host { background: linear-gradient(#b8e4a7, #88ca75); }
+.game-canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+.ui-layer {
+  pointer-events: none; user-select: none; zoom: var(--ui-zoom); container: ui / size;
+  /* Layout tokens (see "Screen regions"). --dock-reserve is the distance from the bottom edge to the
+     top of the tallest dock (17 + 223, Phase 36: measured in the browser) plus a gap: anything above the dock stays clear of it.
+     --band-l / --band-r are the horizontal clearances of the centre band, the strip between the left
+     and right rails where the save banner, toast and notifications stack. */
+  --dock-reserve: 251px;
+  /* Side panels (inspector, coaster designer) stop above the help hint, which sits on the dock's top edge. */
+  --side-floor: 271px;
+  --band-l: 300px;
+  --band-r: 300px;
+  /* Only the message stack is in flow: a grid of [left clearance | centre band | right clearance], with the
+     first row (the top bar) left empty. Every other panel is absolutely positioned and ignores it. Tracks,
+     not padding: padding would shrink the content box that the container queries measure. */
+  display: grid;
+  grid-template-columns: var(--band-l) minmax(0, 1fr) var(--band-r);
+  grid-template-rows: 96px;
+  grid-auto-rows: max-content;
+  justify-items: center;
+}
+/* The band narrows only where a panel really occupies the strip beside it. */
+.ui-layer:has(.coaster-panel) { --band-l: 336px; }
+.ui-layer:has(.ride-inspector), .ui-layer:has(.paint-panel) { --band-l: 70px; --band-r: 604px; }
+.ui-layer:has(.ride-inspector):has(.coaster-panel), .ui-layer:has(.paint-panel):has(.coaster-panel) { --band-l: 336px; }
+.ui-layer.management-open { --band-l: 70px; --band-r: 550px; }
+.ui-layer button { pointer-events: auto; }
+
+/*
+ * Screen regions and stacking order — kept in one place, because two absolutely positioned
+ * panels that each assumed they owned `left: 18px` is exactly how the coaster designer ended up
+ * covering the grid toggle (PA-004). Any new floating panel picks a region and a layer here first.
+ *
+ *   REGION            ANCHOR                       OCCUPIED BY
+ *   top bar           inset 16px 18px, h 66        brand, park toggle, clock, speed, parks, cash
+ *   clock popover     under the clock chip, top 70 sandbox time settings (non-modal; Escape closes it first, as an input layer; so does an outside click)
+ *   left rail         left 18, top 96, w 40        utility toggles, then the settings gear (+ dev tools behind the flag)
+ *   left panel        left 74, top 94, w 250       coaster designer (stops at --side-floor above the dock and scrolls)
+ *   left foot         left 74, bottom 252          performance overlay (developer only); moves right of the designer while it is open
+ *   right rail        right 18, top 94, w 270      park pulse (its height varies: First Day, map offer, scenario)
+ *   beside pulse      right 300, top 94, w 292     ride / service inspector, or the paint panel (the inspector is never open while painting); stops at --side-floor and scrolls; nothing is stacked under the pulse
+ *   right full        right 18, top 94, bottom 18  management dashboard (replaces the right rail)
+ *   bottom centre     bottom 17, centred           build dock (48 tabs + 27 armed tool + 132 list)
+ *   above the dock    bottom 232 / 258, centred    help hint, then the cursor readout
+ *   message stack     row 2-4 of the .ui-layer grid, centre band   save banner, toast, notifications: in flow, one under the other, so they never need hand-tuned offsets.
+ *                     The band is [--band-l, --band-r] wide: it narrows beside the coaster designer, the inspector and the dashboard.
+ *   top strip         top 68, centred              autosave indicator / save notice
+ *   overlay           inset 0                      run map, loadouts, result, reward draft
+ *   settings panel    right 18, top 84, w 360      docked, z 42, with a transparent click catcher at z 41 (the park stays visible behind it)
+ *   menu              inset 0, z 39                start screen (card left, the park drifts behind it) and the pause menu (card centred); below the run map and the Scenario loadout (40), Settings (41/42) and Save / Load (45) that open from it, below the recovery prompt (50)
+ *   recovery prompt   centred, z 50                the "resume your last park?" modal, above every overlay
+ *
+ *   LAYER  2 left rail + left panel · 3 build dock + park pulse · 4 inspector
+ *          5 cursor readout + help hint · 6 performance overlay · 7 management dashboard
+ *          8 toast + notifications · 9 save banner · 10 top-bar centre with the clock popover (above toast and banner) · 40 modal backdrops · 41 settings click catcher · 42 settings panel · 45 Save / Load · 50 recovery prompt
+ */
+
+.top-bar {
+  position: absolute;
+  inset: 16px 18px auto;
+  height: 66px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  pointer-events: none;
+}
+
+.brand, .cash-pill, .top-bar-center {
+  background: var(--paper);
+  border: 1px solid rgba(255,255,255,.84);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  justify-self: start;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-radius: 17px;
+  padding: 7px 17px 7px 8px;
+  border: 0;
+  text-align: left;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: #fff9e8;
+  font: 900 25px/1 'Avenir Next', 'Segoe UI', sans-serif;
+  background: linear-gradient(145deg, #ff7e96, #f2597a);
+  box-shadow: inset 0 -4px 0 rgba(116, 36, 58, .16), 0 4px 10px rgba(237, 72, 112, .26);
+  transform: rotate(-3deg);
+}
+
+.brand strong, .brand small { display: block; }
+.brand strong { font: 900 18px/1.05 'Avenir Next', 'Segoe UI', sans-serif; letter-spacing: -.35px; }
+.brand small { margin-top: 4px; color: #719086; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+/* Phase 33: the subtitle is the park's own name (scenario, run level or map); a long one ellipsises, the title has it. */
+.brand small { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.top-bar-center {
+  /* Its backdrop-filter makes it a stacking context, so the clock popover's own z-index is trapped
+     inside it: the bar itself must sit above the toast (8) and the save banner (9). */
+  position: relative;
+  z-index: 10;
+  display: flex;
+  height: 46px;
+  padding: 5px;
+  border-radius: 15px;
+  gap: 7px;
+}
+
+.park-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 13px;
+  background: #edf0e7;
+  font-size: 12px;
+  font-weight: 800;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #88938d; box-shadow: 0 0 0 3px rgba(128,140,133,.12); }
+.park-toggle.open { color: #126a50; background: #e0f8eb; }
+.park-toggle.open .status-dot { background: #2dcc92; box-shadow: 0 0 0 3px rgba(45,204,146,.16); }
+
+.clock-chip-wrap { position: relative; display: flex; }
+.clock-chip {
+  min-width: 96px;
+  border: 0;
+  border-left: 1px solid #e1e8df;
+  border-radius: 10px;
+  padding: 0 11px 0 12px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+button.clock-chip:hover, button.clock-chip[aria-expanded="true"] { background: #eef4eb; }
+.clock-chip.readout { cursor: default; display: flex; flex-direction: column; justify-content: center; }
+.clock-chip small { display: block; color: #749187; font-size: 9px; font-weight: 900; letter-spacing: 1.4px; }
+.clock-chip strong { display: flex; align-items: center; gap: 5px; margin-top: 1px; color: var(--ink); font: 900 13px/1.25 'Avenir Next', 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
+.clock-phase { font-weight: 800; color: #5f7f75; }
+.phase-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #f2c94c; box-shadow: 0 0 0 2px rgba(23,63,59,.12); }
+.phase-dot.dawn { background: #f2a65a; }
+.phase-dot.day { background: #f2c94c; }
+.phase-dot.dusk { background: #e8758a; }
+.phase-dot.night { background: #5b6bd6; }
+
+.weather-chip {
+  min-width: 96px;
+  border: 0;
+  border-left: 1px solid #e1e8df;
+  border-radius: 10px;
+  padding: 0 11px 0 12px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+.weather-chip:hover, .weather-chip[aria-expanded="true"] { background: #eef4eb; }
+.weather-chip small { display: block; color: #749187; font-size: 9px; font-weight: 900; letter-spacing: 1.4px; }
+.weather-chip strong { display: flex; align-items: center; gap: 5px; margin-top: 1px; color: var(--ink); font: 900 13px/1.25 'Avenir Next', 'Segoe UI', sans-serif; }
+.weather-glyph { font-size: 14px; line-height: 1; }
+.weather-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #f2c94c; box-shadow: 0 0 0 2px rgba(23,63,59,.12); }
+.weather-dot.sunny { background: #f2c94c; }
+.weather-dot.hot { background: #ef7a3c; }
+.weather-dot.cloudy { background: #9fb0b8; }
+.weather-dot.rain { background: #4c9fd4; }
+.weather-dot.storm { background: #7048c9; }
+.weather-dot.off { background: #c4cdc8; }
+.park-toggle.scheduled { color: #7a5a1e; background: #fff1cf; }
+.park-toggle.scheduled .status-dot { background: #f2a65a; box-shadow: 0 0 0 3px rgba(242,166,90,.2); }
+.clock-chip:focus-visible, .weather-chip:focus-visible, .park-toggle:focus-visible { outline: 3px solid #1f8f6e; outline-offset: -2px; background: #eef4eb; }
+.forecast-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.forecast-list li { padding: 4px 8px; border-radius: 8px; background: #edf0e7; color: var(--ink); font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.forecast-list li:first-child { background: #e0f0f6; }
+.forecast-off { margin: 0; }
+.clock-segments.three { grid-template-columns: repeat(3, 1fr); }
+.pulse-weather { color: #2f5f76; }
+.ride-closure { font-weight: 900; color: #5a3ea8; }
+
+.clock-popover {
+  position: absolute;
+  z-index: 1;
+  top: 100%;
+  left: 0;
+  margin-top: 14px;
+  width: 304px;
+  max-height: calc(var(--ui-vh) - 84px - 12px);
+  overflow-y: auto;
+  padding: 12px 13px 11px;
+  border-radius: 15px;
+  background: var(--paper);
+  border: 1px solid rgba(255,255,255,.84);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+.clock-setting + .clock-setting { margin-top: 10px; }
+.clock-setting-title { display: block; margin-bottom: 5px; color: #749187; font-size: 9px; font-weight: 900; letter-spacing: 1.4px; text-transform: uppercase; }
+.clock-segments { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; padding: 3px; border-radius: 11px; background: #edf0e7; }
+.clock-segments.five { grid-template-columns: repeat(5, 1fr); }
+.clock-segments button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  padding: 3px 2px;
+  background: transparent;
+  color: #5f7f75;
+  font-size: 11px;
+  font-weight: 900;
+}
+.clock-segments button small { margin-top: 1px; color: inherit; opacity: .75; font-size: 9px; font-weight: 800; }
+.clock-segments button:hover { background: #e3eadf; }
+.clock-segments button.active { background: var(--ink); color: #fff; box-shadow: 0 3px 7px rgba(21,59,54,.25); }
+.clock-help { margin: 9px 1px 0; color: #5f7f75; font-size: 10.5px; font-weight: 700; line-height: 1.35; }
+
+.speed-controls { display: flex; gap: 3px; border-left: 1px solid #e1e8df; padding-left: 7px; }
+.speed-controls button {
+  min-width: 33px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #70887e;
+  font-size: 11px;
+  font-weight: 900;
+}
+.speed-controls button:hover { background: #eef4eb; }
+.speed-controls button.active { background: var(--ink); color: #fff; box-shadow: 0 3px 7px rgba(21,59,54,.25); }
+
+.cash-pill {
+  justify-self: end;
+  min-width: 142px;
+  height: 62px;
+  border: 0;
+  border-radius: 17px;
+  padding: 9px 16px;
+  text-align: right;
+}
+.cash-pill small { display: block; color: #749187; font-size: 9px; font-weight: 900; letter-spacing: 1.4px; }
+.cash-pill strong { display: block; margin-top: 1px; color: #15795d; font: 900 23px/1.2 'Avenir Next', 'Segoe UI', sans-serif; }
+
+.pulse-card {
+  position: absolute;
+  z-index: 3;
+  right: 18px;
+  top: 94px;
+  width: 270px;
+  padding: 0;
+  border-radius: 19px;
+  color: #eafff9;
+  background: linear-gradient(150deg, rgba(18,66,60,.96), rgba(12,46,44,.96));
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  overflow: hidden;
+}
+/* Phase 30: the launcher holds the title and stats only; the insight lines (they carry link buttons) and the small
+   "Open management report" button are its siblings, so no button nests another. */
+.pulse-launcher { display: block; width: 100%; border: 0; padding: 16px 16px 0; color: inherit; background: transparent; text-align: left; }
+.pulse-launcher:hover { background: rgba(87,217,173,.055); }
+.pulse-launcher:focus-visible { outline: 3px solid var(--mint); outline-offset: -4px; }
+.pulse-title { display: flex; align-items: center; gap: 10px; }
+.pulse-title i { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px rgba(87,217,173,.14); }
+.pulse-badge { display: grid; place-items: center; margin-left: auto; min-width: 22px; height: 22px; border-radius: 11px; color: var(--deep); background: var(--yellow); font-size: 10px; }
+.pulse-wave { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: rgba(87,217,173,.15); color: var(--mint); font-size: 22px; }
+.pulse-title small, .pulse-title strong { display: block; }
+.pulse-title small { color: #78b9a9; font-size: 8px; letter-spacing: 1.4px; font-weight: 900; }
+.pulse-title strong { font: 900 17px 'Avenir Next', 'Segoe UI', sans-serif; }
+.pulse-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin: 14px 0 11px; padding: 11px 0; border-block: 1px solid rgba(202,255,237,.12); }
+.pulse-stats span { text-align: center; border-right: 1px solid rgba(202,255,237,.1); }
+.pulse-stats span:last-child { border: 0; }
+.pulse-stats strong, .pulse-stats small { display: block; }
+.pulse-stats strong { color: #fff; font: 900 20px 'Avenir Next', 'Segoe UI', sans-serif; }
+.pulse-stats small { color: #8ebeb3; font-size: 8px; text-transform: uppercase; letter-spacing: .8px; }
+.pulse-card p { display: flex; align-items: flex-start; gap: 7px; margin: 0; color: #c0dfd7; font-size: 11px; line-height: 1.45; }
+.pulse-card p span { color: var(--yellow); }
+.pulse-card p strong { color: #fff; }
+.pulse-insights { display: grid; gap: 6px; padding: 0 16px 14px; }
+.pulse-open-report { display: block; width: 100%; margin: -4px 0 0; padding: 0 16px 14px; border: 0; color: #8ed9c6; background: transparent; font-size: 9px; font-weight: 900; text-align: right; }
+.pulse-open-report:hover { color: #fff; }
+.pulse-open-report:focus-visible { outline: 3px solid var(--mint); outline-offset: -4px; }
+/* Phase 30: a complaint line's "→ Cloud Hopper" link; the copy wrapper keeps the text and the link in one flex item. */
+.pulse-card p .pulse-copy { color: inherit; }
+/* The yellow glyph rule above must not reach the link's arrow (yellow on mint is about 1.2:1). */
+.pulse-card p .pulse-link span { color: inherit; }
+.pulse-link, .inspector-link {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 7px 2px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--deep);
+  background: var(--mint);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.3;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.pulse-link:hover, .inspector-link:hover { background: #fff; }
+.inspector-link { margin-left: 6px; font-size: 9px; }
+.inspector-link:focus-visible { outline: 3px solid var(--mint); outline-offset: 1px; }
+.pulse-research { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px 12px; width: 100%; padding: 10px 16px 12px; border: 0; border-top: 1px solid rgba(202,255,237,.12); color: #dff8f0; background: rgba(87,217,173,.07); text-align: left; }
+.pulse-research:hover { background: rgba(87,217,173,.14); }
+.pulse-research:focus-visible { outline: 3px solid var(--mint); outline-offset: -4px; }
+.pulse-research span { min-width: 0; }
+.pulse-research span small, .pulse-research span strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pulse-research span small { color: #78b9a9; font-size: 7px; font-weight: 900; letter-spacing: 1px; }
+.pulse-research span strong { margin-top: 2px; font-size: 10px; }
+.pulse-research > em { color: var(--yellow); font-size: 9px; font-style: normal; font-weight: 900; white-space: nowrap; }
+.pulse-research > i { grid-column: 1 / 3; height: 4px; overflow: hidden; border-radius: 3px; background: rgba(255,255,255,.12); }
+.pulse-research > i b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--mint), var(--yellow)); }
+
+.management-open .pulse-card,
+.management-open .build-dock,
+.management-open .ride-inspector,
+.management-open .paint-panel,
+.management-open .cursor-readout,
+.management-open .help-hint { display: none; }
+
+.management-dashboard {
+  position: absolute;
+  z-index: 7;
+  top: 94px;
+  right: 18px;
+  bottom: 58px; /* clears the clean-view handle */
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(520px, calc(var(--ui-vw) - 36px));
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 22px;
+  color: var(--ink);
+  background: rgba(255,252,243,.98);
+  box-shadow: 0 24px 70px rgba(11,45,40,.3), 0 4px 12px rgba(15,54,47,.18);
+  backdrop-filter: blur(20px);
+  pointer-events: auto;
+  user-select: text;
+  animation: management-in .2s ease-out;
+}
+@keyframes management-in { from { opacity: 0; transform: translateX(14px); } }
+
+.management-header { display: flex; align-items: center; gap: 11px; padding: 15px 17px 13px; color: #eafff9; background: linear-gradient(145deg, #174a43, #102f2c); }
+.management-header > span:nth-child(2) { min-width: 0; }
+.management-header small, .management-header strong { display: block; }
+.management-header > span:nth-child(2) small { color: #79bbae; font-size: 8px; font-weight: 900; letter-spacing: 1.4px; }
+.management-header > span:nth-child(2) strong { font-size: 18px; }
+.management-header > b { margin-left: auto; color: var(--yellow); font-size: 21px; text-align: right; }
+.management-header > b small { color: #8ec1b6; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.management-header > button { width: 31px; height: 31px; border: 0; border-radius: 9px; color: #c8e6de; background: rgba(255,255,255,.09); font-size: 21px; line-height: 1; }
+.management-header > button:hover { color: #fff; background: rgba(255,255,255,.16); }
+
+.management-tabs { display: grid; grid-template-columns: repeat(5, minmax(84px, 1fr)); height: 48px; padding: 5px 8px 0; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid #dfe8df; background: #f8f7ed; scrollbar-width: thin; }
+.management-tabs button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 10px 10px 0 0; color: #71877e; background: transparent; font-size: 11px; font-weight: 900; }
+.management-tabs button:hover { background: #edf3e9; }
+.management-tabs button.active { color: #174a43; background: #e7f5e9; box-shadow: inset 0 -3px 0 var(--mint); }
+.management-tabs button span { display: grid; place-items: center; min-width: 18px; height: 18px; border-radius: 9px; color: #fff; background: #c43d55; font-size: 8px; } /* Phase 14 audit: white on #e6687d was 3.2:1; #c43d55 is 5.1:1 */
+.management-dashboard button:focus-visible { outline: 3px solid #2cbf90; outline-offset: -3px; }
+.management-scroll { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #a9c1b7 transparent; }
+.management-tab-panel { display: grid; gap: 11px; padding: 13px; }
+.management-loading { padding: 30px; color: #769087; text-align: center; }
+
+.management-kpis, .finance-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.management-kpis > span, .finance-summary > span { min-width: 0; padding: 10px 8px; border: 1px solid #e3e9df; border-radius: 12px; background: #fffef9; }
+.management-kpis small, .management-kpis strong, .finance-summary small, .finance-summary strong { display: block; }
+.management-kpis small, .finance-summary small { min-height: 18px; color: #80958c; font-size: 7px; font-weight: 900; letter-spacing: .65px; }
+.management-kpis strong, .finance-summary strong { overflow: hidden; color: #214f47; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.management-kpis strong.positive, .finance-summary strong.positive, .positive { color: #16805f; }
+.management-kpis strong.negative, .finance-summary strong.negative, .negative { color: #c24a61; }
+
+.research-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.research-summary > span { min-width: 0; padding: 10px 8px; border: 1px solid #e0e8df; border-radius: 12px; background: #fffef9; }
+.research-summary small, .research-summary strong, .research-summary em { display: block; }
+.research-summary small { min-height: 18px; color: #80958c; font-size: 7px; font-weight: 900; letter-spacing: .6px; }
+.research-summary strong { color: #214f47; font-size: 15px; }
+.research-summary em { overflow: hidden; margin-top: 2px; color: #81958d; font-size: 7px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.research-intro { color: #496b62; background: linear-gradient(135deg, #eff9ef, #fffdf6); }
+.research-intro p, .research-category > p { margin: 0; color: #6d847c; font-size: 9px; line-height: 1.45; }
+.research-milestones { display: grid; gap: 7px; }
+.research-milestones article { display: grid; grid-template-columns: 31px minmax(0, 1fr) auto; align-items: center; gap: 3px 9px; padding: 8px; border: 1px solid #e1e8df; border-radius: 10px; background: #f7f9f2; }
+.research-milestones article > i { grid-row: 1 / 3; display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; color: #876129; background: #ffebbe; font-style: normal; font-weight: 900; }
+.research-milestones article > span { min-width: 0; }
+.research-milestones article > span strong, .research-milestones article > span small, .research-milestones article > span em { display: block; }
+.research-milestones article > span strong { color: #315d54; font-size: 10px; }
+.research-milestones article > span small { color: #7f938b; font-size: 8px; }
+.research-milestones article > span em { margin-top: 2px; color: #997028; font-size: 7px; font-style: normal; font-weight: 900; }
+.research-milestones article > b { color: #725c35; font-size: 9px; }
+.research-milestones article > div { grid-column: 2 / 4; height: 5px; overflow: hidden; border-radius: 3px; background: #e4eae2; }
+.research-milestones article > div i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e5a83c, #f3cb69); }
+.research-milestones article.completed { border-color: #cbe5d5; background: #eff9f0; }
+.research-milestones article.completed > i { color: #187356; background: #d8f2e2; }
+.research-milestones article.completed > div i { background: linear-gradient(90deg, #35bc8a, #75ddb7); }
+.research-category > header { margin-bottom: 5px; }
+.research-projects { display: grid; gap: 8px; margin-top: 10px; }
+.research-project { padding: 10px; border: 1px solid #dde6dc; border-radius: 11px; background: #f9faf4; scroll-margin-block: 90px; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.research-project.focused { border-color: #36bd8d; background: #f3fff7; box-shadow: 0 0 0 3px rgba(54,189,141,.18); }
+.research-project.affordable { border-color: #b8dfca; background: #f1fbf3; }
+.research-project.completed { border-color: #d7e5da; background: #f2f6ef; }
+.research-project.locked { background: #f4f4ef; }
+.research-project > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.research-project > header > span { min-width: 0; }
+.research-project > header strong, .research-project > header small { display: block; }
+.research-project > header strong { color: #264f47; font-size: 11px; }
+.research-project > header small { margin-top: 2px; color: #7d9189; font-size: 8px; line-height: 1.35; }
+.research-project > header .research-tier { display: block; margin-bottom: 2px; color: #5d6f68; font-size: 6.5px; font-style: normal; font-weight: 900; letter-spacing: .45px; text-transform: uppercase; }
+.research-project > header .research-tier.tier-1 { color: #1f7356; }
+.research-project > header > b { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: #765d33; background: #f3e5c8; font-size: 7px; text-transform: uppercase; letter-spacing: .45px; }
+.research-project.affordable > header > b { color: #176e54; background: #d8f2e3; }
+.research-project.completed > header > b { color: #537069; background: #e0e8df; }
+.research-project-costs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.research-project-costs > span { padding: 6px 7px; border-radius: 7px; background: #edf3e9; }
+.research-project-costs small, .research-project-costs strong { display: block; }
+.research-project-costs small { color: #82948d; font-size: 6px; font-weight: 900; letter-spacing: .45px; }
+.research-project-costs strong { margin-top: 1px; color: #315d54; font-size: 10px; }
+.research-requirements { display: grid; gap: 4px; margin: 7px 0 0; }
+.research-requirements div { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 7px; font-size: 8px; }
+.research-requirements dt { color: #81958d; }
+.research-requirements dd { margin: 0; color: #426a61; font-weight: 800; text-align: right; }
+.research-requirements .missing dd { color: #a05b38; }
+.research-requirements .met dd::before { content: '✓ '; color: #21906b; }
+.research-requirements .unlocks dd { color: #187358; }
+.research-project-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 9px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e4e9e1; }
+.research-project-action span { color: #788d85; font-size: 8px; line-height: 1.3; }
+.research-project-action button { min-width: 82px; height: 30px; border: 1px solid #9dd4bb; border-radius: 8px; color: #fff; background: #218360; font-size: 9px; font-weight: 900; }
+.research-project-action button:hover:not(:disabled) { background: #176b50; }
+.research-project-action button:disabled { border-color: #dce3da; color: #899a93; background: #e9eee7; cursor: not-allowed; }
+
+.management-section { padding: 12px; border: 1px solid #dfe8de; border-radius: 14px; background: #fffef9; }
+.management-section > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.management-section > header span small, .management-section > header span strong { display: block; }
+.management-section > header span small { color: #82978e; font-size: 8px; font-weight: 900; letter-spacing: .9px; }
+.management-section > header span strong { font-size: 14px; }
+.management-section > header > b { color: #267460; font-size: 18px; text-align: right; }
+.management-section > header > b small { display: block; color: #80948c; font-size: 8px; font-weight: 800; }
+
+.mini-chart { position: relative; height: 66px; overflow: hidden; border-radius: 10px; background: linear-gradient(180deg, #edf7ef, #f9faf3); }
+.mini-chart svg { display: block; width: 100%; height: 100%; opacity: .9; }
+.mini-chart > span { position: absolute; top: 5px; right: 7px; padding: 2px 5px; border-radius: 5px; color: #245d50; background: rgba(255,255,255,.82); font-size: 9px; font-weight: 900; }
+.mini-chart.empty { display: grid; place-items: center; color: #8aa096; font-size: 10px; }
+
+.rating-factors { display: grid; gap: 8px; margin-top: 10px; }
+.rating-factor { display: grid; grid-template-columns: minmax(0, 1fr) 118px 25px; align-items: center; gap: 9px; }
+.rating-factor > span { min-width: 0; }
+.rating-factor > span strong, .rating-factor > span small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rating-factor > span strong { font-size: 10px; }
+.rating-factor > span small { color: #82968e; font-size: 8px; }
+/* Phase 16 (W3): a long factor detail (the scenery row names rides, services and pieces) wraps to a second line
+   instead of losing its end; the dashboard scrolls, so a taller row costs nothing. */
+.rating-factor > span small { display: -webkit-box; overflow: hidden; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.rating-factor > div { height: 7px; overflow: hidden; border-radius: 4px; background: #e5ece4; }
+.rating-factor > div i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #45c99b, #7cdeb9); }
+.rating-factor > b { color: #426d63; font-size: 10px; text-align: right; }
+
+.operations-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.operations-grid span { padding: 8px; border-radius: 9px; background: #edf5ea; }
+.operations-grid small, .operations-grid strong { display: block; }
+.operations-grid small { color: #81948c; font-size: 7px; font-weight: 900; }
+.operations-grid strong { margin-top: 2px; font-size: 14px; }
+.need-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.need-chips span { padding: 6px 8px; border-radius: 8px; color: #638078; background: #eef3ea; font-size: 9px; }
+.need-chips span.attention { color: #9c5a2b; background: #fff0d7; }
+.need-chips b { margin-left: 4px; }
+
+.operations-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.operations-summary > span { min-width: 0; padding: 10px 8px; border: 1px solid #e1e8df; border-radius: 12px; background: #fffef9; }
+.operations-summary small, .operations-summary strong, .operations-summary em { display: block; }
+.operations-summary small { min-height: 18px; color: #80958c; font-size: 7px; font-weight: 900; letter-spacing: .65px; }
+.operations-summary strong { color: #214f47; font-size: 16px; }
+.operations-summary em { color: #80958c; font-size: 8px; font-style: normal; font-weight: 800; }
+.operations-summary > span.good { border-color: #cce8d9; background: #f0faf2; }
+.operations-summary > span.warning { border-color: #f0d9a9; background: #fff7e4; }
+.operations-summary > span.critical { border-color: #f0c6cf; background: #fff0f2; }
+.operations-summary > span.warning strong, .management-section > header > b.warning { color: #a16a20; }
+.operations-summary > span.critical strong, .management-section > header > b.critical { color: #bb4058; }
+
+.condition-meter { height: 9px; overflow: hidden; border-radius: 6px; background: #e5ece6; }
+.condition-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #38bc8e, #72deb8); transition: width .2s ease; }
+.condition-meter.warning i { background: linear-gradient(90deg, #e9a83d, #f7cb6a); }
+.condition-meter.critical i { background: linear-gradient(90deg, #d84c66, #ef7e91); }
+.operations-detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 9px; }
+.operations-detail-grid > span { min-width: 0; padding: 8px; border-radius: 9px; background: #edf5ea; }
+.operations-detail-grid small, .operations-detail-grid strong { display: block; }
+.operations-detail-grid small { min-height: 17px; color: #81948c; font-size: 7px; font-weight: 900; letter-spacing: .35px; }
+.operations-detail-grid strong { color: #244f47; font-size: 14px; }
+.operations-detail-grid > span.warning { background: #fff1d4; }
+.operations-detail-grid > span.warning strong { color: #9b641c; }
+.operations-detail-grid > span.critical { background: #ffe5e9; }
+.operations-detail-grid > span.critical strong { color: #b93f57; }
+.operations-advice { margin: 9px 0 0; padding: 8px 9px; border-radius: 9px; color: #57756d; background: #edf5ea; font-size: 9px; line-height: 1.4; }
+.operations-advice.warning { color: #805b27; background: #fff0d3; }
+.operations-advice.critical { color: #8e3f50; background: #ffe5ea; }
+
+.staff-roster { display: grid; gap: 8px; }
+.staff-card { display: grid; grid-template-columns: 38px minmax(0, 1fr) 73px; align-items: center; gap: 9px; padding: 9px; border: 1px solid #e0e8de; border-radius: 11px; background: #f8faf3; }
+.staff-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: #147458; background: #d8f3e4; font-size: 16px; }
+.staff-icon.mechanic { color: #98651c; background: #ffedc6; }
+.staff-copy { min-width: 0; }
+.staff-copy strong, .staff-copy small, .staff-copy b { display: block; }
+.staff-copy strong { color: #244f47; font-size: 11px; }
+.staff-copy small { margin-top: 2px; color: #7e928a; font-size: 8px; line-height: 1.3; }
+.staff-copy b { margin-top: 4px; color: #397263; font-size: 9px; }
+.staff-payroll { text-align: right; }
+.staff-payroll small, .staff-payroll strong, .staff-payroll em { display: block; }
+.staff-payroll small { color: #83968f; font-size: 7px; font-weight: 900; }
+.staff-payroll strong { color: #315d54; font-size: 12px; }
+.staff-payroll em { color: #8a9c95; font-size: 7px; font-style: normal; }
+.staff-actions { grid-column: 2 / 4; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.staff-actions button.train { grid-column: 1 / 3; border-color: #e5d6a8; color: #8a6512; background: #fdf6e0; }
+.staff-actions button.train:hover:not(:disabled) { border-color: #d8bf6d; color: #6d4d05; }
+.staff-training-level { color: #7c8a83; font-size: 9px; font-weight: 700; }
+.staff-training-level.trained { color: #8a6512; }
+.staff-actions button { height: 29px; border: 1px solid #d8e3da; border-radius: 8px; color: #6b8179; background: #fffef9; font-size: 9px; font-weight: 900; }
+.staff-actions button:hover:not(:disabled) { border-color: #9bcbb7; color: #1c6e58; }
+.staff-actions button.hire { border-color: #bce1cf; color: #176e54; background: #e4f7ec; }
+.staff-actions button:disabled { opacity: .4; cursor: not-allowed; }
+
+.dashboard-insights { display: grid; gap: 6px; }
+.dashboard-insights p { display: grid; grid-template-columns: 16px 24px 1fr; align-items: start; gap: 4px; margin: 0; color: #516f67; font-size: 10px; line-height: 1.4; }
+.dashboard-insights p i { color: #e5ab38; font-style: normal; }
+.dashboard-insights p strong { color: #234f46; }
+.dashboard-insights p.empty-copy, .empty-copy { display: block; margin: 0; padding: 12px; color: #82968e; font-size: 10px; text-align: center; }
+/* Phase 30: a dashboard complaint line's "→ Cloud Hopper" link (focusBuilding closes the dashboard itself). */
+/* Phase 30: #8a5a00 is about 5.9:1 on white (#b47a12 was 3.7:1, below AA for 10px text). */
+.dashboard-insights .insight-link { display: inline-block; margin-left: 4px; padding: 0; border: 0; color: #8a5a00; background: none; font: inherit; font-weight: 900; text-decoration: underline; cursor: pointer; }
+.dashboard-insights .insight-link:hover { color: #234f46; }
+.dashboard-insights .insight-link:focus-visible { outline: 3px solid var(--mint); outline-offset: 1px; border-radius: 3px; }
+.need-chips.comfort-chips { margin-top: 6px; }
+
+.trend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.trend-grid section { padding: 10px; border: 1px solid #dfe8de; border-radius: 13px; background: #fffef9; }
+.trend-grid header { display: flex; justify-content: space-between; margin-bottom: 7px; }
+.trend-grid header strong { font-size: 10px; }
+.trend-grid header small { color: #84978f; font-size: 8px; }
+
+.finance-categories { display: grid; gap: 9px; }
+.finance-categories > div { display: grid; grid-template-columns: 125px minmax(40px, 1fr) 62px; align-items: center; gap: 8px; }
+.finance-categories span { min-width: 0; }
+.finance-categories span strong, .finance-categories span small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finance-categories span strong { font-size: 10px; }
+.finance-categories span small { color: #879a92; font-size: 8px; }
+.finance-categories > div > i { height: 8px; overflow: hidden; border-radius: 4px; background: #e7ece5; }
+.finance-categories > div > i b { display: block; height: 100%; border-radius: inherit; }
+.finance-categories b.income { background: #56cca2; }
+.finance-categories b.expense { background: #ee7b8e; }
+.finance-categories em { font-size: 9px; font-style: normal; font-weight: 900; text-align: right; }
+
+.recent-transactions { display: grid; gap: 2px; }
+.recent-transactions > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 4px; border-top: 1px solid #edf0e9; }
+.recent-transactions > div:first-child { border-top: 0; }
+.recent-transactions span { min-width: 0; }
+.recent-transactions strong, .recent-transactions small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-transactions strong { font-size: 10px; }
+.recent-transactions small { margin-top: 2px; color: #879a92; font-size: 8px; }
+.recent-transactions b { flex: 0 0 auto; font-size: 10px; }
+
+.activity-list { display: grid; gap: 8px; }
+.activity-list article { display: grid; grid-template-columns: 31px 1fr; gap: 9px; padding: 10px; border-radius: 11px; color: #40665e; background: #edf5ea; }
+.activity-list article > i { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; color: #19765a; background: #d5f3e4; font-style: normal; font-weight: 900; }
+.activity-list article.warning { color: #7a5a30; background: #fff2d8; }
+.activity-list article.warning > i { color: #93641e; background: #ffe1a6; }
+.activity-list article.critical { color: #843f50; background: #ffe7eb; }
+.activity-list article.critical > i { color: #ad3f59; background: #ffcbd4; }
+.activity-list article strong, .activity-list article small { display: block; }
+.activity-list article strong { color: inherit; font-size: 11px; }
+.activity-list article p { margin: 2px 0 4px; font-size: 10px; line-height: 1.35; }
+.activity-list article small { color: #83978f; font-size: 8px; }
+
+.build-dock {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 17px;
+  width: min(1010px, calc(var(--ui-vw) - 190px));
+  transform: translateX(-50%);
+  background: var(--paper);
+  border: 1px solid rgba(255,255,255,.85);
+  border-radius: 20px;
+  box-shadow: 0 16px 38px rgba(19,58,51,.24), 0 3px 7px rgba(19,58,51,.12);
+  overflow: hidden;
+  pointer-events: auto;
+  backdrop-filter: blur(18px);
+}
+
+.category-tabs { display: flex; gap: 2px; height: 48px; padding: 5px 7px 0; border-bottom: 1px solid #e6eadf; }
+.category-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  padding: 0 12px;
+  background: transparent;
+  color: #72877f;
+  font-size: 11px;
+  font-weight: 800;
+}
+.category-tabs button span { font-size: 16px; }
+.category-tabs button:hover { background: #edf3e9; }
+.category-tabs button.active { color: var(--ink); background: #e9f5e7; box-shadow: inset 0 -3px 0 var(--mint); }
+.category-tabs .tab-spacer { flex: 1; }
+/* Phase 21: an estate adds the Land tab; tighter tab padding keeps the Undo label readable (browser check, 2026-10-14). */
+.category-tabs.has-land button { padding: 0 8px; }
+.category-tabs .rotate-tab { color: #3f7f6e; }
+.category-tabs .rotate-tab:hover { color: #1f5c4d; background: #e6fbf3; }
+.cursor-readout .cursor-rotation { color: #2f6f5e; font-weight: 700; }
+.category-tabs .pointer-tab { color: #4b6f86; }
+.category-tabs .pointer-tab:hover { color: #26506b; background: #e7f2fa; }
+.category-tabs .pointer-tab.active { color: #1d4d6b; background: #e2f0fa; box-shadow: inset 0 -3px 0 #4ea8de; }
+.category-tabs .bulldoze-tab { color: #9b5a65; }
+.category-tabs .bulldoze-tab.active { color: #b92f4a; background: #ffe9ed; box-shadow: inset 0 -3px 0 var(--coral); }
+.category-tabs .undo-tab { color: #7a6a95; }
+.category-tabs .undo-tab:hover { color: #53427a; background: #f0ecfa; }
+/* Dimmed, not disabled: clicking still says why undo is closed (empty, scenario over, loading). */
+.category-tabs .undo-tab.unavailable { color: #a9b1ac; }
+.category-tabs .undo-tab.unavailable:hover { color: #78837c; background: #f1f3f0; }
+/*
+ * The label carries a counting number ("rewinds 42 s"), so it uses tabular digits: a label whose
+ * digits changed width every simulated second would shove its neighbours. The dock is 80px wider
+ * than before so the longest label ("Confirm rewind 3 min 20 s") still leaves room for Clear.
+ */
+.category-tabs .undo-tab { position: relative; flex: 0 1 224px; width: 224px; min-width: 0; font-variant-numeric: tabular-nums; }
+/* Ellipsis is the last resort on a narrow dock; the full text is the tooltip and the aria label. */
+.undo-tab .undo-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Amber while a long rewind waits for its second press, matching the Save / Load warnings. */
+.category-tabs .undo-tab.armed > span { display: none; }
+.category-tabs .undo-tab.armed { color: #7a4a00; background: #ffe9ad; box-shadow: inset 0 -3px 0 #e0a526; }
+.category-tabs .undo-tab.armed:hover { background: #ffe19a; }
+.category-tabs .undo-tab:focus-visible { outline: 3px solid #2cbf90; outline-offset: -3px; }
+.undo-tab .undo-depth { min-width: 15px; padding: 1px 4px; border-radius: 8px; background: #e6e0f3; color: #53427a; font-size: 9px; font-style: normal; font-weight: 900; line-height: 1.3; text-align: center; }
+.undo-tab.armed .undo-depth { display: none; }
+.undo-tab.unavailable .undo-depth { display: none; }
+/* A narrower window trades tab padding for the armed label ("Confirm rewind 3 min 20 s"), which must stay readable. */
+@container ui (max-width: 1240px) { .category-tabs button { padding: 0 8px; } }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Phase 29: the filter rail sits left of the card strip, so the dock keeps its height. */
+.build-body { display: flex; min-width: 0; }
+.build-body > .build-list { flex: 1 1 auto; min-width: 0; }
+/* Six chips (All and the five scenery themes) fit the strip's 112 px without scrolling; chips never shrink. */
+.build-filters { display: flex; flex-direction: column; justify-content: center; flex: 0 0 auto; gap: 2px; padding: 6px 0 6px 10px; max-height: 112px; overflow-y: auto; scrollbar-width: thin; }
+.build-filter { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; min-width: 92px; height: 15px; padding: 0 7px 0 5px; border: 1px solid #dce7de; border-radius: 8px; color: #3f6158; background: #fffdf7; font-size: 8.5px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.build-filter span { width: 11px; text-align: center; font-size: 10px; }
+.build-filter b { margin-left: auto; padding-left: 6px; color: #7b948b; font-size: 8.5px; font-weight: 800; }
+.build-filter:hover { border-color: #90cfb6; background: #f3fbf6; }
+.build-filter.active { border-color: #37b98b; color: #0f5e47; background: #def6eb; box-shadow: inset 0 0 0 1px #60d3aa; }
+.build-filter.active b { color: #2f7d65; }
+.build-filter:focus-visible { outline: 3px solid #2cbf90; outline-offset: 1px; }
+.build-list {
+  display: flex;
+  gap: 9px;
+  min-height: 112px;
+  padding: 10px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #b8cabf transparent;
+}
+.build-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(95px, 1fr);
+  grid-template-rows: 1fr auto;
+  flex: 1 0 195px;
+  max-width: 240px;
+  gap: 3px 10px;
+  min-height: 90px;
+  border: 1px solid #e1e9dd;
+  border-radius: 13px;
+  padding: 9px;
+  background: #fffdf7;
+  text-align: left;
+  transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+.build-card:hover:not(:disabled) { transform: translateY(-2px); border-color: #90cfb6; box-shadow: 0 6px 13px rgba(39,104,86,.12); }
+.build-card.active { border-color: #37b98b; box-shadow: inset 0 0 0 2px #60d3aa, 0 5px 12px rgba(39,147,111,.17); background: #f5fff9; }
+/* The armed tool, stated in words: a click in the world never changes it, so it has to be legible. */
+.armed-tool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  margin: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid #edf1e8;
+  color: #4d6f65;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.armed-tool span { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 6px; background: #e7f2fa; color: #1d4d6b; font-size: 11px; }
+.armed-tool span.armed { background: #d9f5e9; color: #14795b; }
+.build-card:disabled { opacity: .48; filter: grayscale(.4); }
+/* Unaffordable is a reason, not a wall: the card stays pickable so the ghost can be lined up. */
+.build-card.unaffordable { opacity: .82; border-color: #dcc9b4; background: #fdf6ef; }
+.build-card.unaffordable .build-icon { opacity: .72; filter: grayscale(.35); }
+.build-card.unaffordable .build-price { color: #8a5a3a; }
+.build-card.locked { border-color: #dcccae; background: #fbf5e8; }
+.build-card.locked:hover { transform: translateY(-2px); border-color: #c7a969; box-shadow: 0 6px 13px rgba(104,78,39,.13); }
+.build-card.locked .build-icon { opacity: .6; filter: grayscale(.55); }
+.build-card.locked .build-price { color: #806f50; }
+.build-lock-badge { position: absolute; z-index: 1; top: 6px; left: 6px; padding: 3px 5px; border-radius: 5px; color: #fff9e9; background: #866939; font-size: 6px; font-weight: 900; letter-spacing: .55px; }
+.build-icon {
+  grid-row: 1 / 3;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 58px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--item-color), white 70%);
+  color: var(--item-color);
+  font: 900 27px 'Avenir Next', 'Segoe UI', sans-serif;
+}
+.build-copy { min-width: 0; }
+.build-copy strong { display: block; color: #244d46; font-size: 12px; line-height: 1.15; }
+.build-copy small { display: -webkit-box; margin-top: 4px; overflow: hidden; color: #82958d; font-size: 9px; line-height: 1.3; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.build-copy em { display: block; overflow: hidden; margin-top: 4px; font-size: 7px; font-style: normal; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.build-scenery-stat { color: #2c8167; }
+/* Phase 16: the theme chip shares the price row (both explicitly in row 2, column 2), so a themed card is no taller:
+   the dock's height is a layout anchor (layoutModel ANCHORS.dockHeight). A long chip ellipsises; its title has the words. */
+.build-card > .build-price { grid-row: 2; grid-column: 2; }
+.build-card > .build-theme-chip {
+  grid-row: 2;
+  grid-column: 2;
+  justify-self: end;
+  align-self: end;
+  max-width: calc(100% - 46px);
+  overflow: hidden;
+  padding: 2px 6px;
+  border-radius: 7px;
+  color: #3b5c51;
+  background: #e8efe2;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.build-card > .build-theme-chip.local { color: #6a4a10; background: #fbebc9; }
+.build-lock-reason { color: #8b6834; }
+/* Phase 33: a research-locked card states the project's terms under "Requires"; the terms may wrap to two lines (a
+   late project needs ~50 characters), and the description gives up its second line for them, so the card grows by at
+   most one small line (the dock height is a layout anchor). The card's title has the whole text. */
+.build-copy em.build-lock-needs { display: -webkit-box; color: #6a5426; line-height: 1.25; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.build-card.needs-research .build-copy small { -webkit-line-clamp: 1; }
+.build-price { align-self: end; color: #17775b; font-size: 11px; font-weight: 900; }
+
+.utility-bar {
+  position: absolute;
+  z-index: 2;
+  left: 18px;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+/* Developer tools are visually separated from the player toggles above them. */
+.utility-dev-divider { width: 28px; height: 1px; margin: 3px 6px; background: rgba(45,90,80,.28); }
+.utility-bar button.dev { border-style: dashed; border-color: rgba(138,90,58,.6); color: #8a5a3a; }
+.utility-bar button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255,255,255,.84);
+  border-radius: 12px;
+  color: #466960;
+  background: var(--paper);
+  box-shadow: 0 5px 13px rgba(23,63,59,.17);
+  font-weight: 900;
+}
+.utility-bar button:hover, .utility-bar button.active { color: #fff; background: var(--ink); }
+
+.performance-overlay {
+  position: absolute;
+  z-index: 6;
+  left: 74px;
+  bottom: var(--side-floor);
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 3px 18px;
+  width: 190px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  color: #bfeadd;
+  background: rgba(10,37,35,.91);
+  box-shadow: var(--shadow);
+  font: 600 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: auto;
+}
+.ui-layer:has(.coaster-panel) .performance-overlay { left: 336px; } /* the designer owns the left column */
+.performance-overlay strong { grid-column: 1 / 3; margin-bottom: 4px; color: var(--mint); letter-spacing: 1.1px; }
+.performance-overlay b { color: #fff; font-weight: 600; }
+
+.ride-inspector {
+  position: absolute;
+  z-index: 4;
+  right: 300px; /* beside Park Pulse: its height varies (First Day, scenario, research), so nothing is stacked under it */
+  top: 94px;
+  width: 292px;
+  padding: 15px;
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 19px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+  max-height: calc(var(--ui-vh) - 94px - var(--side-floor));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #aac0b7 transparent;
+}
+.ride-inspector header { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #e3eae0; }
+.ride-inspector header > span:nth-child(2) { min-width: 0; }
+.ride-inspector header small, .ride-inspector header strong { display: block; }
+.ride-inspector header small { color: #84998f; font-size: 8px; font-weight: 900; letter-spacing: 1.3px; }
+.ride-inspector header strong { font-size: 15px; overflow-wrap: anywhere; } /* the name wraps: it carries meaning, so no ellipsis */
+.ride-inspector header button { margin-left: auto; width: 28px; height: 28px; border: 0; border-radius: 9px; color: #758b82; background: #edf2e9; font-size: 20px; line-height: 1; }
+.inspector-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: var(--ride-color); background: color-mix(in srgb, var(--ride-color), white 78%); font-size: 23px; }
+.ride-state-row { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; }
+.ride-status { display: flex; align-items: center; gap: 7px; color: #667d74; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; }
+.ride-status i { width: 8px; height: 8px; border-radius: 50%; background: #99a9a2; }
+.ride-status.running i { background: #34cc93; box-shadow: 0 0 0 4px rgba(52,204,147,.14); }
+.ride-status.serving i { background: #34cc93; box-shadow: 0 0 0 4px rgba(52,204,147,.14); }
+.ride-status.waiting i { background: #f3b94f; }
+.ride-status.closed i { background: #ee6c82; }
+.ride-status.broken { color: #af3d55; }
+.ride-status.broken i { background: #df526b; box-shadow: 0 0 0 4px rgba(223,82,107,.14); }
+.ride-status.maintenance { color: #94641e; }
+.ride-status.maintenance i { background: #e9a63a; box-shadow: 0 0 0 4px rgba(233,166,58,.14); animation: maintenance-pulse 1.2s ease-in-out infinite; }
+@keyframes maintenance-pulse { 50% { opacity: .45; } }
+.ride-state-row button { min-width: 72px; height: 31px; border: 0; border-radius: 9px; font-size: 10px; font-weight: 900; }
+.ride-state-row .ride-open { color: #126a50; background: #dff7e9; }
+.ride-state-row .ride-closed { color: #a93b51; background: #ffe5ea; }
+.cycle-progress { position: relative; height: 19px; margin: -3px 0 11px; overflow: hidden; border-radius: 7px; background: #e6eee7; }
+.cycle-progress i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #54d8ab, #7be5c3); }
+.cycle-progress span { position: relative; display: block; padding: 3px 7px; color: #315d54; font-size: 8px; font-weight: 900; text-align: center; }
+.maintenance-progress { margin: -3px 0 11px; padding: 8px; border-radius: 9px; color: #6f542b; background: #fff1d2; }
+.maintenance-progress > span { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.maintenance-progress strong, .maintenance-progress small { font-size: 8px; }
+.maintenance-progress > div { height: 7px; overflow: hidden; border-radius: 5px; background: #ead9b8; }
+.maintenance-progress > div i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e5a239, #f2c65d); }
+.ride-condition-panel { margin: 0 0 10px; padding: 9px; border: 1px solid #d8e6dc; border-radius: 11px; background: #f4faf3; }
+.ride-condition-panel.warning { border-color: #edd8aa; background: #fff8e6; }
+.ride-condition-panel.critical { border-color: #efc4cd; background: #fff0f2; }
+.ride-inspector .ride-condition-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 7px; border: 0; }
+.ride-condition-panel header span { min-width: 0; }
+.ride-condition-panel header small, .ride-condition-panel header strong { display: block; }
+.ride-condition-panel header small { color: #80948c; font-size: 7px; }
+.ride-condition-panel header strong { color: #315d54; font-size: 10px; }
+.ride-condition-panel header b { color: #1d7a5d; font-size: 17px; }
+.ride-condition-panel.warning header b { color: #9b681f; }
+.ride-condition-panel.critical header b { color: #b83d56; }
+.ride-condition-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 7px; }
+.ride-condition-stats > span { min-width: 0; padding: 6px; border-radius: 7px; background: rgba(255,255,255,.7); }
+.ride-condition-stats small, .ride-condition-stats strong, .ride-condition-stats em { display: block; }
+.ride-condition-stats small { min-height: 15px; color: #83968f; font-size: 6px; font-weight: 900; letter-spacing: .3px; }
+.ride-condition-stats strong { overflow: hidden; color: #315d54; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ride-condition-stats em { color: #84978f; font-size: 6px; font-style: normal; }
+.ride-condition-alert { margin: 7px 0 0; padding: 6px 7px; border-radius: 7px; color: #923e50; background: #ffdae1; font-size: 8px; line-height: 1.35; }
+.scenery-impact { margin: 0 0 10px; padding: 9px; border: 1px solid #d5e5d7; border-radius: 11px; background: linear-gradient(135deg, #edf8ee, #fff9e9); }
+.ride-inspector .scenery-impact > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 7px; border: 0; }
+.scenery-impact header span { min-width: 0; }
+.scenery-impact header small, .scenery-impact header strong { display: block; }
+.scenery-impact header small { color: #779086; font-size: 7px; }
+.scenery-impact header strong { color: #315d54; font-size: 9px; }
+.scenery-impact header b { color: #1a7c5d; font-size: 17px; }
+.scenery-meter { height: 7px; overflow: hidden; border-radius: 4px; background: #dfe9df; }
+.scenery-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #53b7e8, #58d9ad, #f3c85c); }
+.scenery-impact > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 7px; }
+.scenery-impact > div:last-child span { padding: 6px; border-radius: 7px; background: rgba(255,255,255,.75); }
+.scenery-impact > div:last-child small, .scenery-impact > div:last-child strong { display: block; }
+.scenery-impact > div:last-child small { color: #81948c; font-size: 6px; font-weight: 900; }
+.scenery-impact > .scenery-theme-line { margin: 7px 0 0; color: #3b5c51; font-size: 8px; font-weight: 800; line-height: 1.35; }
+.scenery-impact > div:last-child strong { color: #286554; font-size: 10px; }
+/* Phase 28: the inspector's Colours section. One row per slot, swatches in their themed rows of seven; picking repaints the ride itself. */
+.colour-section { margin: 0 0 10px; border: 1px solid #d5e5d7; border-radius: 11px; background: linear-gradient(135deg, #f4faf3, #fff9e9); }
+.colour-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 9px; border: 0; border-radius: 11px; background: transparent; text-align: left; cursor: pointer; }
+.colour-toggle-title { flex: 1; min-width: 0; }
+.colour-toggle-title small, .colour-toggle-title strong { display: block; }
+.colour-toggle-title small { color: #4d6159; font-size: 7px; font-weight: 900; letter-spacing: 1px; }
+.colour-toggle-title strong { color: #315d54; font-size: 10px; }
+.colour-dots { display: flex; gap: 3px; }
+.colour-dots i { width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(23,63,59,.35); }
+.colour-chevron { width: 12px; color: #4d6159; font-size: 11px; text-align: center; }
+.colour-body { display: grid; gap: 9px; padding: 2px 9px 9px; }
+.colour-row { display: grid; grid-template-columns: 62px 1fr; gap: 8px; align-items: start; }
+.colour-row-head { display: grid; gap: 5px; justify-items: start; }
+.colour-row-head strong { color: #315d54; font-size: 10px; }
+.colour-default { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: 21px; padding: 0 6px 0 4px; border: 1px solid #c6d8cb; border-radius: 11px; color: #315d54; background: #fff; font-size: 8px; font-weight: 800; cursor: pointer; }
+.colour-default i { flex: none; width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(23,63,59,.35); }
+.colour-default.active { border-color: #173f3b; background: #e5f3e8; }
+.colour-grid { display: grid; grid-template-columns: repeat(var(--colour-columns, 7), 22px); gap: 4px 4px; justify-content: start; }
+.colour-swatch { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: var(--swatch); box-shadow: 0 0 0 1px rgba(23,63,59,.3); font-size: 12px; font-weight: 900; line-height: 1; cursor: pointer; }
+.colour-swatch.light { color: #fff; }
+.colour-swatch.dark { color: #1d2b27; }
+.colour-swatch:hover { transform: scale(1.12); }
+.colour-swatch.selected { box-shadow: 0 0 0 2px #173f3b; }
+.colour-foot { display: flex; align-items: center; justify-content: flex-end; }
+.colour-reset { height: 25px; padding: 0 10px; border: 0; border-radius: 8px; color: #126a50; background: #dff7e9; font-size: 9px; font-weight: 900; cursor: pointer; }
+.colour-reset[aria-disabled="true"] { color: #4d6159; background: #edf2e9; cursor: default; }
+
+/* Phase 28 step 2: the Paint tool. The dock button, the armed-card chip, and the panel that sits in the inspector's slot. */
+.category-tabs .paint-tab { position: relative; color: #7a4f94; }
+.category-tabs .paint-tab:hover { color: #55306f; background: #f1e9f8; }
+.category-tabs .paint-tab.active { color: #55306f; background: #efe3f8; box-shadow: inset 0 -3px 0 #b07fd0; }
+.paint-tab-dot { width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(23,63,59,.4); }
+.armed-row { position: relative; }
+.armed-colour { position: absolute; right: 10px; top: 3px; display: inline-flex; align-items: center; gap: 4px; height: 21px; padding: 0 9px 0 7px; border: 1px solid #c6d8cb; border-radius: 11px; color: #315d54; background: #fff; font-size: 9px; font-weight: 800; cursor: pointer; }
+.armed-colour.active { border-color: #173f3b; background: #e5f3e8; }
+.armed-colour span { font-size: 11px; }
+.build-next-colour { position: absolute; left: 9px; bottom: 10px; display: flex; gap: 2px; padding: 2px 3px; border-radius: 9px; background: #fff; box-shadow: 0 0 0 1px rgba(23,63,59,.32); pointer-events: none; }
+.build-next-colour i, .paint-dots i { display: block; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(23,63,59,.3); }
+.dot-default { background: repeating-linear-gradient(45deg, #fff 0 2px, #d3e2d8 2px 4px); }
+.paint-panel {
+  position: absolute;
+  z-index: 4;
+  right: 300px;
+  top: 94px;
+  width: 272px; /* 20px narrower than the inspector so the developer overlay beside the coaster designer never reaches it at 1100 wide */
+  padding: 13px 15px 12px;
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 19px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+  max-height: calc(var(--ui-vh) - 94px - var(--side-floor));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #aac0b7 transparent;
+}
+.paint-panel header { display: flex; align-items: center; gap: 10px; padding-bottom: 9px; border-bottom: 1px solid #e3eae0; }
+.paint-panel header > span:nth-child(2) { min-width: 0; }
+.paint-panel header small, .paint-panel header strong { display: block; }
+.paint-panel header small { color: #6f8279; font-size: 8px; font-weight: 900; letter-spacing: 1.3px; }
+.paint-panel header strong { font-size: 14px; overflow-wrap: anywhere; }
+.paint-panel header button { margin-left: auto; width: 28px; height: 28px; border: 0; border-radius: 9px; color: #5d7269; background: #edf2e9; font-size: 20px; line-height: 1; cursor: pointer; }
+.paint-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: #7a4f94; background: #f1e9f8; font-size: 20px; }
+.paint-status { margin: 7px 0 4px; color: #315d54; font-size: 10px; font-weight: 800; }
+.paint-section { display: grid; gap: 5px; margin-top: 7px; }
+.paint-section-head { display: flex; align-items: center; justify-content: space-between; min-height: 21px; }
+.paint-head-actions { display: flex; gap: 5px; }
+.paint-target-row { grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.paint-target-row > strong { color: #315d54; font-size: 10px; }
+.paint-section-head strong { color: #315d54; font-size: 10px; }
+.paint-grid { grid-template-columns: repeat(var(--colour-columns, 7), 25px); gap: 4px 6px; justify-content: space-between; }
+.paint-grid .colour-swatch { width: 25px; height: 25px; font-size: 13px; }
+.paint-default-dot { flex: none; width: 11px; height: 11px; border-radius: 50%; background: repeating-linear-gradient(45deg, #fff 0 2px, #d3e2d8 2px 4px); box-shadow: 0 0 0 1px rgba(23,63,59,.35); }
+.paint-targets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.paint-target { height: 26px; border: 1px solid #c6d8cb; border-radius: 9px; color: #315d54; background: #fff; font-size: 10px; font-weight: 800; cursor: pointer; }
+.paint-target.selected { border-color: #173f3b; background: #e5f3e8; box-shadow: inset 0 -3px 0 #37b98b; }
+.paint-targets[aria-disabled="true"] .paint-target { color: #5d7269; background: #f1f4ee; cursor: default; }
+.paint-presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+.paint-preset { display: grid; grid-template-columns: auto 1fr 14px; align-items: center; gap: 6px; height: 26px; padding: 0 7px; border: 1px solid #c6d8cb; border-radius: 10px; color: #315d54; background: #fff; font-size: 10px; font-weight: 800; text-align: left; cursor: pointer; }
+.paint-preset.selected { border-color: #173f3b; background: #e5f3e8; box-shadow: inset 0 -3px 0 #37b98b; }
+.paint-dots { display: flex; gap: 2px; }
+.paint-preset-check { color: #173f3b; font-size: 11px; font-weight: 900; text-align: center; }
+.paint-copied { margin: 8px 0 0; padding: 5px 8px; border-radius: 9px; color: #315d54; background: #eef6ea; font-size: 10px; font-weight: 800; }
+.paint-actions { display: grid; gap: 6px; margin-top: 9px; }
+.paint-apply { display: flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 9px; font-size: 10px; font-weight: 900; cursor: pointer; }
+.paint-apply { color: #0f5f48; background: #dff7e9; }
+.paint-apply[aria-disabled="true"] { color: #4d6159; background: #edf2e9; cursor: default; }
+/* The Pick toggle is a Default-chip lookalike in the Colour row. */
+.colour-default.paint-pick.active { border-color: #173f3b; background: #e5f3e8; }
+.paint-pick kbd { padding: 0 5px; border-radius: 5px; color: #315d54; background: #edf2e9; font: inherit; font-size: 9px; }
+.paint-hint { margin: 7px 0 0; color: #4d6159; font-size: 9px; line-height: 1.4; }
+.cursor-readout.paint-readout.muted { background: rgba(60,76,72,.9); }
+/* With the paint panel open (its slot is right of centre) the readout stays left of it, so the two never overlap at 1280 wide. */
+.ui-layer:has(.paint-panel) .cursor-readout.paint-readout { left: auto; right: 584px; transform: none; max-width: 320px; }
+.ride-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.ride-metrics span { padding: 9px; border-radius: 10px; background: #edf4e9; }
+.ride-metrics small, .ride-metrics strong { display: block; }
+.ride-metrics small { color: #82968e; font-size: 7px; font-weight: 900; letter-spacing: .8px; }
+.ride-metrics strong { margin-top: 2px; font-size: 15px; }
+.price-control { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; padding: 10px; border-radius: 11px; color: #fff; background: #173f3b; }
+.price-control small, .price-control strong { display: block; }
+.price-control small { color: #8fc3b5; font-size: 7px; font-weight: 900; letter-spacing: .8px; }
+.price-control strong { color: #fff2ad; font-size: 18px; }
+.price-control div { display: flex; gap: 4px; }
+.price-control button { width: 31px; height: 31px; border: 0; border-radius: 8px; color: #173f3b; background: #e8fff7; font-weight: 900; }
+.ride-details { display: grid; gap: 5px; margin: 0; font-size: 9px; }
+.ride-details div { display: flex; justify-content: space-between; }
+.ride-details dt { color: #7b9188; }
+.ride-details dd { margin: 0; color: #315d54; font-weight: 800; }
+.ride-details dd.positive { color: #14805f; }
+/* Phase 30: every ride's band and numbers under the state row; the intense note takes the maintenance amber. */
+.ride-band-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -4px 0 10px; color: #315d54; font-size: 10px; font-weight: 800; }
+.ride-band-line .build-intensity-tag { margin-top: 0; }
+.ride-intense-note { flex-basis: 100%; color: #94641e; font-size: 9px; font-weight: 800; }
+/* Phase 30: the guest inspector. */
+.guest-doing { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; color: #315d54; font-size: 11px; font-weight: 900; }
+.guest-doing span { color: #5b8def; }
+.guest-thought { margin: 0 0 12px; padding: 8px 10px; border-radius: 10px; color: #4a6a60; background: #edf4e9; font-size: 10px; font-style: italic; line-height: 1.45; }
+.guest-thought q { quotes: '\201C' '\201D'; }
+.guest-needs { margin-bottom: 10px; }
+.guest-needs strong em { color: #7b9188; font-size: 8px; font-style: normal; font-weight: 800; }
+.guest-flags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; padding: 0; list-style: none; }
+.guest-flags li { padding: 3px 8px; border-radius: 8px; font-size: 8px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; }
+.guest-flags .tired { background: #e3f0fb; color: #2b6a9e; }
+.guest-flags .queasy { background: #e8f5de; color: #4b7a1e; }
+.guest-flags .hot { background: #fde5e5; color: #b3384f; }
+.guest-flags .cold { background: #e3f0fb; color: #2b6a9e; }
+.guest-flags .soaked { background: #e3f0fb; color: #2b6a9e; }
+.guest-inspector .ride-details dd .build-intensity-tag { margin-top: 0; }
+.inspector-dev-action { width: 100%; margin-top: 10px; padding: 7px; border: 1px dashed #dfa5af; border-radius: 8px; color: #a34859; background: #fff2f4; font-size: 8px; font-weight: 900; letter-spacing: .45px; }
+.inspector-dev-action:hover:not(:disabled) { color: #fff; background: #c65368; }
+.inspector-dev-action:disabled { opacity: .38; cursor: not-allowed; }
+
+.cursor-readout {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  /* Above the help hint, which sits on --dock-reserve (Phase 36: follows the reserve instead of a copied 258px). */
+  bottom: calc(var(--dock-reserve) + 26px);
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1px 12px;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #eafff7;
+  background: rgba(18,63,57,.91);
+  box-shadow: 0 4px 12px rgba(20,56,51,.2);
+  font-size: 10px;
+}
+.cursor-readout strong { font-size: 11px; }
+.cursor-readout span { color: var(--yellow); font-weight: 900; }
+.cursor-readout small { grid-column: 1 / 3; color: #9bc9be; }
+.cursor-readout em { grid-column: 1 / 3; color: #d8f8c8; font-size: 8px; font-style: normal; font-weight: 800; }
+/* Phase 16: the theme match rides on the appeal line; it must not take the cost's yellow. */
+.cursor-readout em .cursor-theme { color: #f3e3a6; font-weight: 800; }
+.cursor-readout.invalid { background: rgba(119,37,53,.92); }
+
+.toast {
+  position: relative;
+  z-index: 8;
+  grid-area: 3 / 2;
+  margin-bottom: 8px;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 15px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: #315d54;
+  font-size: 11px;
+  font-weight: 800;
+  animation: toast-in .22s ease-out;
+}
+.toast span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; background: #35bf8e; }
+/* Phase 30: a refusal or error wears a red "!" (the class rides on the element); routine and important keep the tick. */
+.toast.alert span { background: #df526b; font-weight: 900; }
+.toast.important span { background: #e9a63a; color: var(--deep); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+
+.management-notifications {
+  position: relative;
+  z-index: 8;
+  grid-area: 4 / 2;
+  margin-bottom: 8px;
+  display: grid;
+  gap: 7px;
+  width: min(390px, 100%);
+  pointer-events: auto;
+}
+.management-notifications button { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 9px; width: 100%; padding: 9px 11px; border: 1px solid rgba(255,255,255,.9); border-radius: 13px; color: #315d54; background: rgba(255,252,243,.97); box-shadow: var(--shadow); text-align: left; animation: management-notification-in .22s ease-out; }
+.management-notifications button:hover { transform: translateY(-1px); }
+.management-notifications button > i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #19765a; background: #d5f3e4; font-style: normal; font-weight: 900; }
+.management-notifications button span { min-width: 0; }
+.management-notifications button strong, .management-notifications button small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.management-notifications button strong { font-size: 10px; }
+.management-notifications button small { margin-top: 2px; color: #668078; font-size: 9px; }
+.management-notifications button.warning { color: #7a5a30; background: rgba(255,245,220,.98); }
+.management-notifications button.warning > i { color: #93641e; background: #ffe1a6; }
+.management-notifications button.critical { color: #843f50; background: rgba(255,235,239,.98); }
+.management-notifications button.critical > i { color: #ad3f59; background: #ffcbd4; }
+@keyframes management-notification-in { from { opacity: 0; transform: translateY(-8px); } }
+
+.help-hint {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 251px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(var(--ui-vw) - 32px);
+  white-space: nowrap;
+  color: rgba(28,70,62,.73);
+  font-size: 9px;
+  font-weight: 800;
+  text-shadow: 0 1px rgba(255,255,255,.7);
+}
+.help-hint i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .5; }
+
+.fatal-error {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  gap: 8px;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(var(--ui-vw) - 40px));
+  padding: 26px;
+  border-radius: 18px;
+  color: #783044;
+  background: #fff6f7;
+  box-shadow: var(--shadow);
+}
+
+/* First Day card inside Park Pulse: candy yellow on the ink-teal card, never modal. */
+.first-day, .map-offer { display: grid; gap: 6px; padding: 10px 16px 12px; border-top: 1px solid rgba(202,255,237,.12); background: rgba(255,209,102,.09); }
+.first-day header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.first-day header small { color: var(--yellow); font-size: 8px; font-weight: 900; letter-spacing: 1.4px; }
+.first-day header em { color: #b9dfd3; font-size: 9px; font-style: normal; font-weight: 800; white-space: nowrap; }
+.first-day-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.first-day.compact { padding-block: 8px; }
+.first-day-title { display: flex; align-items: center; gap: 6px; color: #fff; font: 900 13px 'Avenir Next', 'Segoe UI', sans-serif; line-height: 1.25; }
+.first-day-title span { color: var(--yellow); }
+.first-day p, .map-offer p { margin: 0; color: #d6ece5; font-size: 11px; line-height: 1.4; }
+.first-day-pips { display: flex; gap: 4px; margin: 2px 0 0; padding: 0; list-style: none; }
+.first-day-pips .pip { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid rgba(202,255,237,.35); color: var(--deep); font-size: 9px; font-weight: 900; line-height: 1; }
+.first-day-pips .pip.done { border-color: var(--mint); background: var(--mint); }
+.first-day-pips .pip.skipped { border-color: rgba(202,255,237,.5); background: rgba(202,255,237,.28); color: #eafff9; }
+.first-day-pips .pip.current { border-color: var(--yellow); background: var(--yellow); animation: first-day-pulse 1.6s ease-in-out infinite; }
+.first-day-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.first-day-actions button, .first-day-row button { min-height: 28px; cursor: pointer; font-size: 10.5px; font-weight: 900; }
+.first-day-skip { padding: 4px 11px; border: 1.5px solid rgba(255,209,102,.7); border-radius: 9px; color: var(--yellow); background: transparent; }
+.first-day-skip:hover { background: rgba(255,209,102,.16); }
+.first-day-hide { padding: 4px 2px; border: 0; color: #9fd9c9; background: transparent; text-decoration: underline; text-underline-offset: 2px; }
+.first-day-hide:hover { color: #fff; }
+.first-day-actions button:focus-visible, .first-day-row button:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+.first-day-done { display: flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 10px; color: var(--deep); background: var(--mint); font-size: 11px; font-weight: 900; animation: first-day-fade .45s ease-in 3.05s forwards; }
+.first-day-done span { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: var(--mint); background: var(--deep); font-size: 10px; animation: first-day-pop .4s cubic-bezier(.3,1.6,.5,1); }
+.map-offer p { display: flex; gap: 7px; color: #fff; font-weight: 700; }
+.map-offer p span { color: var(--yellow); }
+@keyframes first-day-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,209,102,.55); } 50% { box-shadow: 0 0 0 4px rgba(255,209,102,0); } }
+@keyframes first-day-pop { from { transform: scale(.2); } to { transform: scale(1); } }
+@keyframes first-day-fade { to { opacity: 0; } }
+:root[data-motion="reduce"] .first-day-pips .pip.current,
+:root[data-motion="reduce"] .first-day-done,
+:root[data-motion="reduce"] .first-day-done span { animation: none; }
+@container ui (max-height: 740px) {
+  /* A short screen: the pulse card must not reach the build dock, so its footer button gives way (the launcher still opens the report). */
+  .pulse-open-report { display: none; }
+}
+@container ui (max-height: 720px) {
+  /* A scenario or run stage adds lines to Park Pulse; on a short layout the help hint gives way so the card cannot run under it. */
+  .ui-layer:has(.scenario-panel) .help-hint { display: none; }
+  /* Shorter still: the same content, tighter (about 45px), so First Day, the map offer or a scenario never reach the dock. */
+  .pulse-launcher { padding: 11px 16px 0; }
+  .pulse-insights { padding-bottom: 10px; }
+  .pulse-stats { margin: 8px 0 7px; padding: 6px 0; }
+  .first-day, .map-offer, .scenario-panel { padding-block: 7px 8px; gap: 4px; }
+  .first-day p, .map-offer p { line-height: 1.3; }
+  .first-day-actions { margin-top: 1px; }
+  .pulse-research { padding-block: 7px 8px; }
+  .scenario-objective-line { margin-block: 4px 5px !important; }
+}
+/* The help hint is a single line about 640px wide, centred on the dock: below this width it would run under Park Pulse. */
+@container ui (max-width: 1216px) {
+  .help-hint { display: none; }
+}
+@container ui (max-width: 820px) {
+  .first-day, .map-offer { padding: 8px 11px 10px; }
+  .first-day p { font-size: 10px; }
+}
+
+/* Narrow desktops: the clock drops its phase word and the brand its text before anything overlaps. */
+@container ui (max-width: 1180px) {
+  /* The weather chip keeps its glyph and dot; the words live in its name and tooltip, and the
+     park toggle's hours text gives way before the bar can reach the cash pill. */
+  .weather-label, .weather-chip small { display: none; }
+  .weather-chip { min-width: 0; padding: 0 9px; }
+  .weather-chip strong { margin-top: 0; }
+  .top-bar-center button { white-space: nowrap; }
+}
+@container ui (max-width: 1000px) {
+  .clock-phase { display: none; }
+
+  .brand > span:last-child { display: none; }
+  .brand { padding-right: 8px; }
+}
+
+@container ui (max-width: 820px) {
+  .top-bar { grid-template-columns: 1fr auto; }
+  .top-bar-center { position: absolute; top: 70px; left: 0; }
+  .brand small, .help-hint { display: none; }
+  .cash-pill { grid-column: 2; }
+  .pulse-card { top: 128px; right: 12px; width: 230px; }
+  .pulse-launcher { padding: 11px; } /* the lines below it are hidden here, so it keeps its own bottom edge */
+  .pulse-stats { margin: 9px 0 7px; padding: 7px 0; }
+  .pulse-insights, .pulse-open-report { display: none; }
+  .build-dock { width: calc(var(--ui-vw) - 24px); }
+  .category-tabs button { padding: 0 8px; font-size: 0; }
+  .category-tabs button span { font-size: 17px; }
+  .cursor-readout { bottom: 190px; }
+  .ride-inspector, .paint-panel { top: 166px; right: 12px; }
+  .management-dashboard { inset: 128px 12px 58px; width: auto; }
+  .management-kpis, .finance-summary, .operations-summary, .research-summary { grid-template-columns: 1fr 1fr; }
+  .management-tabs { grid-template-columns: repeat(5, minmax(72px, 1fr)); }
+  .ride-inspector, .paint-panel { max-height: calc(var(--ui-vh) - 180px); }
+}
+
+@container ui (max-height: 650px) {
+  .build-list { min-height: 94px; }
+  .build-card { min-height: 72px; }
+  .build-icon { height: 45px; }
+  .help-hint { display: none; }
+  .cursor-readout { bottom: 162px; }
+  .management-dashboard { top: 90px; bottom: 58px; }
+  .management-header { padding-block: 10px; }
+}
+
+/* ── Scenario sessions ─────────────────────────────────────────────── */
+
+.new-park {
+  height: 34px;
+  padding: 0 12px;
+  margin-left: 7px;
+  border: 0;
+  border-left: 1px solid #e1e8df;
+  border-radius: 0 12px 12px 0;
+  background: transparent;
+  color: #2f6a58;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .4px;
+  cursor: pointer;
+}
+.new-park:hover { background: #eef4eb; }
+
+.scenario-panel {
+  padding: 12px 16px 13px;
+  border-top: 1px solid rgba(202,255,237,.12);
+  background: rgba(255,209,102,.06);
+  color: #eafff9;
+}
+.scenario-panel.succeeded { background: rgba(87,217,173,.12); }
+.scenario-panel.failed { background: rgba(255,111,134,.12); }
+.scenario-panel header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.scenario-panel header small { display: block; color: #78b9a9; font-size: 7px; font-weight: 900; letter-spacing: 1px; }
+.scenario-panel header strong { display: block; margin-top: 2px; font-size: 12px; }
+.scenario-pace { padding: 3px 7px; border-radius: 8px; font-size: 8px; font-weight: 900; letter-spacing: .5px; white-space: nowrap; }
+.scenario-pace.on { color: var(--deep); background: var(--mint); }
+.scenario-pace.behind { color: var(--deep); background: var(--yellow); }
+.scenario-pace.success { color: var(--deep); background: var(--mint); }
+.scenario-pace.failed { color: #fff; background: var(--coral); }
+.scenario-objective-line { margin: 7px 0 8px !important; color: #c0dfd7; font-size: 10px; line-height: 1.4; }
+.scenario-panel > i { display: block; height: 5px; overflow: hidden; border-radius: 3px; background: rgba(255,255,255,.12); }
+.scenario-panel > i b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--mint), var(--yellow)); }
+.scenario-panel footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; }
+.scenario-panel footer em { color: #dff8f0; font-size: 9px; font-style: normal; font-weight: 800; }
+.scenario-panel footer .scenario-clock { color: var(--yellow); white-space: nowrap; }
+.scenario-constraint { margin: 8px 0 0 !important; color: #ffd9a8 !important; font-size: 9px !important; font-weight: 800; }
+
+.build-lock-badge.scenario { background: #8a4a56; }
+.build-lock-badge.funds { background: #8a5a3a; }
+.build-lock-reason.funds { color: #8a5a3a; }
+
+.scenario-picker-backdrop,
+.scenario-result-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(13, 42, 38, .45);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  z-index: 40;
+}
+
+.scenario-picker {
+  width: min(880px, 100%);
+  max-height: calc(var(--ui-vh) - 60px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.scenario-picker > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #e4ecdf;
+}
+.scenario-picker > header small { display: block; color: #79957e; font-size: 9px; font-weight: 900; letter-spacing: 1.6px; }
+.scenario-picker > header strong { display: block; margin-top: 2px; font: 900 20px 'Avenir Next', 'Segoe UI', sans-serif; }
+.scenario-picker > header button {
+  width: 34px; height: 34px;
+  border: 0; border-radius: 11px;
+  background: #edf3ea; color: var(--ink);
+  font-size: 18px; cursor: pointer;
+}
+.scenario-picker > header button:hover { background: #dfe9db; }
+/* (.scenario-cards is the Phase 25 HUD card list now: see the end of the Map block. The retired picker grid rule leaked into it.) */
+.scenario-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 15px 16px;
+  border: 1px solid #e2ebdd;
+  border-radius: 16px;
+  background: #fff;
+}
+.scenario-card.sandbox { background: #f4fbf3; }
+.scenario-card h3 { margin: 0; font: 900 16px 'Avenir Next', 'Segoe UI', sans-serif; }
+.scenario-card .scenario-tagline { margin: 0; color: #4d8a70; font-size: 11px; font-weight: 800; }
+.scenario-card p { margin: 0; color: #48645c; font-size: 11px; line-height: 1.45; }
+.scenario-card dl { margin: 3px 0 0; display: grid; gap: 5px; }
+.scenario-card dl div { display: grid; grid-template-columns: 74px 1fr; gap: 6px; }
+.scenario-card dt { color: #79957e; font-size: 8px; font-weight: 900; letter-spacing: .8px; text-transform: uppercase; padding-top: 2px; }
+.scenario-card dd { margin: 0; color: #2b4a42; font-size: 10.5px; line-height: 1.4; }
+.scenario-card button {
+  margin-top: auto;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 11px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .4px;
+  cursor: pointer;
+}
+.scenario-card button:hover { background: #0e2c29; }
+
+.scenario-result {
+  width: min(460px, 100%);
+  padding: 26px 28px 24px;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.scenario-result small { color: #79957e; font-size: 9px; font-weight: 900; letter-spacing: 1.6px; }
+.scenario-result h2 { margin: 6px 0 12px; font: 900 26px 'Avenir Next', 'Segoe UI', sans-serif; }
+.scenario-result.succeeded h2 { color: #12805f; }
+.scenario-result.failed h2 { color: #cf3d58; }
+.scenario-result-evidence { margin: 0 0 8px; color: #2b4a42; font-size: 13px; line-height: 1.5; }
+.scenario-result-meta { margin: 0 0 18px; color: #79957e; font-size: 10.5px; }
+.scenario-result-actions { display: grid; gap: 8px; }
+.scenario-result-actions button {
+  padding: 11px 0;
+  border: 1px solid #dbe6d6;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.scenario-result-actions button:hover { background: #f0f6ee; }
+.scenario-result-actions button.primary { border: 0; background: var(--ink); color: #fff; }
+.scenario-result-actions button.primary:hover { background: #0e2c29; }
+
+/* ── Pulse Cards ───────────────────────────────────────────────────── */
+
+.scenario-loadout {
+  display: grid;
+  gap: 14px;
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+}
+.loadout-brief h3 { margin: 0 0 4px; font: 900 18px 'Avenir Next', 'Segoe UI', sans-serif; }
+.loadout-brief p { margin: 0; color: #48645c; font-size: 12px; line-height: 1.45; }
+.loadout-constraint { margin-top: 5px !important; color: #9a6a2f !important; font-weight: 800; }
+.loadout-cards header, .loadout-effects header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.loadout-cards header strong, .loadout-effects header strong { font: 900 13px 'Avenir Next', 'Segoe UI', sans-serif; }
+.loadout-cards header em { color: #79957e; font-size: 10px; font-style: normal; font-weight: 800; }
+.loadout-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.pulse-card-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 2px solid #e2ebdd;
+  border-radius: 13px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.pulse-card-tile:hover { border-color: #bcd9c4; }
+.pulse-card-tile.selected { border-color: var(--mint); background: #effcf6; }
+.pulse-card-tile.slots-full { opacity: .55; }
+.pulse-card-head { font-size: 12.5px; }
+.pulse-card-tile small { color: #79957e; font-size: 9.5px; }
+.pulse-card-tile em, .active-cards-list em { display: block; font-size: 10px; font-style: normal; font-weight: 700; line-height: 1.35; }
+.card-upside { color: #12805f; }
+.card-downside { color: #b3384f; }
+.loadout-effects ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.loadout-effects li { font-size: 11px; font-weight: 700; }
+.loadout-effects li.good { color: #12805f; }
+.loadout-effects li.bad { color: #b3384f; }
+.loadout-neutral { margin: 0; color: #79957e; font-size: 11px; }
+.loadout-actions { display: flex; gap: 8px; }
+.loadout-actions button {
+  padding: 11px 16px;
+  border: 1px solid #dbe6d6;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.loadout-actions button.primary { flex: 1; border: 0; background: var(--ink); color: #fff; }
+.loadout-actions button.primary:hover { background: #0e2c29; }
+.loadout-actions button:hover { background: #f0f6ee; }
+
+.reward-draft { margin-top: 4px; text-align: left; }
+.reward-draft-title { margin: 0 0 9px; color: #2b4a42; font-size: 12px; font-weight: 800; text-align: center; }
+.pulse-card-tile.reward:hover { border-color: var(--yellow); background: #fffaf0; }
+
+.active-cards-section .active-cards-list { display: grid; gap: 8px; }
+.active-cards-list article { display: grid; gap: 3px; padding: 9px 11px; border-radius: 11px; background: rgba(87,217,173,.08); }
+.active-cards-list strong { font-size: 12px; }
+
+/* ── Coaster designer ──────────────────────────────────────────────── */
+
+.coaster-panel {
+  position: absolute;
+  z-index: 2;
+  left: 74px;
+  top: 94px;
+  width: 250px;
+  padding: 14px 16px;
+  border-radius: 17px;
+  background: var(--paper);
+  border: 1px solid rgba(255,255,255,.84);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  display: grid;
+  gap: 10px;
+}
+.coaster-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.coaster-actions .confirm-clear { color: #fff6f7; background: #b92f4a; border-color: #b92f4a; }
+.coaster-persist-hint { color: #6f8b81; font-size: 8.5px; font-weight: 700; font-style: normal; letter-spacing: .3px; }
+.coaster-panel > header small { display: block; color: #79957e; font-size: 8px; font-weight: 900; letter-spacing: 1.2px; }
+.coaster-panel > header strong { display: block; margin-top: 2px; font: 900 15px 'Avenir Next', 'Segoe UI', sans-serif; }
+.coaster-panel > header b { color: #b3502f; font-size: 12px; }
+.coaster-height-row { display: grid; gap: 4px; }
+.coaster-height-row > small { color: #79957e; font-size: 8px; font-weight: 900; letter-spacing: 1.2px; }
+.coaster-height-controls { display: flex; align-items: center; gap: 9px; }
+.coaster-height-controls button {
+  width: 30px; height: 30px;
+  border: 1px solid #dbe6d6; border-radius: 9px;
+  background: #fff; color: var(--ink);
+  font-size: 16px; font-weight: 900; cursor: pointer;
+}
+.coaster-height-controls button:hover { background: #f0f6ee; }
+.coaster-height-controls strong { min-width: 20px; text-align: center; font: 900 18px 'Avenir Next', 'Segoe UI', sans-serif; }
+.coaster-height-row em { color: #79957e; font-size: 9px; font-style: normal; }
+.coaster-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 10px; }
+.coaster-stats small { display: block; color: #79957e; font-size: 7.5px; font-weight: 900; letter-spacing: 1px; }
+.coaster-stats strong { display: block; font: 900 15px 'Avenir Next', 'Segoe UI', sans-serif; color: #2b4a42; }
+.coaster-evidence-line { margin: 0; color: #48645c; font-size: 10px; }
+.coaster-validation { margin: 0; padding: 7px 9px; border-radius: 9px; background: #fdf3dd; color: #9a6a2f; font-size: 10.5px; font-weight: 700; line-height: 1.35; }
+.coaster-validation.ready { background: #e0f8eb; color: #12805f; }
+.coaster-actions { display: flex; gap: 7px; }
+/* The panel scrolls on short screens (see the ui container query); the primary action row stays pinned to its bottom edge. */
+.coaster-panel > .coaster-actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 1;
+  margin: 0 -16px -14px;
+  padding: 10px 16px 14px;
+  background: var(--paper);
+  border-radius: 0 0 17px 17px;
+  box-shadow: 0 -7px 8px -6px rgba(31, 79, 67, .22);
+}
+.coaster-actions button {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid #dbe6d6;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.coaster-actions button:disabled { opacity: .45; cursor: default; }
+.coaster-actions button.primary { flex: 1.4; border: 0; background: var(--ink); color: #fff; }
+.coaster-actions button.primary:not(:disabled):hover { background: #0e2c29; }
+
+.coaster-evidence { padding: 9px 11px; border-radius: 11px; background: rgba(228,87,46,.09); }
+.coaster-evidence header small { display: block; color: #b3502f; font-size: 7.5px; font-weight: 900; letter-spacing: 1px; }
+.coaster-evidence header strong { display: block; margin-top: 2px; font-size: 11.5px; }
+.coaster-evidence p { margin: 5px 0 0; color: #48645c; font-size: 10px; line-height: 1.4; }
+
+.coaster-lift-rows { display: grid; gap: 5px; }
+.coaster-lift-rows > small { color: #79957e; font-size: 8px; font-weight: 900; letter-spacing: 1.2px; }
+.coaster-lift-rows > em { color: #48645c; font-size: 9px; font-style: normal; }
+.coaster-lift-row { display: flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; color: var(--ink); }
+.coaster-lift-row > span { flex: 1; }
+.coaster-lift-row button {
+  min-width: 52px; padding: 5px 9px;
+  border: 1px solid #dbe6d6; border-radius: 9px;
+  background: #fff; color: var(--ink);
+  font-size: 10.5px; font-weight: 900; cursor: pointer;
+}
+.coaster-lift-row button.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.lift-badge { padding: 2px 6px; border-radius: 7px; font-size: 8.5px; font-weight: 900; }
+.lift-badge.amber { background: #fdf3dd; color: #8a5a1f; }
+.lift-badge.red { background: #fde3dc; color: #a23418; }
+.coaster-speed-strip { display: block; width: 100%; height: 36px; margin-top: 7px; border-bottom: 1px solid #e9c9bd; }
+.coaster-speed-strip .speed-bar.chain { fill: #7a8a86; }
+.coaster-speed-strip .speed-bar.free { fill: #12805f; }
+.coaster-speed-strip .speed-bar.creep { fill: #c4742a; }
+.coaster-speed-strip .speed-bar.other { fill: #e4572e; opacity: .7; }
+.coaster-speed-strip .speed-creep { stroke: #8a5a1f; stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.coaster-strip-legend { display: flex; flex-wrap: wrap; gap: 3px 9px; align-items: center; }
+.coaster-strip-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: -4px; }
+.coaster-strip-legend i.chain { background: #7a8a86; }
+.coaster-strip-legend i.free { background: #12805f; }
+.coaster-strip-legend i.creep { background: #c4742a; }
+.coaster-strip-legend i.other { background: #e4572e; opacity: .7; }
+.coaster-chain-cost { font-weight: 700; }
+
+.coaster-specials-row { display: grid; gap: 4px; }
+.coaster-specials-row > small { color: #79957e; font-size: 8px; font-weight: 900; letter-spacing: 1.2px; }
+.coaster-special-buttons { display: flex; gap: 7px; }
+.coaster-special-buttons button {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid #dbe6d6;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.coaster-special-buttons button:disabled { opacity: .45; cursor: default; }
+.coaster-special-buttons button.active { border-color: var(--mint); background: #effcf6; color: #12805f; }
+
+.build-intensity-tag {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 2px 6px;
+  border-radius: 7px;
+  font-size: 7.5px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.build-intensity-tag.gentle { background: #e0f8eb; color: #12805f; }
+.build-intensity-tag.family { background: #e3f0fb; color: #2b6a9e; }
+.build-intensity-tag.thrill { background: #fde5e5; color: #b3384f; }
+.build-intensity-tag.designer { background: #fdf3dd; color: #9a6a2f; }
+
+/* Estate overview: every placed building in one comparable list. */
+.building-sort { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 10px; }
+.building-sort button { padding: 5px 9px; border: 1px solid #dde6de; border-radius: 999px; color: #6b8179; background: #fffef9; font-size: 9px; font-weight: 900; letter-spacing: .4px; }
+.building-sort button:hover { border-color: #9bcbb7; color: #1c6e58; }
+.building-sort button.active { border-color: #57c39b; color: #106a52; background: #e4f7ec; }
+.building-list { display: grid; gap: 6px; max-height: calc(var(--ui-vh) * .47); overflow-y: auto; }
+.building-row { display: grid; grid-template-columns: 30px minmax(0, 1.7fr) repeat(6, minmax(0, 0.62fr)); align-items: center; gap: 8px; padding: 8px; border: 1px solid #e2e9e0; border-radius: 11px; background: #fffef9; text-align: left; }
+.building-row:hover { border-color: #9bcbb7; background: #f3fbf6; }
+.building-icon { display: grid; width: 30px; height: 30px; border-radius: 9px; background: var(--item-color, #57d9ad); color: #103b33; font-size: 14px; place-items: center; }
+.building-identity { min-width: 0; display: grid; gap: 1px; }
+.building-identity strong { overflow: hidden; color: #204b44; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.building-identity small { overflow: hidden; color: #7b8f87; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.building-identity em { color: #93a49c; font-size: 8px; font-weight: 800; letter-spacing: .3px; }
+.building-metric { min-width: 0; display: grid; gap: 1px; }
+.building-metric small { color: #93a49c; font-size: 7px; font-weight: 900; letter-spacing: .5px; }
+.building-metric strong { overflow: hidden; color: #234f47; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.building-metric.warning strong { color: #a5702a; }
+.building-metric.critical strong { color: #b93a4a; }
+
+/* ── Save / Load ───────────────────────────────────────────────────── */
+
+.save-open { margin-left: 0; }
+
+.save-strip {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 68px;
+  transform: translateX(-50%);
+  max-width: min(420px, calc(var(--ui-vw) - 28px));
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: rgba(255,252,243,.9);
+  box-shadow: 0 4px 12px rgba(20,61,52,.14);
+  color: #315d54;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity .18s ease-out;
+  pointer-events: none;
+}
+.save-strip.visible { opacity: 1; }
+.save-strip.error { color: #fff; background: #d9546c; }
+
+.save-banner {
+  position: relative;
+  z-index: 9;
+  grid-area: 2 / 2;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(620px, 100%);
+  padding: 9px 11px 9px 12px;
+  border: 1px solid rgba(255,255,255,.85);
+  border-left: 4px solid var(--coral);
+  border-radius: 13px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: #7a2f40;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.save-banner.soft { border-left-color: var(--yellow); color: #7a5a30; }
+.save-banner > span { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; color: #fff; background: var(--coral); font-weight: 900; }
+.save-banner.soft > span { background: #e0a526; }
+.save-banner p { flex: 1; margin: 0; }
+.save-banner button { flex: none; padding: 6px 11px; border: 1px solid #e3d3d6; border-radius: 9px; background: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
+.save-banner button:hover { background: #fdf0f2; }
+
+.saves-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(13, 42, 38, .45);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+.saves-dialog {
+  width: min(860px, 100%);
+  max-height: calc(var(--ui-vh) - 48px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  user-select: none;
+}
+.saves-dialog > header { display: flex; align-items: center; gap: 12px; padding: 16px 22px 12px; border-bottom: 1px solid #e4ecdf; }
+.saves-dialog > header > span { flex: 1; }
+.saves-dialog > header small { display: block; color: #79957e; font-size: 9px; font-weight: 900; letter-spacing: 1.6px; }
+.saves-dialog > header h2 { margin: 2px 0 0; font: 900 20px 'Avenir Next', 'Segoe UI', sans-serif; outline: none; }
+.saves-dirty { padding: 4px 9px; border-radius: 9px; background: #fdf3dd; color: #9a6a2f; font-size: 10px; font-style: normal; font-weight: 900; }
+.saves-close { width: 34px; height: 34px; border: 0; border-radius: 11px; background: #edf3ea; color: var(--ink); font-size: 18px; cursor: pointer; }
+.saves-close:hover { background: #dfe9db; }
+.saves-dialog button:focus-visible, .saves-dialog input:focus-visible { outline: 3px solid #2cbf90; outline-offset: 1px; }
+
+.saves-alert { display: flex; align-items: center; gap: 10px; margin: 10px 22px 0; padding: 9px 12px; border-radius: 12px; background: #ffe9ed; color: #8a2f43; font-size: 11px; font-weight: 800; line-height: 1.35; }
+.saves-alert.soft { background: #fff3d6; color: #7a5a30; }
+.saves-alert span { flex: 1; }
+.saves-alert button, .saves-state button { flex: none; padding: 5px 10px; border: 1px solid rgba(0,0,0,.12); border-radius: 9px; background: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
+.saves-notice { min-height: 42px; padding: 0 22px; }
+.saves-notice .save-notice { display: block; margin-top: 8px; padding: 7px 12px; border-radius: 10px; background: #e0f8eb; color: #12805f; font-size: 11px; font-weight: 800; }
+.saves-notice .save-notice.error { background: #ffe9ed; color: #8a2f43; }
+
+.saves-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 22px 14px; }
+.saves-state { margin: 4px 0 10px; color: #668078; font-size: 12px; font-weight: 700; }
+.saves-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+.save-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2ebdd;
+  border-radius: 14px;
+  background: #fff;
+  outline: none;
+}
+.save-row.auto { background: #f4faf2; }
+.save-row.empty { border-style: dashed; background: rgba(255,255,255,.55); }
+.save-row.unreadable { border-color: #f0c3cb; background: #fff7f8; }
+.save-row[aria-busy="true"] { opacity: .8; }
+.save-tag { justify-self: start; padding: 4px 7px; border-radius: 8px; background: #edf3ea; color: #5c7f72; font-size: 8.5px; font-weight: 900; letter-spacing: 1px; white-space: nowrap; }
+.save-row.auto .save-tag { background: #dff3e8; color: #12805f; }
+.save-main { display: grid; gap: 2px; min-width: 0; }
+.save-name { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.save-row.empty .save-name { color: #8da197; font-weight: 700; }
+.save-sub { color: #668078; font-size: 10.5px; font-weight: 700; line-height: 1.3; }
+.save-reason { color: #8a2f43; font-size: 10.5px; font-weight: 700; line-height: 1.35; }
+.save-reason b { margin-right: 4px; padding: 2px 6px; border-radius: 7px; background: #ffd9df; font-size: 9px; letter-spacing: .4px; text-transform: uppercase; }
+.save-stats { display: flex; gap: 16px; width: 212px; margin: 0; }
+.save-row.unreadable .save-main { grid-column: 2 / 4; }
+.save-stats div { display: grid; gap: 1px; }
+.save-stats dt { color: #79957e; font-size: 8px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.save-stats dd { margin: 0; font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.save-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; width: 228px; }
+.save-actions button, .save-confirm button, .save-rename button {
+  padding: 6px 10px;
+  border: 1px solid #dbe6d6;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.save-actions button:hover:not(:disabled), .save-confirm button:hover, .save-rename button:hover { background: #f0f6ee; }
+.save-actions button:disabled { color: #a3b3aa; background: #f4f6f2; cursor: not-allowed; }
+.save-actions button[data-action="save"]:not(:disabled), .save-confirm button.primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+.save-actions button[data-action="save"]:hover:not(:disabled), .save-confirm button.primary:hover { background: #24574f; }
+.save-actions button.danger, .save-confirm button.danger { color: #a63a50; }
+.save-confirm button.danger { border-color: #d9546c; background: #d9546c; color: #fff; }
+.save-confirm button.danger:hover { background: #c3425a; }
+.save-spinner { width: 14px; height: 14px; border: 2px solid #cfe0d6; border-top-color: #2cbf90; border-radius: 50%; animation: save-spin .8s linear infinite; }
+@keyframes save-spin { to { transform: rotate(360deg); } }
+.save-confirm { order: 2; grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #fff3d6; color: #7a5a30; font-size: 11px; font-weight: 800; }
+.save-confirm span { flex: 1; }
+.save-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.save-rename-hint { flex-basis: 100%; color: #a63a50; font-size: 10px; font-weight: 800; }
+.save-rename button:disabled { color: #a3b3aa; cursor: not-allowed; }
+.save-rename input { flex: 1; min-width: 0; padding: 6px 9px; border: 1px solid #b9d3c6; border-radius: 9px; font: 800 12px inherit; color: var(--ink); user-select: text; }
+.saves-dialog > footer { display: flex; justify-content: space-between; gap: 12px; padding: 10px 22px 13px; border-top: 1px solid #e4ecdf; color: #79957e; font-size: 10px; font-weight: 800; }
+
+@container ui (max-width: 900px) or (max-height: 700px) {
+  .saves-backdrop { padding: 10px; }
+  .saves-dialog { max-height: calc(var(--ui-vh) - 20px); }
+  .save-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .save-tag { display: none; }
+  .save-stats { grid-column: 1; width: auto; }
+  .save-actions { grid-column: 2; grid-row: 1 / span 2; width: auto; flex-wrap: wrap; }
+  .save-row.unreadable .save-main { grid-column: 1; }
+}
+
+/* --- Recovery prompt: the first decision of a session, above the run map (z 40) and the Save / Load dialog (45). --- */
+.recovery-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(13, 42, 38, .55);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+.recovery-dialog { width: min(460px, 100%); max-height: calc(var(--ui-vh) - 48px); overflow-y: auto; padding: 22px 24px 18px; border-radius: 22px; background: var(--paper); box-shadow: var(--shadow); outline: none; user-select: none; }
+.recovery-dialog > small { display: block; color: #79957e; font-size: 9px; font-weight: 900; letter-spacing: 1.6px; }
+.recovery-dialog h2 { margin: 3px 0 8px; font: 900 21px 'Avenir Next', 'Segoe UI', sans-serif; }
+.recovery-summary { margin: 0 0 14px; color: #3f5f57; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.recovery-card { display: grid; gap: 8px; padding: 11px 13px; border: 1px solid #e2ebdd; border-radius: 14px; background: #f4faf2; }
+.recovery-card > strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.recovery-card dl { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; }
+.recovery-card dl div { display: grid; gap: 1px; }
+.recovery-card dt { color: #79957e; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.recovery-card dd { margin: 0; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.recovery-error, .recovery-confirm { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 9px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; line-height: 1.35; }
+.recovery-error { background: #ffe9ed; color: #8a2f43; }
+.recovery-confirm { background: #fff3d6; color: #7a5a30; }
+.recovery-error span, .recovery-confirm span { flex: 1; }
+.recovery-error button, .recovery-confirm button { flex: none; padding: 6px 11px; border: 1px solid rgba(0,0,0,.14); border-radius: 9px; background: #fff; color: var(--ink); font-size: 11px; font-weight: 900; cursor: pointer; }
+.recovery-actions { display: flex; gap: 8px; margin-top: 16px; }
+.recovery-actions button { flex: 1; padding: 11px 14px; border: 1px solid #dbe6d6; border-radius: 12px; background: #fff; color: var(--ink); font-size: 12.5px; font-weight: 900; cursor: pointer; }
+.recovery-actions button:hover:not(:disabled) { background: #f0f6ee; }
+.recovery-actions button.primary, .recovery-confirm button.primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+.recovery-actions button.primary:hover:not(:disabled) { background: #24574f; }
+.recovery-actions button:disabled { opacity: .6; cursor: progress; }
+.recovery-note { margin: 10px 0 0; color: #79957e; font-size: 12px; font-weight: 800; line-height: 1.35; }
+.recovery-dialog button:focus-visible { outline: 3px solid #2cbf90; outline-offset: 2px; }
+
+:root[data-motion="reduce"] .save-spinner { animation-duration: 2.4s; }
+:root[data-motion="reduce"] .save-strip { transition: none; }
+
+/* Reduced motion (the setting, or the device preference under System): the one switch for all CSS
+   motion. Entrances, pulses, glows and hover lifts stop; the save spinner is the exception above
+   because it says "working". Repeats end after one run and nothing waits on an animation. */
+:root[data-motion="reduce"] .ui-layer *,
+:root[data-motion="reduce"] .ui-layer *::before,
+:root[data-motion="reduce"] .ui-layer *::after {
+  transition-duration: .01ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion="reduce"] .ui-layer :is(.management-dashboard, .toast, .management-notifications button, .ride-status i, .menu-card) {
+  animation: none !important;
+}
+
+/* Clean view: the wrapper adds no box of its own, so every child keeps its own positioning. */
+.clean-hideable { display: contents; }
+.clean-hideable[hidden] { display: none; }
+/* Phase 26: the view buttons and the clean-view handle share one corner, side by side. */
+.view-controls {
+  position: absolute;
+  z-index: 3;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  /* Stacked, not side by side: a row of rotate buttons plus the handle ran under the build dock at 1280 wide. */
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.view-rotate {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 3px;
+  border: 1px solid rgba(255,255,255,.84);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 5px 13px rgba(23,63,59,.17);
+  opacity: .85;
+}
+.view-rotate:hover, .view-rotate:focus-within { opacity: 1; }
+/* The dashboard is a full-height right panel: the rotate row would sit under it, so it yields (Q/E still work there). */
+.ui-layer.management-open .view-rotate { display: none; }
+.view-rotate button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #466960;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+}
+.view-rotate button:hover { color: #fff; background: var(--ink); }
+.view-compass { width: 22px; height: 22px; }
+.view-compass-map { fill: none; stroke: #466960; stroke-width: 1.4; }
+.view-compass-mark { fill: var(--ink); }
+.view-controls .clean-view-handle { position: static; }
+.clean-view-handle {
+  position: absolute;
+  z-index: 3;
+  right: 18px;
+  bottom: 18px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,.84);
+  border-radius: 999px;
+  color: #466960;
+  background: var(--paper);
+  box-shadow: 0 5px 13px rgba(23,63,59,.17);
+  font-size: 12px;
+  font-weight: 900;
+  opacity: .85;
+}
+/* Narrow windows: the handle shrinks to a round "H" so it never sits on the build dock's corner. */
+@container ui (max-width: 1360px) {
+  .clean-view-handle { width: 30px; padding: 0; }
+  .clean-view-long { display: none; }
+  /* The rotate row shrinks the same way: buttons stacked, compass hidden, so the column stays clear of the dock. */
+  .view-rotate { flex-direction: column; height: auto; width: 30px; padding: 3px 0; }
+  .view-compass { display: none; }
+}
+.clean-view-handle:hover, .clean-view-handle.active { color: #fff; background: var(--ink); opacity: 1; }
+
+/* Left panel above the dock: while the dock reaches under the coaster designer it stops at the dock's top and scrolls. */
+@container ui (max-width: 1659px) {
+  .coaster-panel { max-height: calc(var(--ui-vh) - 94px - var(--side-floor)); overflow-y: auto; scrollbar-width: thin; }
+}
+
+/* --- Settings panel: docked right (the park stays visible while a setting changes it), above the world and the run map (z 40),
+   below Save / Load (45) and the recovery prompt (50). The catcher keeps clicks and drags from reaching the world. --- */
+.settings-catcher { position: absolute; inset: 0; z-index: 41; pointer-events: auto; }
+.settings-panel {
+  position: absolute;
+  z-index: 42;
+  right: 18px;
+  top: 84px;
+  width: min(360px, calc(var(--ui-vw) - 24px));
+  max-height: calc(var(--ui-vh) - 142px); /* leaves the clean-view handle free */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+  user-select: none;
+}
+.settings-panel > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 10px 18px; color: #eafff9; background: linear-gradient(145deg, #174a43, #102f2c); }
+.settings-panel h2 { margin: 0; font: 900 17px 'Avenir Next', 'Segoe UI', sans-serif; outline: none; }
+.settings-close { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; color: #eafff9; background: rgba(255,255,255,.12); font-size: 20px; line-height: 1; cursor: pointer; }
+.settings-close:hover { background: rgba(255,255,255,.24); }
+.settings-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 18px 8px; overscroll-behavior: contain; }
+.settings-group { padding: 11px 0 9px; border-bottom: 1px solid #e4ecdf; }
+.settings-group > h3, .settings-developer > summary { margin: 0 0 6px; color: #79957e; font-size: 10px; font-weight: 900; letter-spacing: 1.4px; text-transform: uppercase; }
+.settings-developer { border-bottom: 0; }
+.settings-developer > summary { cursor: pointer; }
+.settings-field { min-width: 0; margin: 0 0 8px; padding: 0; border: 0; }
+.settings-field legend { padding: 0; margin-bottom: 5px; font-size: 13px; font-weight: 900; }
+.settings-segmented { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: #e9f1e5; }
+.settings-seg { position: relative; flex: 1 1 0; min-width: 0; }
+.settings-seg input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.settings-seg span { display: block; padding: 6px 4px; border-radius: 9px; color: #466960; font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; }
+.settings-seg:hover span { background: rgba(255,255,255,.6); }
+.settings-seg input:checked + span { color: #fff; background: var(--ink); box-shadow: 0 2px 6px rgba(23,63,59,.25); }
+.settings-seg input:focus-visible + span { outline: 3px solid #2cbf90; outline-offset: 1px; }
+.settings-hint { margin: 5px 0 0; color: #5d7b72; font-size: 11px; font-weight: 700; line-height: 1.35; }
+.settings-note { color: #7a5a30; font-weight: 900; }
+.settings-switch-row { margin-top: 4px; }
+.settings-switch { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 900; cursor: pointer; }
+.settings-switch input { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+.settings-switch input:disabled { cursor: not-allowed; }
+.settings-switch input:disabled + span { color: #8aa097; }
+.settings-switch input:focus-visible { outline: 3px solid #2cbf90; outline-offset: 2px; }
+.settings-panel > footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 18px 13px; border-top: 1px solid #e4ecdf; }
+.settings-status { flex: 1; min-height: 14px; color: #7a5a30; font-size: 11px; font-weight: 800; line-height: 1.3; }
+.settings-button { flex: none; padding: 8px 13px; border: 1px solid #dbe6d6; border-radius: 11px; background: #fff; color: var(--ink); font-size: 12px; font-weight: 900; cursor: pointer; pointer-events: auto; }
+.settings-button:hover { background: #f0f6ee; }
+.settings-panel button:focus-visible, .settings-developer > summary:focus-visible { outline: 3px solid #2cbf90; outline-offset: 2px; }
+.settings-panel input { pointer-events: auto; }
+@container ui (max-width: 900px) {
+  .settings-panel { right: 12px; left: 12px; width: auto; top: 70px; }
+}
+
+/* --- Start screen and pause menu (Phase 18 step 2): one card over the park, below everything it opens. --- */
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 39;
+  display: flex;
+  align-items: center;
+  padding: 24px;
+  pointer-events: auto;
+}
+/* The park keeps its colour: a scrim only where the card sits, fading to nothing over the drifting park. */
+.menu-backdrop.start {
+  justify-content: flex-start;
+  padding-left: max(24px, calc(var(--ui-vw) * .07));
+  background: linear-gradient(90deg, rgba(13, 42, 38, .5) 0%, rgba(13, 42, 38, .28) 34%, rgba(13, 42, 38, 0) 64%);
+}
+.menu-backdrop.start[data-ready="false"] { background: rgba(13, 42, 38, .3); }
+.menu-backdrop.pause { justify-content: center; background: rgba(13, 42, 38, .42); }
+.menu-card {
+  width: min(430px, 100%);
+  max-height: calc(var(--ui-vh) - 48px);
+  overflow-y: auto;
+  padding: 22px 22px 16px;
+  border: 1px solid rgba(255, 255, 255, .84);
+  border-radius: 24px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  outline: none;
+  user-select: none;
+  animation: menu-in .28s ease-out both;
+}
+.menu-card.pause { width: min(360px, 100%); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(8px); } }
+.menu-brand { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
+.menu-brand-mark {
+  display: grid; place-items: center; flex: none; width: 54px; height: 54px; border-radius: 16px;
+  color: #fff9e8; font: 900 30px/1 'Avenir Next', 'Segoe UI', sans-serif;
+  background: linear-gradient(145deg, #ff7e96, #f2597a); box-shadow: 0 6px 14px rgba(242, 89, 122, .32);
+}
+.menu-brand small { display: block; color: #79957e; font-size: 9.5px; font-weight: 900; letter-spacing: 1.7px; }
+.menu-brand strong { display: block; margin-top: 2px; font: 900 28px/1.05 'Avenir Next', 'Segoe UI', sans-serif; letter-spacing: -.5px; }
+.menu-card.pause .menu-brand strong { font-size: 24px; }
+.menu-list { display: grid; gap: 8px; }
+.menu-entry {
+  display: grid; gap: 3px; width: 100%; padding: 12px 16px; border: 1px solid #dbe6d6; border-radius: 14px;
+  background: #fff; color: var(--ink); font: 900 15px/1.2 'Avenir Next', 'Segoe UI', sans-serif; text-align: left; cursor: pointer;
+}
+.menu-entry:hover { background: #f0f6ee; }
+.menu-entry.primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+.menu-entry.primary:hover { background: #24574f; }
+.menu-entry.waiting { opacity: .66; cursor: progress; }
+.menu-entry:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+.menu-entry.primary:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--coral); }
+.menu-entry-detail { color: #5f7f76; font-size: 12px; font-weight: 700; line-height: 1.35; }
+.menu-entry.primary .menu-entry-detail { color: rgba(255, 255, 255, .8); }
+.menu-entry-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 7px; }
+.menu-entry-stats span { display: grid; gap: 1px; }
+.menu-entry-stats b { font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.menu-entry-stats small { color: rgba(255, 255, 255, .66); font-size: 9.5px; font-weight: 900; letter-spacing: .9px; text-transform: uppercase; }
+.menu-notice { margin: 0 0 12px; padding: 9px 12px; border-radius: 12px; background: #fff3d6; color: #7a5a30; font-size: 12px; font-weight: 800; line-height: 1.4; }
+.menu-save-notice { margin: 10px 0 0; min-height: 0; font-size: 12px; font-weight: 800; }
+.menu-save-notice .save-notice { color: #2c6f4f; }
+.menu-save-notice .save-notice.error { color: #8a2f43; }
+.menu-foot { display: flex; justify-content: space-between; gap: 10px; margin: 12px 2px 0; color: #79957e; font-size: 11px; font-weight: 800; }
+.menu-about h2, .menu-quit h2 { margin: 0 0 6px; font: 900 19px 'Avenir Next', 'Segoe UI', sans-serif; outline: none; }
+.menu-version { color: #79957e; font-size: 13px; font-weight: 800; }
+.menu-about-lead, .menu-quit p { margin: 0 0 12px; color: #3f5f57; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.menu-changelog { max-height: calc(var(--ui-vh) - 330px); min-height: 80px; overflow-y: auto; margin-bottom: 12px; padding: 4px 2px; }
+.menu-changelog h3 { margin: 0 0 6px; font-size: 14px; font-weight: 900; }
+.menu-changelog h3 small { color: #79957e; font-size: 11px; font-weight: 800; }
+.menu-changelog ul { margin: 0; padding-left: 18px; color: #3f5f57; font-size: 12.5px; font-weight: 700; line-height: 1.5; }
+.menu-back { width: 100%; padding: 11px 14px; border: 1px solid var(--ink); border-radius: 12px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; }
+.menu-back:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--coral); }
+/* New park picker (Phase 24): the card widens while it is open; biome cards in a grid, the maps of the chosen biome below. */
+.menu-card.picking { width: min(860px, 100%); }
+.menu-picker h2 { margin: 0 0 4px; font: 900 19px 'Avenir Next', 'Segoe UI', sans-serif; }
+.menu-picker-lead { margin: 0 0 12px; color: #3f5f57; font-size: 12.5px; font-weight: 700; line-height: 1.4; }
+.pick-biomes { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.pick-card {
+  display: grid; gap: 3px; align-content: start; padding: 9px 11px 10px; border: 2px solid #dbe6d6; border-radius: 14px;
+  background: #fff; color: var(--ink); font: 800 12px/1.3 'Avenir Next', 'Segoe UI', sans-serif; text-align: left; cursor: pointer;
+}
+.pick-card:hover { background: #f0f6ee; }
+.pick-card.selected { border-color: var(--ink); background: #eef7ea; }
+.pick-swatches { display: flex; height: 14px; overflow: hidden; border-radius: 7px; margin-bottom: 4px; box-shadow: inset 0 0 0 1px rgba(23, 63, 59, .18); }
+.pick-swatches i { flex: 1 1 0; }
+.pick-card-name { font-size: 14px; font-weight: 900; }
+.pick-card-chip { justify-self: start; padding: 1px 7px; border-radius: 999px; background: #e3eddc; color: #335c52; font-size: 10.5px; font-weight: 900; }
+.pick-card-tagline { color: #4a6a61; font-size: 11.5px; font-weight: 700; }
+.pick-maps { display: grid; gap: 6px; margin-bottom: 12px; }
+.pick-map {
+  display: grid; gap: 2px; padding: 9px 13px; border: 2px solid #dbe6d6; border-radius: 12px; background: #fff; color: var(--ink);
+  font: 800 12px/1.35 'Avenir Next', 'Segoe UI', sans-serif; text-align: left; cursor: pointer;
+}
+.pick-map:hover { background: #f0f6ee; }
+.pick-map.selected { border-color: var(--ink); background: #eef7ea; }
+.pick-map-name { font-size: 14px; font-weight: 900; }
+.pick-map-blurb { color: #3f5f57; font-size: 12px; font-weight: 700; }
+.pick-map-facts { color: #4a6a61; font-size: 11px; font-weight: 800; }
+@media (min-width: 701px) { .pick-biomes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.pick-lower { display: grid; grid-template-columns: minmax(0, 1fr) 176px; gap: 12px; align-items: start; margin-bottom: 12px; }
+.pick-lower .pick-maps { margin-bottom: 8px; }
+.pick-preview { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.pick-preview-canvas { width: 160px; height: 160px; image-rendering: pixelated; border: 2px solid var(--ink); border-radius: 10px; background: #dfe9d9; }
+.pick-preview figcaption { color: #4a6a61; font-size: 10.5px; font-weight: 800; text-align: center; line-height: 1.3; }
+.pick-controls { display: grid; gap: 6px; padding: 8px 10px; border: 2px solid #dbe6d6; border-radius: 12px; background: #f7fbf4; }
+.pick-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 900; }
+.pick-seed { width: 9.5em; min-height: 32px; padding: 3px 8px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; color: var(--ink); font: 800 13px 'Avenir Next', 'Segoe UI', sans-serif; }
+.pick-seed[aria-invalid="true"] { border-color: #b3261e; background: #fff4f2; }
+.pick-seed-help { margin: 0; color: #3f5f57; font-size: 11px; font-weight: 700; }
+.pick-seed-help.error { color: #a3190f; }
+.pick-reroll, .pick-chip { min-height: 32px; padding: 3px 12px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; color: var(--ink); font: 900 12px 'Avenir Next', 'Segoe UI', sans-serif; cursor: pointer; }
+.pick-chip.selected { background: var(--ink); color: #fff; }
+.pick-density { display: flex; gap: 6px; }
+.pick-controls { grid-template-columns: minmax(0, 1fr); }
+.pick-field-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.pick-water { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 900; }
+.pick-water input { width: 18px; height: 18px; }
+.pick-start:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-height: 860px) { .pick-card-tagline { display: none; } .menu-picker-lead { margin-bottom: 8px; } }
+.pick-actions { position: sticky; bottom: -16px; z-index: 1; padding: 8px 0 14px; margin-bottom: -14px; background: var(--paper); }
+@media (max-width: 700px) { .pick-lower { grid-template-columns: minmax(0, 1fr); } .pick-preview { order: -1; } }
+.pick-actions { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; }
+.pick-start { text-align: center; }
+.pick-back { background: #fff; color: var(--ink); }
+@container ui (max-width: 820px) {
+  .menu-backdrop.start { padding-left: 24px; background: rgba(13, 42, 38, .4); }
+}
+
+/* --- Game modes and profile (Phase 22): Scenario browser, Collection, Parks chooser, rewards. No viewport units or viewport media queries here (the UI layer scales through container queries). --- */
+.menu-profile-notice { display: grid; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #e6f6ec; color: #1c5a44; }
+.menu-profile-notice p { margin: 0; font-size: 12.5px; font-weight: 800; line-height: 1.4; }
+.menu-profile-notice span { display: flex; flex-wrap: wrap; gap: 8px; }
+.menu-profile-notice button { min-height: 32px; padding: 4px 12px; border: 2px solid #1c5a44; border-radius: 999px; background: #fff; color: #1c5a44; font: 900 12px 'Avenir Next', 'Segoe UI', sans-serif; cursor: pointer; }
+.menu-profile-notice button:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+.menu-modes h2 { margin: 0 0 8px; font: 900 19px 'Avenir Next', 'Segoe UI', sans-serif; outline: none; }
+.menu-modes .menu-back { margin-top: 12px; }
+.pick-resume {
+  display: block; width: 100%; margin: 0 0 10px; padding: 9px 13px; border: 2px dashed var(--ink); border-radius: 12px; background: #f7fbf4; color: var(--ink);
+  font: 900 12.5px/1.35 'Avenir Next', 'Segoe UI', sans-serif; text-align: left; cursor: pointer;
+}
+.pick-resume:hover { background: #eef7ea; }
+.pick-resume:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+
+.scenario-browser h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.browser-count { color: #4a6a61; font-size: 12px; font-weight: 800; }
+.browser-body { display: grid; grid-template-columns: minmax(0, 270px) minmax(0, 1fr); gap: 12px; margin-bottom: 12px; align-items: start; }
+.browser-rows { display: grid; gap: 5px; }
+.browser-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 8px; align-items: center; padding: 7px 11px; border: 2px solid #dbe6d6; border-radius: 12px;
+  background: #fff; color: var(--ink); font: 800 12px/1.3 'Avenir Next', 'Segoe UI', sans-serif; text-align: left; cursor: pointer;
+}
+.browser-row:hover { background: #f0f6ee; }
+.browser-row.selected { border-color: var(--ink); background: #eef7ea; }
+.browser-row:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+.browser-row.locked { background: #f4f6f2; color: #4f6a62; }
+.browser-row-name { grid-column: 1; font-size: 13.5px; font-weight: 900; }
+.browser-row-meta { grid-column: 1; color: #4a6a61; font-size: 11px; font-weight: 800; }
+.browser-dots { letter-spacing: 1px; color: #b3611f; }
+.browser-chip { grid-column: 2; grid-row: 1 / span 2; justify-self: end; padding: 1px 8px; border-radius: 999px; background: #e3eddc; color: #335c52; font-size: 10.5px; font-weight: 900; white-space: nowrap; }
+.browser-chip.cleared { background: #d5f0e1; color: #0f6a4d; }
+.browser-chip.new { background: #fff0c9; color: #7a5518; }
+.browser-chip.locked { background: #e6e9e4; color: #4f5f58; }
+.browser-chip.saved { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 3px; background: #e0ecf8; color: #1f4f7f; }
+.browser-detail { display: grid; gap: 6px; padding: 10px 12px; border: 2px solid #dbe6d6; border-radius: 12px; background: #f7fbf4; min-width: 0; }
+.browser-detail-head { display: flex; gap: 12px; align-items: flex-start; }
+.browser-detail h3 { margin: 0; font: 900 17px 'Avenir Next', 'Segoe UI', sans-serif; }
+.browser-detail p { margin: 0; color: #2f4f47; font-size: 12px; font-weight: 700; line-height: 1.4; }
+.browser-preview { margin: 0; flex: none; }
+.browser-preview-canvas { display: block; width: 96px; height: 96px; image-rendering: pixelated; border: 2px solid var(--ink); border-radius: 8px; background: #dfe9d9; }
+.browser-place { color: #4a6a61 !important; font-size: 11px !important; font-weight: 800 !important; }
+.browser-tagline { font-style: italic; }
+.browser-condition { color: #8a5a1c !important; }
+.browser-best { font-weight: 900 !important; }
+.browser-rewards { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.browser-rewards li { color: #2f4f47; font-size: 12px; font-weight: 800; line-height: 1.4; }
+.browser-rewards li.earned { color: #0f6a4d; }
+.browser-locked { padding: 5px 9px; border-radius: 9px; background: #fff3d6; color: #6d4c14 !important; font-weight: 900 !important; }
+.browser-actions { grid-template-columns: minmax(0, 2fr) repeat(auto-fit, minmax(0, 1fr)); }
+.pick-start[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+@container ui (max-width: 760px) { .browser-body { grid-template-columns: minmax(0, 1fr); } }
+
+.collection-persistence { margin: 0 0 8px; padding: 7px 11px; border-radius: 10px; background: #fff3d6; color: #6d4c14; font-size: 12px; font-weight: 800; }
+.collection-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.collection-tab {
+  min-height: 34px; padding: 4px 13px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; color: var(--ink);
+  font: 900 12.5px 'Avenir Next', 'Segoe UI', sans-serif; cursor: pointer;
+}
+.collection-tab small { font-size: 11px; font-weight: 800; }
+.collection-tab.selected { background: var(--ink); color: #fff; }
+.collection-tab:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--coral); }
+.collection-body { min-height: 150px; margin-bottom: 12px; outline: none; }
+.collection-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 6px; }
+.collection-list li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 11px; border: 2px solid #dbe6d6; border-radius: 12px; background: #fff; }
+.collection-list li.locked { background: #f4f6f2; color: #4f6a62; }
+.collection-icon { flex: none; width: 24px; text-align: center; font-size: 17px; line-height: 1.2; }
+.collection-text { display: grid; gap: 2px; min-width: 0; }
+.collection-text strong { font-size: 13px; font-weight: 900; }
+.collection-text small { color: #3f5f57; font-size: 11.5px; font-weight: 700; line-height: 1.4; }
+.collection-list li.locked .collection-text small { color: #4f6a62; }
+.collection-note { margin: 8px 0 0; color: #3f5f57; font-size: 12px; font-weight: 700; line-height: 1.4; }
+.collection-switches { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; padding: 8px 12px; border: 2px solid #dbe6d6; border-radius: 12px; background: #f7fbf4; }
+.collection-switches legend { padding: 0 6px; font-size: 12.5px; font-weight: 900; }
+.collection-switches label { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 900; cursor: pointer; }
+.collection-switches input { width: 18px; height: 18px; }
+.collection-switches .collection-note { flex-basis: 100%; margin: 0; }
+.collection-stats { width: 100%; border-collapse: collapse; font-size: 12.5px; font-weight: 700; }
+.collection-stats th, .collection-stats td { padding: 7px 10px; border-bottom: 1px solid #dbe6d6; text-align: left; font-variant-numeric: tabular-nums; }
+.collection-stats thead th { color: #4a6a61; font-size: 11px; font-weight: 900; letter-spacing: .6px; text-transform: uppercase; }
+.collection-actions { grid-template-columns: minmax(0, 1fr); }
+
+.result-rewards { display: grid; gap: 4px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #e6f6ec; text-align: left; }
+.result-rewards h3 { margin: 0; color: #0f6a4d; font: 900 13px 'Avenir Next', 'Segoe UI', sans-serif; }
+.result-rewards ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.result-rewards li { color: #1c4a3b; font-size: 12.5px; font-weight: 800; line-height: 1.4; }
+.result-rewards-note { margin: 2px 0 0; color: #3f5f57; font-size: 11.5px; font-weight: 700; }
+.loadout-bonuses { margin: 8px 0 0; color: #0f6a4d; font-size: 12px; font-weight: 800; }
+.build-lock-reason.profile { color: #6d4c14; }
+.active-bonuses { display: grid; gap: 3px; margin-top: 10px; }
+.active-bonuses strong { font-size: 12.5px; font-weight: 900; }
+.active-bonuses em { color: #4a6a61; font-size: 12px; font-style: normal; font-weight: 700; }
+.active-bonuses ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 12px; font-weight: 700; }
+.save-mode-chip { display: inline-block; padding: 0 7px; border-radius: 999px; background: #e3eddc; color: #335c52; font-size: 10.5px; font-weight: 900; }
+.save-mode-chip.mode-scenario { background: #fff0c9; color: #7a5518; }
+.save-mode-chip.mode-the-map { background: #e0ecf8; color: #1f4f7f; }
+/* The wide panels (Sandbox, Scenarios, Collection) keep the brand but smaller, so nine scenario rows fit at 1280 x 720. */
+.menu-card.picking { padding-top: 16px; }
+.menu-card.picking .menu-brand { gap: 10px; margin-bottom: 8px; }
+.menu-card.picking .menu-brand-mark { width: 38px; height: 38px; border-radius: 12px; font-size: 21px; }
+.menu-card.picking .menu-brand strong { font-size: 20px; }
+.browser-rows { gap: 4px; }
+.browser-row { padding: 5px 11px; }
+.collection-body { min-height: 268px; }
+.collection-switches input, .pick-water input { accent-color: #1d6b57; }
+.collection-effects { display: grid; gap: 2px; }
+.collection-effects { display: grid; gap: 2px; }
+
+/* ── Phase 11 ─────────────────────────────────────────────────────────────────────────────────── */
+/* PA-009: the Pulse guests label reads "of 52 guests"; the guests column takes a little more of the row and the label
+   never wraps, so "1000 / of 1000 guests" keeps the card's height (the Pulse height is an audited anchor). */
+.pulse-stats { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); }
+.pulse-stats .pulse-guests small { white-space: nowrap; letter-spacing: .3px; }
+/* At capacity: amber on the number; the label says the ceiling too, so it is not colour only. */
+.pulse-stats strong.at-capacity { color: var(--yellow); }
+.management-kpis strong small.kpi-of { display: inline; min-height: 0; color: #5d6c66; font-size: 10px; font-weight: 800; letter-spacing: 0; }
+/* Phase 33: an estate's Overview has a fifth KPI, Land: parcels owned of the total and the cheapest next parcel. */
+.management-kpis.with-land { grid-template-columns: repeat(5, 1fr); }
+@container ui (max-width: 820px) { .management-kpis.with-land { grid-template-columns: 1fr 1fr; } }
+.management-kpis .kpi-note { display: block; margin-top: 2px; overflow: hidden; color: #5d6c66; font-size: 8px; font-style: normal; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.capacity-text { margin: 0; color: #3f5a52; font-size: 10px; line-height: 1.45; }
+
+/* PA-016: each factor's share of the rating and what is left to gain; the list is sorted biggest gain first. */
+.rating-factor > span em.factor-weight { display: block; margin-top: 1px; color: #4f665e; font-size: 8px; font-style: normal; font-weight: 800; }
+.factor-sort-note { margin: 8px 0 0; color: #5d6b66; font-size: 8px; font-weight: 800; letter-spacing: .3px; }
+
+/* PA-015: demolish from the inspector, outline in the danger tone; the confirmation replaces the button. */
+.inspector-demolish { margin-top: 10px; }
+.demolish-button { width: 100%; padding: 7px; border: 1px solid #c65368; border-radius: 8px; color: #9c3a4e; background: transparent; font-size: 10px; font-weight: 900; }
+.demolish-button:hover { color: #fff; background: #b92f4a; border-color: #b92f4a; }
+.demolish-confirm { padding: 8px; border: 1px solid #edc3cb; border-radius: 9px; background: #fff4f6; }
+.demolish-confirm p { margin: 0 0 7px; color: #7d2d3e; font-size: 10px; font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
+.demolish-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.demolish-confirm-actions button { height: 28px; border-radius: 8px; font-size: 10px; font-weight: 900; }
+.demolish-keep { border: 1px solid #c9d6cf; color: #24493f; background: #fffef9; }
+.demolish-keep:hover { background: #eef4eb; }
+.demolish-confirm-button { border: 1px solid #b92f4a; color: #fff; background: #b92f4a; }
+.demolish-confirm-button:hover { background: #9c2740; border-color: #9c2740; }
+
+/* PA-022: the Rotate button shows a turned build rotation (it is sticky between pieces). */
+.category-tabs .rotate-tab.rotated { color: #1f5c4d; background: #e6fbf3; box-shadow: inset 0 0 0 1px #9bcbb7; }
+.rotate-tab .rotate-state { margin-left: 4px; padding: 1px 5px; border-radius: 6px; color: #fff; background: #2f6f5e; font-size: 9px; font-weight: 900; }
+/* The readout's rotation line (now with the angle) was dark green on the dark readout; light mint reads on both tones. */
+.cursor-readout .cursor-rotation { color: #bfe9d8; }
+/* Narrow layouts hide the tab words (font-size 0); the angle stays, it is the state. */
+@container ui (max-width: 820px) {
+  .category-tabs .rotate-tab .rotate-state { font-size: 9px; }
+}
+
+/* PA-021: the recentre button after the turn buttons, behind a hairline (horizontal when the pill stacks). */
+.view-divider { align-self: stretch; width: 1px; margin: 5px 2px; background: rgba(70,105,96,.28); }
+@container ui (max-width: 1360px) {
+  .view-divider { width: auto; height: 1px; margin: 2px 5px; }
+}
+
+/* PA-024: the estate row and the inspector say when no path from the gate reaches a ride or stall. */
+.building-row.no-access { border-color: #f0d9a9; }
+.building-row.no-access .building-identity em { color: #8f5e1c; }
+.inspector-warning { margin: -4px 0 10px; padding: 6px 7px; border-radius: 7px; color: #6e4a16; background: #fff1d4; font-size: 9px; font-weight: 800; line-height: 1.35; }
+
+/* ── Phase 14: crowd flow and neighborhoods ─────────────────────────── */
+
+/* The rail toggle: voxel only. With the classic renderer it stays focusable (aria-disabled) and says why on press. */
+.utility-bar button.crowd[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.utility-bar button.crowd[aria-disabled="true"]:hover { color: #466960; background: var(--paper); }
+/* The sixth player button made the developer rail 571px tall (96 to 667): below the supported sizes (the 1024x640 stress
+   size) the developer buttons and the gaps tighten so it still ends on screen (96 + 487 = 583). Players never see these. */
+@container ui (max-height: 680px) {
+  .utility-bar { gap: 4px; }
+  .utility-bar button.dev { height: 32px; }
+}
+/* The neighborhood Park Pulse line: the glyph takes the heatmap's busy amber, the words the card's own ink. */
+.pulse-card p.pulse-crowd span { color: #ffb347; }
+/* The pointer readout over a path with the heatmap on: one line of words and the cell. */
+.cursor-readout.crowd-readout { grid-template-columns: auto; }
+.cursor-readout.crowd-readout small { grid-column: 1; }
+
+/* The Overview tab's one line into the Neighborhoods tab. */
+.overview-crowd-line { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px; border: 1px solid #f0d9a9; border-radius: 12px; color: #6a4300; background: #fff7e4; font-size: 11px; font-weight: 800; text-align: left; }
+.overview-crowd-line:hover { border-color: #e2b766; background: #fff0d3; }
+.overview-crowd-line i { color: #b96f00; font-style: normal; font-weight: 900; }
+
+/* KPIs: a neighborhood name is longer than a number, so it may wrap to two lines instead of being cut. */
+.management-kpis strong.kpi-name { font-size: 11px; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+
+/* The legend: band words beside their swatch (the words are the cue; the colour repeats the heatmap's). */
+.crowd-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 9px; padding: 0; list-style: none; color: #4f6b63; font-size: 9px; font-weight: 800; }
+.crowd-legend li { display: flex; align-items: center; gap: 5px; }
+.crowd-legend i { width: 12px; height: 8px; border-radius: 3px; background: #7aa7d9; }
+.crowd-legend .band-1 i { background: #3fbfa0; }
+.crowd-legend .band-2 i { background: #ffb347; }
+.crowd-legend .band-3 i { background: #ff4f6d; box-shadow: 0 0 0 1px #fff, 0 0 0 2px #ff4f6d; }
+
+.neighborhood-list { display: grid; gap: 6px; }
+.neighborhood-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; width: 100%; padding: 9px 10px; border: 1px solid #e2e9e0; border-radius: 11px; background: #fffef9; text-align: left; }
+.neighborhood-row:hover { border-color: #9bcbb7; background: #f3fbf6; }
+.neighborhood-row.band-2 { border-color: #f0d9a9; }
+.neighborhood-row.band-3 { border-color: #f1b3be; }
+.neighborhood-identity { min-width: 0; display: grid; gap: 1px; }
+.neighborhood-identity strong { color: #204b44; font-size: 12px; }
+.neighborhood-identity small { color: #536259; font-size: 9px; line-height: 1.35; }
+.neighborhood-band { display: grid; gap: 1px; align-content: start; min-width: 64px; padding: 4px 8px; border-radius: 8px; background: #eef4f9; text-align: right; }
+.neighborhood-band small { color: #536259; font-size: 7px; font-weight: 900; letter-spacing: .5px; }
+.neighborhood-band strong { color: #2d5480; font-size: 10px; }
+.neighborhood-band.band-1 { background: #e6f6f0; }
+.neighborhood-band.band-1 strong { color: #1d6e58; }
+.neighborhood-band.band-2 { background: #fff1d9; }
+.neighborhood-band.band-2 strong { color: #8a5300; }
+.neighborhood-band.band-3 { background: #ffe5ea; }
+.neighborhood-band.band-3 strong { color: #a52a42; }
+.neighborhood-metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px 8px; }
+.neighborhood-metric { min-width: 0; display: grid; gap: 1px; }
+.neighborhood-metric small { color: #536259; font-size: 7px; font-weight: 900; letter-spacing: .5px; }
+.neighborhood-metric strong { color: #234f47; font-size: 11px; white-space: nowrap; }
+.neighborhood-coverage { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; }
+.coverage-chip { padding: 2px 8px; border-radius: 999px; color: #1d6e58; background: #e4f5ec; font-size: 9px; font-weight: 800; }
+.coverage-chip.partial { color: #6a4a10; background: #fbebc9; }
+.coverage-chip.none { color: #5f6f69; background: #eceeea; }
+.neighborhoods-unreached { margin: 9px 0 0; color: #805b27; font-size: 9px; line-height: 1.4; }
+.dashboard-insights.crowd-lines p { grid-template-columns: 16px 1fr; }
+.dashboard-insights.crowd-lines p i { color: #b96f00; }
+
+/* Phase 15: the cash pill's change chip (cashPillModel.ts). Rises and fades; under reduced motion it only fades. */
+.cash-pill { position: relative; }
+.cash-delta {
+  position: absolute;
+  right: 16px;
+  bottom: -18px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  font: 900 12px/1.4 'Avenir Next', 'Segoe UI', sans-serif;
+  pointer-events: none;
+  animation: cash-delta-rise 1.3s ease-out forwards;
+}
+.cash-delta.gain { color: #0e6b50; background: #d9f7ea; }
+.cash-delta.spend { color: #9b2c22; background: #ffe3de; }
+@keyframes cash-delta-rise {
+  0% { opacity: 0; transform: translateY(6px); }
+  15% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes cash-delta-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+:root[data-motion="reduce"] .cash-delta { animation-name: cash-delta-fade; }
+
+/* Phase 15: volume sliders in the Sound group. */
+.settings-volume { display: grid; grid-template-columns: minmax(96px, 1fr) minmax(0, 2fr) 40px; align-items: center; gap: 10px; font-size: 13px; font-weight: 900; }
+.settings-volume input { width: 100%; accent-color: var(--ink); }
+.settings-volume input:focus-visible { outline: 3px solid #2cbf90; outline-offset: 2px; }
+.settings-volume output { text-align: right; color: #4f6e66; font-size: 12px; }
+
+/* Phase 19 (PA-026): the loading state, the error screen's actions and the feedback form. */
+.boot-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #e9f7ef;
+  background: #102d2a;
+  font-weight: 900;
+}
+.boot-screen strong { font-size: 26px; letter-spacing: .5px; }
+.boot-screen small { color: #8fb5a8; font-size: 11px; }
+.boot-dots { display: flex; gap: 6px; margin: 6px 0; }
+.boot-dots b { width: 8px; height: 8px; border-radius: 50%; background: #58d9ad; animation: boot-dot 1.2s ease-in-out infinite; }
+.boot-dots b:nth-child(2) { animation-delay: .2s; }
+.boot-dots b:nth-child(3) { animation-delay: .4s; }
+@keyframes boot-dot { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+:root[data-motion="reduce"] .boot-dots b { animation: none; opacity: .7; }
+.fatal-error { z-index: 60; justify-items: start; }
+.fatal-error p { margin: 0; color: #4f3a40; font-size: 13px; }
+.fatal-error small { color: #9b6b78; }
+.fatal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.feedback-form { display: grid; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e4ecdf; }
+.feedback-form h3 { margin: 0; font-size: 14px; }
+.feedback-form label { font-size: 12px; font-weight: 800; }
+.feedback-form textarea { width: 100%; box-sizing: border-box; resize: vertical; border: 1px solid #c9d8cf; border-radius: 10px; padding: 8px; font: inherit; }
+.feedback-note, .feedback-status { margin: 0; color: #5f7a71; font-size: 12px; }
+.feedback-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── The Map (Phase 23): setup, run overlay, leave-run question ───────────────────────────────────────────── */
+
+.menu-run-setup .run-new { margin-bottom: 10px; }
+.run-new-title { margin: 0; font: 900 14px 'Avenir Next', 'Segoe UI', sans-serif; }
+.run-continue-card {
+  display: grid; gap: 2px; width: 100%; margin: 0 0 10px; padding: 11px 14px; text-align: left; cursor: pointer;
+  border: 2px solid var(--ink); border-radius: 14px; background: #eef7ea; color: var(--ink);
+}
+.run-continue-card:hover { background: #e3f1dc; }
+.run-continue-card[aria-disabled="true"] { opacity: .6; cursor: progress; }
+.run-continue-title { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; text-transform: uppercase; color: #335c52; }
+.run-continue-level { font: 900 17px 'Avenir Next', 'Segoe UI', sans-serif; }
+.run-continue-sub { color: #3f5f57; font-size: 12px; font-weight: 700; }
+.run-difficulty-field { align-items: flex-start; }
+.run-difficulties { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 360px; }
+.run-difficulty {
+  display: grid; gap: 1px; flex: 1 1 150px; min-width: 0; padding: 7px 10px; text-align: left; cursor: pointer;
+  border: 2px solid #dbe6d6; border-radius: 12px; background: #fff; color: var(--ink);
+}
+.run-difficulty:hover { background: #f0f6ee; }
+.run-difficulty.selected { border-color: var(--ink); background: #eef7ea; }
+.run-difficulty.locked { cursor: not-allowed; background: #f2f4f0; color: #4a5a53; }
+.run-difficulty-label { font-size: 13px; font-weight: 900; }
+.run-difficulty-detail { color: #3f5f57; font-size: 11px; font-weight: 700; line-height: 1.3; }
+.run-route { margin: 0; color: #2b4a42; font-size: 12px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+.run-route b { font-weight: 900; }
+.run-replace-note { margin: 0; color: #6d4c14; font-size: 11.5px; font-weight: 700; }
+
+.run-backdrop { align-items: center; }
+.run-screen {
+  width: min(1040px, 100%);
+  max-height: calc(var(--ui-vh) - 48px);
+  display: flex; flex-direction: column;
+  border-radius: 22px; background: var(--paper); box-shadow: var(--shadow); overflow: hidden;
+}
+.run-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px 12px; border-bottom: 1px solid #e4ecdf; }
+.run-head small { display: block; color: #3f5f57; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; }
+.run-head strong { display: block; margin-top: 2px; font: 900 21px 'Avenir Next', 'Segoe UI', sans-serif; }
+.run-head strong:focus-visible { outline: 3px solid var(--focus-ring, #1d6fd1); outline-offset: 3px; border-radius: 6px; }
+.run-close { width: 34px; height: 34px; border: 0; border-radius: 11px; background: #edf3ea; color: var(--ink); font-size: 18px; cursor: pointer; flex: none; }
+.run-close:hover { background: #dfe9db; }
+.run-body { position: relative; display: grid; gap: 12px; padding: 14px 22px 8px; overflow-y: auto; min-height: 0; align-content: start; } /* positioned: the visually hidden labels inside it scroll and clip with it instead of stretching the page */
+.run-lead { margin: 0; color: #2b4a42; font-size: 13px; font-weight: 700; }
+.run-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 22px 16px; border-top: 1px solid #e4ecdf; background: var(--paper); }
+.run-foot button, .leave-run-actions button {
+  padding: 10px 16px; border: 1px solid #c9d9c4; border-radius: 12px; background: #fff; color: var(--ink);
+  font-size: 13px; font-weight: 900; cursor: pointer;
+}
+.run-foot button:hover, .leave-run-actions button:hover { background: #f0f6ee; }
+.run-foot button.primary, .leave-run-actions button.primary { border: 0; background: var(--ink); color: #fff; flex: 1 1 220px; }
+.run-foot button.primary:hover, .leave-run-actions button.primary:hover { background: #0e2c29; }
+.run-foot button.danger { border-color: #b3384f; color: #8f1f36; }
+.run-foot button[aria-disabled="true"], .menu-entry.waiting[data-run-start] { opacity: .55; cursor: not-allowed; }
+.run-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; font-size: 13px; font-weight: 800; }
+.run-confirm span { flex: 1 1 260px; }
+
+.run-path { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)); }
+.run-node {
+  position: relative; display: grid; gap: 4px; align-content: start; min-width: 0; padding: 0 0 9px; text-align: left; cursor: pointer; overflow: hidden;
+  border: 2px solid #dbe6d6; border-radius: 15px; background: #fff; color: var(--ink);
+}
+.run-node:hover { border-color: #aac8b0; }
+.run-node.selected { border-color: var(--ink); background: #f6fbf2; }
+.run-node.current { border: 4px solid var(--ink); padding-bottom: 7px; }
+.run-node.ahead { background: #fbfcf8; }
+.run-node.failed, .run-node.abandoned { border-color: #b3384f; }
+.run-node-strip { display: flex; height: 9px; }
+.run-node-strip i { flex: 1 1 0; }
+.run-node-top, .run-node-biome, .run-node-status, .run-node-goal, .run-node-conditions { padding: 0 10px; }
+.run-node-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 3px; }
+.run-node-icon { font-size: 20px; line-height: 1; }
+.run-node-number { color: #3f5f57; font-size: 10.5px; font-weight: 900; letter-spacing: .6px; text-transform: uppercase; }
+.run-node-biome { font: 900 15px 'Avenir Next', 'Segoe UI', sans-serif; overflow-wrap: anywhere; }
+.run-node-preview { justify-self: center; width: 72px; height: 72px; image-rendering: auto; border: 2px solid var(--ink); border-radius: 8px; background: #dfe9d9; }
+.run-node-status { display: inline-block; justify-self: start; margin: 0 10px; padding: 2px 8px; border-radius: 999px; background: #e3eddc; color: #1f4a40; font-size: 11px; font-weight: 900; }
+.run-node-status.cleared { background: #d9f3e5; color: #0b5b42; }
+.run-node-status.current { background: var(--ink); color: #fff; }
+.run-node-status.failed, .run-node-status.abandoned { background: #fbe3e8; color: #8f1f36; }
+.run-node-goal { color: #2b4a42; font-size: 11.5px; font-weight: 700; line-height: 1.3; }
+.run-node-conditions { display: flex; gap: 4px; font-size: 15px; }
+
+.run-detail { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #e2ebdd; border-radius: 15px; background: #fff; }
+.run-detail h3 { margin: 0; font: 900 16px 'Avenir Next', 'Segoe UI', sans-serif; }
+.run-detail h3 small { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #e3eddc; color: #335c52; font-size: 10.5px; font-weight: 900; }
+.run-detail p, .run-detail ul { margin: 0; }
+.run-detail-goal { color: #173f3b; font-size: 13.5px; font-weight: 800; }
+.run-detail-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #2b4a42; font-size: 12px; font-weight: 700; }
+.run-detail-quiet { margin: 0; color: #4a6a61; font-size: 12px; font-weight: 700; }
+.run-conditions { list-style: none; padding: 0; display: grid; gap: 3px; font-size: 12px; font-weight: 700; color: #5a3d0f; }
+.run-detail-result { list-style: none; padding: 0; display: grid; gap: 2px; font-size: 12px; font-weight: 700; color: #1c4a3b; }
+.run-summary { margin: 0; color: #173f3b; font-size: 13px; font-weight: 900; }
+.run-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.run-chip {
+  min-height: 34px; padding: 4px 14px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; color: var(--ink);
+  font: 900 12.5px 'Avenir Next', 'Segoe UI', sans-serif; cursor: pointer;
+}
+.run-chip[aria-expanded="true"] { background: var(--ink); color: #fff; }
+.run-drawer { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #e2ebdd; border-radius: 13px; background: #fbfdf8; }
+.run-drawer h3 { margin: 0; font: 900 13px 'Avenir Next', 'Segoe UI', sans-serif; }
+.run-drawer-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.run-drawer-list li { display: grid; gap: 3px; padding: 8px 10px; border: 1px solid #e2ebdd; border-radius: 11px; background: #fff; }
+.run-drawer-list small, .run-in-deck { color: #3f5f57; font-size: 11px; font-weight: 700; }
+.run-count { margin-left: 4px; padding: 0 6px; border-radius: 8px; background: #e3eddc; color: #1f4a40; font-size: 11px; }
+.run-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.run-offer-card { cursor: default; }
+button.run-offer-card { cursor: pointer; }
+.run-deck-after { margin: 0; color: #173f3b; font-size: 13px; font-weight: 900; }
+.run-screen .pulse-card-tile small { color: #3f5f57; font-size: 11px; }
+.run-screen .pulse-card-tile em { font-size: 11.5px; }
+.run-screen .pulse-card-tile[aria-disabled="true"] { cursor: not-allowed; }
+.run-screen .loadout-cards header em { color: #3f5f57; font-size: 11.5px; }
+.run-screen .loadout-brief p, .run-screen .loadout-neutral { color: #2b4a42; font-size: 13px; }
+.run-screen .loadout-effects li { font-size: 12px; }
+.run-result p, .run-end p { margin: 0; color: #2b4a42; font-size: 13.5px; font-weight: 700; }
+.run-evidence { font-weight: 800 !important; }
+.run-next { padding: 8px 12px; border-radius: 12px; background: #eef7ea; }
+.run-end.won .run-evidence, .run-end.won { --run-end-accent: #12805f; }
+.run-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.run-table th, .run-table td { padding: 5px 8px; border-bottom: 1px solid #e4ecdf; text-align: left; vertical-align: top; }
+.run-table thead th { color: #3f5f57; font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; }
+.run-totals { font-weight: 900 !important; }
+
+.leave-run {
+  width: min(480px, 100%); padding: 22px 24px 20px; border-radius: 20px; background: var(--paper); box-shadow: var(--shadow);
+}
+.leave-run h2 { margin: 0 0 8px; font: 900 21px 'Avenir Next', 'Segoe UI', sans-serif; }
+.leave-run p { margin: 0 0 16px; color: #2b4a42; font-size: 13.5px; font-weight: 700; line-height: 1.5; }
+.leave-run-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@container ui (max-height: 760px) {
+  .run-node-preview { width: 52px; height: 52px; }
+  .run-head { padding: 12px 18px 8px; }
+  .run-body { padding: 10px 18px 6px; gap: 9px; }
+  .run-foot { padding: 8px 18px 12px; }
+}
+.run-drawer-list em { display: block; font-size: 11.5px; font-style: normal; font-weight: 700; line-height: 1.35; }
+.run-drawer-list .pulse-card-head { font-size: 12.5px; }
+.collection-stats + .collection-stats { margin-top: 12px; }
+.collection-stats caption { padding: 4px 10px 6px; text-align: left; color: #173f3b; font: 900 13px 'Avenir Next', 'Segoe UI', sans-serif; }
+
+/* Phase 25 cards: one tile everywhere (CardTile.tsx). Badges and notes are words, never colour alone. */
+.card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 1px; }
+.card-badge {
+  padding: 1px 7px; border: 1px solid #b9cdb4; border-radius: 999px; background: #f4f8f1; color: #24493f;
+  font-size: 10.5px; font-weight: 900; letter-spacing: .3px; line-height: 1.5;
+}
+.card-notes { display: grid; gap: 2px; margin-top: 2px; }
+.card-note { display: block; color: #6a4300; font-size: 11px; font-weight: 800; line-height: 1.35; }
+.run-screen .pulse-card-tile .card-note { font-size: 11px; }
+.run-drawer-list li.in-pocket { border-style: dashed; }
+.loadout-pocket { margin: 6px 0 0; color: #173f3b; font-size: 12.5px; font-weight: 900; }
+.run-continue-note { color: #5a3d0f; font-size: 11.5px; font-weight: 800; }
+/* The tiles' sr-only "Upside: " prefixes are absolute: inside a static menu card they would hang off the backdrop below the
+   scroller and stretch the page (Phase 25 audit), so the families are their containing block. */
+.collection-family { position: relative; }
+.collection-family + .collection-family { margin-top: 12px; }
+.collection-family h3 { margin: 0 0 6px; color: #173f3b; font: 900 13px 'Avenir Next', 'Segoe UI', sans-serif; }
+.collection-family h3 small { margin-left: 6px; color: #3f5f57; font-size: 11px; font-weight: 700; }
+.collection-text .card-badges { margin: 0; }
+@container ui (max-width: 820px) {
+  .card-badge { font-size: 10px; padding: 0 6px; }
+}
+
+/*
+ * Phase 25: the stage's cards in Park Pulse (ScenarioHud.tsx ScenarioCards, design 10.3). A list on the dark objective
+ * panel: stage cards "in play", one-shots as native Play buttons with their facts underneath, played ones with the time,
+ * deferred costs as a due row. Nothing moves. Under a narrow UI a chip shows the icon and a short name; the full name
+ * stays in the accessibility tree (clipped, not removed).
+ */
+.scenario-cards-wrap { display: contents; }
+.scenario-cards { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+.scenario-card-chip, .scenario-card-due {
+  padding: 3px 7px; border-radius: 8px; background: rgba(255,255,255,.1); color: #dff8f0;
+  font-size: 9.5px; font-weight: 800; line-height: 1.4;
+}
+.scenario-card-chip:not(.one-shot) { white-space: nowrap; }
+.scenario-card-chip em { color: #9fd9c8; font-style: normal; font-weight: 700; }
+.scenario-card-chip.played { color: #c9e6dd; }
+.scenario-card-chip.one-shot { display: grid; gap: 3px; flex-basis: 100%; padding: 5px 7px; }
+.scenario-card-chip.one-shot small { color: #c9e6dd; font-size: 9px; font-weight: 700; line-height: 1.35; }
+.card-play-hint { color: #ffd9a8; font-weight: 800; }
+.card-play {
+  justify-self: start; padding: 3px 9px; border: 1px solid #57d9ad; border-radius: 8px; background: #57d9ad; color: #0b2522;
+  font: 900 10px 'Avenir Next', 'Segoe UI', sans-serif; cursor: pointer;
+}
+.card-play:hover { background: #7fe6c4; }
+.card-play[aria-disabled="true"] { border-color: #7a958e; background: transparent; color: #dff8f0; cursor: not-allowed; }
+.scenario-card-due { flex-basis: 100%; background: rgba(255,217,168,.12); color: #ffd9a8; }
+/*
+ * Park Pulse never reaches the build dock (Phase 25 audit): one-shots with their facts and due rows made the objective
+ * panel run under the dock on short layouts. The card stops at --dock-reserve above the bottom edge; the stage's card
+ * list is what gives way (it scrolls, the objective above it stays put; a Play button scrolls into view when focused),
+ * and the whole card scrolls only as the last resort. The rings inside Park Pulse are drawn inward (a11y.css), so the
+ * scrollers never cut them.
+ */
+.pulse-card { display: flex; flex-direction: column; max-height: calc(var(--ui-vh) - 94px - var(--dock-reserve)); overflow-y: auto; scrollbar-width: thin; }
+.pulse-card > * { flex-shrink: 0; }
+.pulse-card > .scenario-panel:has(.scenario-cards) { display: flex; flex-direction: column; flex-shrink: 1; min-height: 0; }
+.scenario-panel > * { flex-shrink: 0; }
+.scenario-panel .scenario-cards-wrap { display: contents; }
+/* position: relative keeps the rows' sr-only prefixes (absolute) inside the scroller, so they never stretch Park Pulse itself. */
+.scenario-panel .scenario-cards { position: relative; flex-shrink: 1; min-height: 46px; overflow-y: auto; scrollbar-width: thin; }
+/* Phase 35: the list scrolls inside Park Pulse; while rows hide below the fold a small cue says so (scrollHeight, ScenarioHud). */
+.scenario-cards-more { align-self: center; margin: 2px 0 0; color: #9fd9c8; font-size: 9px; font-weight: 800; letter-spacing: .04em; pointer-events: none; }
+.scenario-cards-more[hidden] { display: none; }
+/* A short layout during a level: the launcher's tip lines give way to the cards (the report still opens from the launcher). */
+@container ui (max-height: 820px) {
+  .pulse-card:has(.scenario-cards) .pulse-insights { display: none; }
+  .pulse-card:has(.scenario-cards) .pulse-stats { margin-bottom: 0; }
+}
+/* Shorter still (every 130% cell lands near 690): the milestone row gives way too; Research stays one click away in the report. */
+@container ui (max-height: 720px) {
+  .pulse-card:has(.scenario-cards) .pulse-research { display: none; }
+}
+.card-chip-short { display: none; }
+@container ui (max-width: 1216px) {
+  /* The same clip as .sr-only (a 1px box written as inline/block size): read aloud, not drawn. */
+  .card-chip-full { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .card-chip-short { display: inline; }
+}
+
+/* The dashboard's card states and the debt lines of the result screens. */
+.card-state { display: block; color: #24493f; font-size: 11px; font-weight: 900; }
+.card-due { display: block; color: #6a4300; font-size: 11px; font-style: normal; font-weight: 800; }
+.loadout-one-shot-note { margin: 0 0 8px; color: #24493f; font-size: 11.5px; font-weight: 800; }
+.run-debt { color: #6a4300; font-weight: 900 !important; }
+

@@ -1,0 +1,2405 @@
+{
+ "oval-comet": {
+  "valid": {
+   "ok": true
+  },
+  "stats": {
+   "pieces": 24,
+   "turns": 4,
+   "drops": 1,
+   "totalDescent": 2,
+   "biggestDrop": 2,
+   "highestHeight": 2,
+   "loops": 0,
+   "boosts": 0,
+   "topSpeed": 6,
+   "excitement": 58,
+   "intensity": 40.2,
+   "durationSeconds": 14,
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    0.47619047619047616,
+    0.425531914893617,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.23255813953488372,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.2,
+    0.21052631578947367,
+    0.2222222222222222,
+    0.23529411764705882,
+    0.25,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365
+   ],
+   "capacity": 12,
+   "runningCost": 6.88,
+   "ticketPrice": 7,
+   "reliability": 92
+  },
+  "profile": {
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    0.47619047619047616,
+    0.425531914893617,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.23255813953488372,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.2,
+    0.21052631578947367,
+    0.2222222222222222,
+    0.23529411764705882,
+    0.25,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365
+   ],
+   "topSpeed": 6,
+   "totalTravelSeconds": 7.979447432967196
+  },
+  "cost": 1900,
+  "heads": [
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2.479999999999998,
+   3.039999999999999,
+   3.6,
+   4.185000000000001,
+   4.832500000000002,
+   5.544864864864863,
+   6.313182110682107,
+   7.138568964100879,
+   7.978568964100883,
+   8.818568964100882,
+   10.25107357304289,
+   12.281962369492211,
+   14.144857565339247,
+   15.85011468707229,
+   17.408947643988657,
+   18.843715429636376,
+   20.154917667598493,
+   21.352780691341465,
+   22.452566792007502,
+   23.46068622600688,
+   24.369326160878728,
+   25.20932616087873,
+   2
+  ],
+  "sim": {
+   "joined": "joined",
+   "completedCycles": 1,
+   "ridersToday": 1,
+   "condition": 97.228288,
+   "cash": 48100.12,
+   "snapshot": {
+    "objectId": 1,
+    "definitionId": "comet-trail",
+    "name": "Comet Trail",
+    "open": true,
+    "closureReason": null,
+    "status": "idle",
+    "ticketPrice": 7,
+    "queueLength": 0,
+    "estimatedWaitSeconds": 0,
+    "capacity": 12,
+    "rideDurationSeconds": 14,
+    "cycleRemainingSeconds": 0,
+    "ridersToday": 1,
+    "lifetimeRevenue": 7,
+    "operatingCost": 6.88,
+    "throughputPerHour": 60,
+    "satisfaction": 77.844,
+    "condition": 97.228288,
+    "reliability": 92,
+    "broken": false,
+    "pendingBreakdown": false,
+    "breakdownChance": 0,
+    "breakdownCount": 0,
+    "inspectionsCompleted": 0,
+    "repairsCompleted": 0,
+    "lifetimeMaintenanceCost": 0,
+    "maintenanceKind": null,
+    "maintenanceProgress": 0,
+    "sceneryScore": 0,
+    "sceneryChoiceBonus": 0,
+    "scenerySatisfactionBonus": 0,
+    "excitement": 58,
+    "intensity": 40.2,
+    "coaster": {
+     "pieces": 24,
+     "turns": 4,
+     "drops": 1,
+     "totalDescent": 2,
+     "highestHeight": 2,
+     "topSpeed": 6,
+     "loops": 0,
+     "boosts": 0
+    }
+   }
+  },
+  "world": {
+   "mapWidth": 32,
+   "mapHeight": 32,
+   "constructionCostMultiplier": 1,
+   "cash": 48100.12,
+   "tick": 0,
+   "parkOpen": true,
+   "demolitions": 0,
+   "nextObjectId": 2,
+   "nextTransactionId": 4,
+   "version": 1,
+   "pathVersion": 0,
+   "paths": [
+    {
+     "x": 15,
+     "y": 31
+    }
+   ],
+   "objects": [
+    {
+     "id": 1,
+     "definitionId": "comet-trail",
+     "anchor": {
+      "x": 4,
+      "y": 4
+     },
+     "rotation": 0
+    }
+   ],
+   "coasters": [
+    {
+     "objectId": 1,
+     "pieces": [
+      {
+       "cell": {
+        "x": 4,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 5
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 6
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 6
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 5
+       },
+       "height": 0
+      }
+     ],
+     "stats": {
+      "pieces": 24,
+      "turns": 4,
+      "drops": 1,
+      "totalDescent": 2,
+      "biggestDrop": 2,
+      "highestHeight": 2,
+      "loops": 0,
+      "boosts": 0,
+      "topSpeed": 6,
+      "excitement": 58,
+      "intensity": 40.2,
+      "durationSeconds": 14,
+      "travelSeconds": [
+       0.4166666666666667,
+       0.4166666666666667,
+       0.625,
+       0.625,
+       0.5405405405405405,
+       0.47619047619047616,
+       0.425531914893617,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.23255813953488372,
+       0.16666666666666666,
+       0.17391304347826086,
+       0.18181818181818182,
+       0.19047619047619047,
+       0.2,
+       0.21052631578947367,
+       0.2222222222222222,
+       0.23529411764705882,
+       0.25,
+       0.26666666666666666,
+       0.2857142857142857,
+       0.3076923076923077,
+       0.3333333333333333,
+       0.36363636363636365
+      ],
+      "capacity": 12,
+      "runningCost": 6.88,
+      "ticketPrice": 7,
+      "reliability": 92
+     },
+     "paidCost": 1900
+    }
+   ],
+   "transactions": [
+    {
+     "id": 3,
+     "amount": -6.88,
+     "label": "Comet Trail cycle operation",
+     "category": "ride-operations",
+     "tick": 0
+    },
+    {
+     "id": 2,
+     "amount": 7,
+     "label": "Comet Trail tickets",
+     "category": "ride-revenue",
+     "tick": 0
+    },
+    {
+     "id": 1,
+     "amount": -1900,
+     "label": "Built Comet Trail (24 pieces)",
+     "category": "construction",
+     "tick": 0
+    }
+   ]
+  }
+ },
+ "oval-chaser": {
+  "valid": {
+   "ok": true
+  },
+  "stats": {
+   "pieces": 24,
+   "turns": 4,
+   "drops": 1,
+   "totalDescent": 2,
+   "biggestDrop": 2,
+   "highestHeight": 2,
+   "loops": 0,
+   "boosts": 0,
+   "topSpeed": 6,
+   "excitement": 58,
+   "intensity": 40.2,
+   "durationSeconds": 14,
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    0.47619047619047616,
+    0.425531914893617,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.23255813953488372,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.2,
+    0.21052631578947367,
+    0.2222222222222222,
+    0.23529411764705882,
+    0.25,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365
+   ],
+   "capacity": 10,
+   "runningCost": 6.88,
+   "ticketPrice": 7,
+   "reliability": 86
+  },
+  "profile": {
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    0.47619047619047616,
+    0.425531914893617,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.23255813953488372,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.2,
+    0.21052631578947367,
+    0.2222222222222222,
+    0.23529411764705882,
+    0.25,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365
+   ],
+   "topSpeed": 6,
+   "totalTravelSeconds": 7.979447432967196
+  },
+  "cost": 2430,
+  "heads": [
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2.479999999999998,
+   3.039999999999999,
+   3.6,
+   4.185000000000001,
+   4.832500000000002,
+   5.544864864864863,
+   6.313182110682107,
+   7.138568964100879,
+   7.978568964100883,
+   8.818568964100882,
+   10.25107357304289,
+   12.281962369492211,
+   14.144857565339247,
+   15.85011468707229,
+   17.408947643988657,
+   18.843715429636376,
+   20.154917667598493,
+   21.352780691341465,
+   22.452566792007502,
+   23.46068622600688,
+   24.369326160878728,
+   25.20932616087873,
+   2
+  ],
+  "sim": {
+   "joined": "joined",
+   "completedCycles": 1,
+   "ridersToday": 1,
+   "condition": 97.074304,
+   "cash": 47570.12,
+   "snapshot": {
+    "objectId": 1,
+    "definitionId": "star-chaser",
+    "name": "Star Chaser",
+    "open": true,
+    "closureReason": null,
+    "status": "idle",
+    "ticketPrice": 7,
+    "queueLength": 0,
+    "estimatedWaitSeconds": 0,
+    "capacity": 10,
+    "rideDurationSeconds": 14,
+    "cycleRemainingSeconds": 0,
+    "ridersToday": 1,
+    "lifetimeRevenue": 7,
+    "operatingCost": 6.88,
+    "throughputPerHour": 60,
+    "satisfaction": 77.844,
+    "condition": 97.074304,
+    "reliability": 86,
+    "broken": false,
+    "pendingBreakdown": false,
+    "breakdownChance": 0,
+    "breakdownCount": 0,
+    "inspectionsCompleted": 0,
+    "repairsCompleted": 0,
+    "lifetimeMaintenanceCost": 0,
+    "maintenanceKind": null,
+    "maintenanceProgress": 0,
+    "sceneryScore": 0,
+    "sceneryChoiceBonus": 0,
+    "scenerySatisfactionBonus": 0,
+    "excitement": 58,
+    "intensity": 40.2,
+    "coaster": {
+     "pieces": 24,
+     "turns": 4,
+     "drops": 1,
+     "totalDescent": 2,
+     "highestHeight": 2,
+     "topSpeed": 6,
+     "loops": 0,
+     "boosts": 0
+    }
+   }
+  },
+  "world": {
+   "mapWidth": 32,
+   "mapHeight": 32,
+   "constructionCostMultiplier": 1,
+   "cash": 47570.12,
+   "tick": 0,
+   "parkOpen": true,
+   "demolitions": 0,
+   "nextObjectId": 2,
+   "nextTransactionId": 4,
+   "version": 1,
+   "pathVersion": 0,
+   "paths": [
+    {
+     "x": 15,
+     "y": 31
+    }
+   ],
+   "objects": [
+    {
+     "id": 1,
+     "definitionId": "star-chaser",
+     "anchor": {
+      "x": 4,
+      "y": 4
+     },
+     "rotation": 0
+    }
+   ],
+   "coasters": [
+    {
+     "objectId": 1,
+     "pieces": [
+      {
+       "cell": {
+        "x": 4,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 5
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 6
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 6
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 5
+       },
+       "height": 0
+      }
+     ],
+     "stats": {
+      "pieces": 24,
+      "turns": 4,
+      "drops": 1,
+      "totalDescent": 2,
+      "biggestDrop": 2,
+      "highestHeight": 2,
+      "loops": 0,
+      "boosts": 0,
+      "topSpeed": 6,
+      "excitement": 58,
+      "intensity": 40.2,
+      "durationSeconds": 14,
+      "travelSeconds": [
+       0.4166666666666667,
+       0.4166666666666667,
+       0.625,
+       0.625,
+       0.5405405405405405,
+       0.47619047619047616,
+       0.425531914893617,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.23255813953488372,
+       0.16666666666666666,
+       0.17391304347826086,
+       0.18181818181818182,
+       0.19047619047619047,
+       0.2,
+       0.21052631578947367,
+       0.2222222222222222,
+       0.23529411764705882,
+       0.25,
+       0.26666666666666666,
+       0.2857142857142857,
+       0.3076923076923077,
+       0.3333333333333333,
+       0.36363636363636365
+      ],
+      "capacity": 10,
+      "runningCost": 6.88,
+      "ticketPrice": 7,
+      "reliability": 86
+     },
+     "paidCost": 2430
+    }
+   ],
+   "transactions": [
+    {
+     "id": 3,
+     "amount": -6.88,
+     "label": "Star Chaser cycle operation",
+     "category": "ride-operations",
+     "tick": 0
+    },
+    {
+     "id": 2,
+     "amount": 7,
+     "label": "Star Chaser tickets",
+     "category": "ride-revenue",
+     "tick": 0
+    },
+    {
+     "id": 1,
+     "amount": -2430,
+     "label": "Built Star Chaser (24 pieces)",
+     "category": "construction",
+     "tick": 0
+    }
+   ]
+  }
+ },
+ "zigzag-chaser": {
+  "valid": {
+   "ok": true
+  },
+  "stats": {
+   "pieces": 32,
+   "turns": 14,
+   "drops": 3,
+   "totalDescent": 3,
+   "biggestDrop": 1,
+   "highestHeight": 3,
+   "loops": 0,
+   "boosts": 0,
+   "topSpeed": 6,
+   "excitement": 84.5,
+   "intensity": 56.9,
+   "durationSeconds": 17.1,
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.5405405405405405,
+    0.625,
+    0.5405405405405405,
+    0.625,
+    0.5405405405405405,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.18518518518518517,
+    0.1941747572815534,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.2,
+    0.21052631578947367,
+    0.2222222222222222,
+    0.23529411764705882,
+    0.25,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365,
+    0.4,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667
+   ],
+   "capacity": 10,
+   "runningCost": 7.84,
+   "ticketPrice": 9,
+   "reliability": 86
+  },
+  "profile": {
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.5405405405405405,
+    0.625,
+    0.5405405405405405,
+    0.625,
+    0.5405405405405405,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.18518518518518517,
+    0.1941747572815534,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.2,
+    0.21052631578947367,
+    0.2222222222222222,
+    0.23529411764705882,
+    0.25,
+    0.26666666666666666,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365,
+    0.4,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667
+   ],
+   "topSpeed": 6,
+   "totalTravelSeconds": 11.13298887827699
+  },
+  "cost": 3030,
+  "heads": [
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2.9900000000000033,
+   3.677333333333336,
+   4.41779166666667,
+   5.180468468468469,
+   5.864468468468469,
+   6.634166666666669,
+   7.367603603603606,
+   8.05966666666667,
+   8.850541666666667,
+   10.280157657657666,
+   12.188724706849708,
+   14.5939988636348,
+   16.91913285572979,
+   19.007066883858617,
+   20.879104834755363,
+   22.558952795372377,
+   24.078562660751302,
+   25.431942456078126,
+   26.654905584738277,
+   27.755027804307527,
+   28.790826692135234,
+   29.81682669213523,
+   30.842826692135233,
+   31.868826692135226,
+   32.894826692135226,
+   33.92082669213523
+  ],
+  "sim": {
+   "joined": "joined",
+   "completedCycles": 1,
+   "ridersToday": 1,
+   "condition": 96.824644,
+   "cash": 46971.16,
+   "snapshot": {
+    "objectId": 1,
+    "definitionId": "star-chaser",
+    "name": "Star Chaser",
+    "open": true,
+    "closureReason": null,
+    "status": "idle",
+    "ticketPrice": 9,
+    "queueLength": 0,
+    "estimatedWaitSeconds": 0,
+    "capacity": 10,
+    "rideDurationSeconds": 17.1,
+    "cycleRemainingSeconds": 0,
+    "ridersToday": 1,
+    "lifetimeRevenue": 9,
+    "operatingCost": 7.84,
+    "throughputPerHour": 60,
+    "satisfaction": 83.15700000000001,
+    "condition": 96.824644,
+    "reliability": 86,
+    "broken": false,
+    "pendingBreakdown": false,
+    "breakdownChance": 0,
+    "breakdownCount": 0,
+    "inspectionsCompleted": 0,
+    "repairsCompleted": 0,
+    "lifetimeMaintenanceCost": 0,
+    "maintenanceKind": null,
+    "maintenanceProgress": 0,
+    "sceneryScore": 0,
+    "sceneryChoiceBonus": 0,
+    "scenerySatisfactionBonus": 0,
+    "excitement": 84.5,
+    "intensity": 56.9,
+    "coaster": {
+     "pieces": 32,
+     "turns": 14,
+     "drops": 3,
+     "totalDescent": 3,
+     "highestHeight": 3,
+     "topSpeed": 6,
+     "loops": 0,
+     "boosts": 0
+    }
+   }
+  },
+  "world": {
+   "mapWidth": 32,
+   "mapHeight": 32,
+   "constructionCostMultiplier": 1,
+   "cash": 46971.16,
+   "tick": 0,
+   "parkOpen": true,
+   "demolitions": 0,
+   "nextObjectId": 2,
+   "nextTransactionId": 4,
+   "version": 1,
+   "pathVersion": 0,
+   "paths": [
+    {
+     "x": 15,
+     "y": 31
+    }
+   ],
+   "objects": [
+    {
+     "id": 1,
+     "definitionId": "star-chaser",
+     "anchor": {
+      "x": 4,
+      "y": 4
+     },
+     "rotation": 0
+    }
+   ],
+   "coasters": [
+    {
+     "objectId": 1,
+     "pieces": [
+      {
+       "cell": {
+        "x": 4,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 5
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 5
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 6
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 6
+       },
+       "height": 3
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 7
+       },
+       "height": 3
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 7
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 8
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 8
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 9
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 13,
+        "y": 9
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 13,
+        "y": 10
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 13,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 11
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 10
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 9
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 6
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 5
+       },
+       "height": 0
+      }
+     ],
+     "stats": {
+      "pieces": 32,
+      "turns": 14,
+      "drops": 3,
+      "totalDescent": 3,
+      "biggestDrop": 1,
+      "highestHeight": 3,
+      "loops": 0,
+      "boosts": 0,
+      "topSpeed": 6,
+      "excitement": 84.5,
+      "intensity": 56.9,
+      "durationSeconds": 17.1,
+      "travelSeconds": [
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.625,
+       0.5405405405405405,
+       0.625,
+       0.5405405405405405,
+       0.625,
+       0.5405405405405405,
+       0.26666666666666666,
+       0.2857142857142857,
+       0.18518518518518517,
+       0.1941747572815534,
+       0.16666666666666666,
+       0.17391304347826086,
+       0.18181818181818182,
+       0.19047619047619047,
+       0.2,
+       0.21052631578947367,
+       0.2222222222222222,
+       0.23529411764705882,
+       0.25,
+       0.26666666666666666,
+       0.2857142857142857,
+       0.3076923076923077,
+       0.3333333333333333,
+       0.36363636363636365,
+       0.4,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667
+      ],
+      "capacity": 10,
+      "runningCost": 7.84,
+      "ticketPrice": 9,
+      "reliability": 86
+     },
+     "paidCost": 3030
+    }
+   ],
+   "transactions": [
+    {
+     "id": 3,
+     "amount": -7.84,
+     "label": "Star Chaser cycle operation",
+     "category": "ride-operations",
+     "tick": 0
+    },
+    {
+     "id": 2,
+     "amount": 9,
+     "label": "Star Chaser tickets",
+     "category": "ride-revenue",
+     "tick": 0
+    },
+    {
+     "id": 1,
+     "amount": -3030,
+     "label": "Built Star Chaser (32 pieces)",
+     "category": "construction",
+     "tick": 0
+    }
+   ]
+  }
+ },
+ "hilldip-serpent": {
+  "valid": {
+   "ok": true
+  },
+  "stats": {
+   "pieces": 32,
+   "turns": 4,
+   "drops": 4,
+   "totalDescent": 8,
+   "biggestDrop": 3,
+   "highestHeight": 3,
+   "loops": 0,
+   "boosts": 0,
+   "topSpeed": 6,
+   "excitement": 92,
+   "intensity": 65.2,
+   "durationSeconds": 19,
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    0.26666666666666666,
+    0.17699115044247787,
+    0.16666666666666666,
+    0.625,
+    0.625,
+    0.625,
+    0.2857142857142857,
+    0.18518518518518517,
+    0.1941747572815534,
+    0.625,
+    0.5405405405405405,
+    0.26666666666666666,
+    0.17699115044247787,
+    0.18518518518518517,
+    0.625,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365,
+    0.4,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667
+   ],
+   "capacity": 8,
+   "runningCost": 7.84,
+   "ticketPrice": 9.5,
+   "reliability": 80
+  },
+  "profile": {
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    0.26666666666666666,
+    0.17699115044247787,
+    0.16666666666666666,
+    0.625,
+    0.625,
+    0.625,
+    0.2857142857142857,
+    0.18518518518518517,
+    0.1941747572815534,
+    0.625,
+    0.5405405405405405,
+    0.26666666666666666,
+    0.17699115044247787,
+    0.18518518518518517,
+    0.625,
+    0.2857142857142857,
+    0.3076923076923077,
+    0.3333333333333333,
+    0.36363636363636365,
+    0.4,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667,
+    0.4166666666666667
+   ],
+   "topSpeed": 6,
+   "totalTravelSeconds": 13.009032419041867
+  },
+  "cost": 4090,
+  "heads": [
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2.2799999999999985,
+   3.0400000000000005,
+   3.8,
+   4.56,
+   5.370000000000002,
+   6.504222972972969,
+   8.994809854101891,
+   9.758615961093838,
+   10.518615961093836,
+   11.27861596109384,
+   12.084472414892767,
+   14.14541284963851,
+   15.494497196004199,
+   16.294262382879857,
+   17.35070077610782,
+   19.674256905205866,
+   20.663483527468404,
+   21.926370216337137,
+   23.438811833783486,
+   24.791827514301527,
+   25.998252285728658,
+   27.13832219429951,
+   28.278322194299513,
+   29.418322194299517,
+   30.558322194299514,
+   31.698322194299514,
+   32.83832219429951,
+   33.978322194299516
+  ],
+  "sim": {
+   "joined": "joined",
+   "completedCycles": 1,
+   "ridersToday": 1,
+   "condition": 96.52432,
+   "cash": 45911.66,
+   "snapshot": {
+    "objectId": 1,
+    "definitionId": "skyline-serpent",
+    "name": "Skyline Serpent",
+    "open": true,
+    "closureReason": null,
+    "status": "idle",
+    "ticketPrice": 9.5,
+    "queueLength": 0,
+    "estimatedWaitSeconds": 0,
+    "capacity": 8,
+    "rideDurationSeconds": 19,
+    "cycleRemainingSeconds": 0,
+    "ridersToday": 1,
+    "lifetimeRevenue": 9.5,
+    "operatingCost": 7.84,
+    "throughputPerHour": 60,
+    "satisfaction": 83.35599999999998,
+    "condition": 96.52432,
+    "reliability": 80,
+    "broken": false,
+    "pendingBreakdown": false,
+    "breakdownChance": 0,
+    "breakdownCount": 0,
+    "inspectionsCompleted": 0,
+    "repairsCompleted": 0,
+    "lifetimeMaintenanceCost": 0,
+    "maintenanceKind": null,
+    "maintenanceProgress": 0,
+    "sceneryScore": 0,
+    "sceneryChoiceBonus": 0,
+    "scenerySatisfactionBonus": 0,
+    "excitement": 92,
+    "intensity": 65.2,
+    "coaster": {
+     "pieces": 32,
+     "turns": 4,
+     "drops": 4,
+     "totalDescent": 8,
+     "highestHeight": 3,
+     "topSpeed": 6,
+     "loops": 0,
+     "boosts": 0
+    }
+   }
+  },
+  "world": {
+   "mapWidth": 32,
+   "mapHeight": 32,
+   "constructionCostMultiplier": 1,
+   "cash": 45911.66,
+   "tick": 0,
+   "parkOpen": true,
+   "demolitions": 0,
+   "nextObjectId": 2,
+   "nextTransactionId": 4,
+   "version": 1,
+   "pathVersion": 0,
+   "paths": [
+    {
+     "x": 15,
+     "y": 31
+    }
+   ],
+   "objects": [
+    {
+     "id": 1,
+     "definitionId": "skyline-serpent",
+     "anchor": {
+      "x": 4,
+      "y": 4
+     },
+     "rotation": 0
+    }
+   ],
+   "coasters": [
+    {
+     "objectId": 1,
+     "pieces": [
+      {
+       "cell": {
+        "x": 4,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 4
+       },
+       "height": 3
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 4
+       },
+       "height": 3
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 13,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 14,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 15,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 16,
+        "y": 4
+       },
+       "height": 3
+      },
+      {
+       "cell": {
+        "x": 16,
+        "y": 5
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 16,
+        "y": 6
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 16,
+        "y": 7
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 16,
+        "y": 8
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 15,
+        "y": 8
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 14,
+        "y": 8
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 13,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 8
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 6
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 5
+       },
+       "height": 0
+      }
+     ],
+     "stats": {
+      "pieces": 32,
+      "turns": 4,
+      "drops": 4,
+      "totalDescent": 8,
+      "biggestDrop": 3,
+      "highestHeight": 3,
+      "loops": 0,
+      "boosts": 0,
+      "topSpeed": 6,
+      "excitement": 92,
+      "intensity": 65.2,
+      "durationSeconds": 19,
+      "travelSeconds": [
+       0.4166666666666667,
+       0.4166666666666667,
+       0.625,
+       0.625,
+       0.625,
+       0.5405405405405405,
+       0.26666666666666666,
+       0.17699115044247787,
+       0.16666666666666666,
+       0.625,
+       0.625,
+       0.625,
+       0.2857142857142857,
+       0.18518518518518517,
+       0.1941747572815534,
+       0.625,
+       0.5405405405405405,
+       0.26666666666666666,
+       0.17699115044247787,
+       0.18518518518518517,
+       0.625,
+       0.2857142857142857,
+       0.3076923076923077,
+       0.3333333333333333,
+       0.36363636363636365,
+       0.4,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667,
+       0.4166666666666667
+      ],
+      "capacity": 8,
+      "runningCost": 7.84,
+      "ticketPrice": 9.5,
+      "reliability": 80
+     },
+     "paidCost": 4090
+    }
+   ],
+   "transactions": [
+    {
+     "id": 3,
+     "amount": -7.84,
+     "label": "Skyline Serpent cycle operation",
+     "category": "ride-operations",
+     "tick": 0
+    },
+    {
+     "id": 2,
+     "amount": 9.5,
+     "label": "Skyline Serpent tickets",
+     "category": "ride-revenue",
+     "tick": 0
+    },
+    {
+     "id": 1,
+     "amount": -4090,
+     "label": "Built Skyline Serpent (32 pieces)",
+     "category": "construction",
+     "tick": 0
+    }
+   ]
+  }
+ },
+ "loops-serpent": {
+  "valid": {
+   "ok": true
+  },
+  "stats": {
+   "pieces": 24,
+   "turns": 4,
+   "drops": 1,
+   "totalDescent": 2,
+   "biggestDrop": 2,
+   "highestHeight": 2,
+   "loops": 2,
+   "boosts": 1,
+   "topSpeed": 6,
+   "excitement": 79,
+   "intensity": 68.2,
+   "durationSeconds": 15.9,
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    2,
+    0.5714285714285714,
+    0.5,
+    0.4444444444444444,
+    0.24096385542168672,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.6818181818181818,
+    0.24096385542168672,
+    0.2564102564102564,
+    0.273972602739726,
+    0.20202020202020202,
+    0.2127659574468085,
+    0.2247191011235955,
+    0.23809523809523808,
+    0.2531645569620253,
+    0.27027027027027023
+   ],
+   "capacity": 8,
+   "runningCost": 8.98,
+   "ticketPrice": 8.5,
+   "reliability": 80
+  },
+  "profile": {
+   "travelSeconds": [
+    0.4166666666666667,
+    0.4166666666666667,
+    0.625,
+    0.625,
+    0.5405405405405405,
+    2,
+    0.5714285714285714,
+    0.5,
+    0.4444444444444444,
+    0.24096385542168672,
+    0.16666666666666666,
+    0.17391304347826086,
+    0.18181818181818182,
+    0.19047619047619047,
+    0.6818181818181818,
+    0.24096385542168672,
+    0.2564102564102564,
+    0.273972602739726,
+    0.20202020202020202,
+    0.2127659574468085,
+    0.2247191011235955,
+    0.23809523809523808,
+    0.2531645569620253,
+    0.27027027027027023
+   ],
+   "topSpeed": 6,
+   "totalTravelSeconds": 9.947785049915867
+  },
+  "cost": 3600,
+  "heads": [
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2.576000000000002,
+   3.2120000000000006,
+   3.847999999999999,
+   4.5596250000000005,
+   5.0797297297297295,
+   5.27847972972973,
+   5.47722972972973,
+   5.675979729729729,
+   5.874729729729729,
+   6.257179054054054,
+   6.952804054054056,
+   7.74106177606178,
+   8.603069498069496,
+   9.917508740883742,
+   12.203735829109066,
+   14.09129780839734,
+   14.67429780839734,
+   15.728035844215194,
+   17.275780174074963,
+   18.98546386621125,
+   20.808998651915257,
+   22.460108287066568,
+   23.96502864864463,
+   24.93131588020192,
+   25.88531588020192
+  ],
+  "sim": {
+   "joined": "joined",
+   "completedCycles": 1,
+   "ridersToday": 1,
+   "condition": 96.50344,
+   "cash": 46399.52,
+   "snapshot": {
+    "objectId": 1,
+    "definitionId": "skyline-serpent",
+    "name": "Skyline Serpent",
+    "open": true,
+    "closureReason": null,
+    "status": "idle",
+    "ticketPrice": 8.5,
+    "queueLength": 0,
+    "estimatedWaitSeconds": 0,
+    "capacity": 8,
+    "rideDurationSeconds": 15.9,
+    "cycleRemainingSeconds": 0,
+    "ridersToday": 1,
+    "lifetimeRevenue": 8.5,
+    "operatingCost": 8.98,
+    "throughputPerHour": 60,
+    "satisfaction": 79.346,
+    "condition": 96.50344,
+    "reliability": 80,
+    "broken": false,
+    "pendingBreakdown": false,
+    "breakdownChance": 0,
+    "breakdownCount": 0,
+    "inspectionsCompleted": 0,
+    "repairsCompleted": 0,
+    "lifetimeMaintenanceCost": 0,
+    "maintenanceKind": null,
+    "maintenanceProgress": 0,
+    "sceneryScore": 0,
+    "sceneryChoiceBonus": 0,
+    "scenerySatisfactionBonus": 0,
+    "excitement": 79,
+    "intensity": 68.2,
+    "coaster": {
+     "pieces": 24,
+     "turns": 4,
+     "drops": 1,
+     "totalDescent": 2,
+     "highestHeight": 2,
+     "topSpeed": 6,
+     "loops": 2,
+     "boosts": 1
+    }
+   }
+  },
+  "world": {
+   "mapWidth": 32,
+   "mapHeight": 32,
+   "constructionCostMultiplier": 1,
+   "cash": 46399.52,
+   "tick": 0,
+   "parkOpen": true,
+   "demolitions": 0,
+   "nextObjectId": 2,
+   "nextTransactionId": 4,
+   "version": 1,
+   "pathVersion": 0,
+   "paths": [
+    {
+     "x": 15,
+     "y": 31
+    }
+   ],
+   "objects": [
+    {
+     "id": 1,
+     "definitionId": "skyline-serpent",
+     "anchor": {
+      "x": 4,
+      "y": 4
+     },
+     "rotation": 0
+    }
+   ],
+   "coasters": [
+    {
+     "objectId": 1,
+     "pieces": [
+      {
+       "cell": {
+        "x": 4,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 4
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 4
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 4
+       },
+       "height": 2,
+       "special": "loop"
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 4
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 5
+       },
+       "height": 2
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 6
+       },
+       "height": 1
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 12,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 11,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 10,
+        "y": 8
+       },
+       "height": 0,
+       "special": "loop"
+      },
+      {
+       "cell": {
+        "x": 9,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 8,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 7,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 6,
+        "y": 8
+       },
+       "height": 0,
+       "special": "boost"
+      },
+      {
+       "cell": {
+        "x": 5,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 8
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 7
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 6
+       },
+       "height": 0
+      },
+      {
+       "cell": {
+        "x": 4,
+        "y": 5
+       },
+       "height": 0
+      }
+     ],
+     "stats": {
+      "pieces": 24,
+      "turns": 4,
+      "drops": 1,
+      "totalDescent": 2,
+      "biggestDrop": 2,
+      "highestHeight": 2,
+      "loops": 2,
+      "boosts": 1,
+      "topSpeed": 6,
+      "excitement": 79,
+      "intensity": 68.2,
+      "durationSeconds": 15.9,
+      "travelSeconds": [
+       0.4166666666666667,
+       0.4166666666666667,
+       0.625,
+       0.625,
+       0.5405405405405405,
+       2,
+       0.5714285714285714,
+       0.5,
+       0.4444444444444444,
+       0.24096385542168672,
+       0.16666666666666666,
+       0.17391304347826086,
+       0.18181818181818182,
+       0.19047619047619047,
+       0.6818181818181818,
+       0.24096385542168672,
+       0.2564102564102564,
+       0.273972602739726,
+       0.20202020202020202,
+       0.2127659574468085,
+       0.2247191011235955,
+       0.23809523809523808,
+       0.2531645569620253,
+       0.27027027027027023
+      ],
+      "capacity": 8,
+      "runningCost": 8.98,
+      "ticketPrice": 8.5,
+      "reliability": 80
+     },
+     "paidCost": 3600
+    }
+   ],
+   "transactions": [
+    {
+     "id": 3,
+     "amount": -8.98,
+     "label": "Skyline Serpent cycle operation",
+     "category": "ride-operations",
+     "tick": 0
+    },
+    {
+     "id": 2,
+     "amount": 8.5,
+     "label": "Skyline Serpent tickets",
+     "category": "ride-revenue",
+     "tick": 0
+    },
+    {
+     "id": 1,
+     "amount": -3600,
+     "label": "Built Skyline Serpent (24 pieces)",
+     "category": "construction",
+     "tick": 0
+    }
+   ]
+  }
+ }
+}

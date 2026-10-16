@@ -1,0 +1,15 @@
+.git
+node_modules
+out
+dist
+build
+release
+.env
+.env.*
+*.zip
+*.glb
+*.gltf
+*.stl
+*.pdf
+saves
+assets

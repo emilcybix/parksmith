@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "uiScale": 100,
+  "reducedMotion": "system",
+  "weatherEffects": "full",
+  "lightningFlashes": true,
+  "cameraKeySpeed": "normal",
+  "cameraZoomStep": "normal",
+  "autosaveMinutes": 2,
+  "notifications": "all",
+  "developerTools": false,
+  "keybindings": {
+    "toggleGrid": "k:j",
+    "peek": null,
+    "speed1": "shift+c:Digit5",
+    "panUp": "c:KeyZ",
+    "mystery": "k:q",
+    "rotate": "k:g"
+  }
+}

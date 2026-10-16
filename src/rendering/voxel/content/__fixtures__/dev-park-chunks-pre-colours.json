@@ -1,0 +1,41 @@
+{
+ "note": "StaticWorld.chunkHash of every chunk of the seeded dev park with REGISTRY content, captured BEFORE Phase 28 colour tags",
+ "chunkCount": 16,
+ "totalBoxes": 15401,
+ "hashes": [
+  "9f12e7dde0f8f069",
+  "060e1abdac1f1f15",
+  "afd15b7d7f05a520",
+  "028c01fdd3b23482",
+  "71c396856b726e87",
+  "d7a7ee917c8452af",
+  "1b55e8f43a425b13",
+  "2bac01fd9e6d8053",
+  "19857663fc8b5f1c",
+  "92d17d55f3af4222",
+  "875b49b42d9cdf08",
+  "3fba33bd156afa0b",
+  "fa2c9afd7ad05ded",
+  "a03c648e14323176",
+  "0d1f80f6c3d11d30",
+  "9ea1b82362f2ecd0"
+ ],
+ "boxes": [
+  115,
+  204,
+  6,
+  2,
+  369,
+  1505,
+  2218,
+  2,
+  26,
+  1925,
+  1826,
+  112,
+  134,
+  4574,
+  2373,
+  10
+ ]
+}

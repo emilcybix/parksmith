@@ -1,0 +1,50 @@
+# Phase 19: the alpha's deployment pipeline. Every push to main is checked (lint, types, tests) and built; the build is
+# published to GitHub Pages. Needs "Pages: GitHub Actions" enabled in the repository settings. The public path is the
+# repository name (a project site); set PARKSMITH_BASE to "/" for a custom domain or a user site.
+name: Deploy alpha
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn lint
+      - run: yarn typecheck
+      - run: yarn test
+      - run: yarn build
+        env:
+          PARKSMITH_BASE: /${{ github.event.repository.name }}/
+          # Optional: an https: or mailto: address the feedback form links to (Settings > Variables).
+          VITE_FEEDBACK_URL: ${{ vars.PARKSMITH_FEEDBACK_URL }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

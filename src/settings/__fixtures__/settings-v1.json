@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "uiScale": 115,
+  "reducedMotion": "on",
+  "weatherEffects": "reduced",
+  "lightningFlashes": false,
+  "cameraKeySpeed": "fast",
+  "cameraZoomStep": "slow",
+  "autosaveMinutes": 5,
+  "notifications": "important",
+  "developerTools": true
+}

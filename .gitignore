@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+*.out
+.claude/settings.local.json
+.voxel-handoff/
+.env
+.env.*

@@ -1,0 +1,464 @@
+{
+  "note": "Phase 28 step 2 baseline (taken before any step-2 change): sha16 of sceneFingerprint of every non-flat-ride object display of the colour test park per view rotation, the entrance, the classic trains and every non-ride build preview. A default (uncoloured) art must still equal these. Phase 22 added the previews of Cactus Cooler, Cocoa Chalet and Lantern Maple (new entries; captured when they were added). Phase 16 added the previews of its two stalls and seven themed scenery pieces (the classic renderer's generic stall and flower-bed fallbacks; captured when they were added).",
+  "objects": {
+    "picnic-pocket#13": {
+      "v0": "41f8df626c1f5c63",
+      "v1": "21cd8e106ead504f",
+      "v2": "1321bf475d3d5ebc",
+      "v3": "96eacf5b471f841c"
+    },
+    "fizz-foundry#14": {
+      "v0": "1088d8c529f69562",
+      "v1": "1d4ccf766a25b2f3",
+      "v2": "71b60e6dbc736b66",
+      "v3": "fb1c954851e3e5ca"
+    },
+    "comfort-cabin#15": {
+      "v0": "e886f4b47ab4ec49",
+      "v1": "94416a38a01db745",
+      "v2": "3a73b6b0316cfaa5",
+      "v3": "cb0eefb70d8d9815"
+    },
+    "glacier-scoop#16": {
+      "v0": "e297dddbeaa1bf0b",
+      "v1": "5faeafb5be046089",
+      "v2": "07b3e9beb549f3f9",
+      "v3": "b9e6737bc59b3ecc"
+    },
+    "lemon-light#17": {
+      "v0": "aaa971d52dd980a8",
+      "v1": "18596d27382f8ee5",
+      "v2": "f3572c483e2d4bb3",
+      "v3": "c94fae2d3c632069"
+    },
+    "waffle-windmill#18": {
+      "v0": "04025f06d4645e18",
+      "v1": "22fd3031c3eef343",
+      "v2": "17832bb4be233e6e",
+      "v3": "27cc09d550c74731"
+    },
+    "snack-sprint#19": {
+      "v0": "a01bfb3ff77b5c03",
+      "v1": "5fce78fb1dfedf2f",
+      "v2": "ec2febe73ec36982",
+      "v3": "22172348ec5dcd74"
+    },
+    "comfort-pavilion#20": {
+      "v0": "1096cd1b3211258c",
+      "v1": "4fdbecdac4080a8b",
+      "v2": "a9a842bcf44f13fb",
+      "v3": "44d406e03e6c9b13"
+    },
+    "comfort-cabin#21": {
+      "v0": "4b6baefb9e774d6d",
+      "v1": "db1c023b4f462c9a",
+      "v2": "31be3773bf8d9b16",
+      "v3": "6ca4c4c90cdb0e1f"
+    },
+    "star-chaser#22": {
+      "v0": "212f9d6de2b7ad18",
+      "v1": "7ad936b88f59ad37",
+      "v2": "e75ab69cf366e495",
+      "v3": "4b09ab7b44c731b2"
+    },
+    "tidy-totem#23": {
+      "v0": "68da9fc437cc5c7e",
+      "v1": "5b73ad1a8f3ded3a",
+      "v2": "e8ee1e01774da10a",
+      "v3": "2a4663b1cf12188a"
+    },
+    "ribbon-bench#24": {
+      "v0": "21c6d526df876e92",
+      "v1": "3882f7fcbddd5d0b",
+      "v2": "8f28de7ab967ee66",
+      "v3": "2da83a9e2e477cb5"
+    },
+    "confetti-tree#25": {
+      "v0": "869c50009ef0ab6a",
+      "v1": "d091273e6cd63b25",
+      "v2": "13e3f6f9a3797dc7",
+      "v3": "e76b790b22e5bf3a"
+    },
+    "tidy-totem#26": {
+      "v0": "d448b434b1cd81e6",
+      "v1": "4b4a825510597b87",
+      "v2": "514e360ffbddc2ce",
+      "v3": "fe2c3b7a925edacb"
+    },
+    "lollipop-lamp#27": {
+      "v0": "cc4771efa3d46ce6",
+      "v1": "70f1030740f3662e",
+      "v2": "95e4c72000c0bf1a",
+      "v3": "31ba6b1d72e44acf"
+    },
+    "sunburst-flowers#28": {
+      "v0": "1eb9a4c6312838be",
+      "v1": "34c415a8d8a1379b",
+      "v2": "c5f022d54280d9e9",
+      "v3": "43a83a09457d49f1"
+    },
+    "tidy-totem#29": {
+      "v0": "26899ff46a8438c8",
+      "v1": "d8a7fe5032e3a68f",
+      "v2": "77f84eb6791356f0",
+      "v3": "660aaf623606b345"
+    },
+    "ribbon-bench#30": {
+      "v0": "06eeb8086310d443",
+      "v1": "a9a69fa134bd1f8b",
+      "v2": "4ae8ccd9d520e8c7",
+      "v3": "bb130dba20d24053"
+    },
+    "sunburst-flowers#31": {
+      "v0": "a7f000812a45d3cf",
+      "v1": "c4c660b8608644d1",
+      "v2": "a6cc5f05d09fdb36",
+      "v3": "7b2ff0eb0670e6d5"
+    },
+    "lollipop-lamp#32": {
+      "v0": "39de81abb2fc166e",
+      "v1": "67f7a6cb0a05762b",
+      "v2": "5e12c00b728b5901",
+      "v3": "b78a57429b828adc"
+    },
+    "tidy-totem#33": {
+      "v0": "c7171423449e8ea5",
+      "v1": "1674323946a011d8",
+      "v2": "3c3330dd27d572e5",
+      "v3": "06442fc9305ecc31"
+    },
+    "ribbon-bench#34": {
+      "v0": "a7f3a302b6981c05",
+      "v1": "c705c6180d9e5d4c",
+      "v2": "90f46a5e1efb2e92",
+      "v3": "645cebafbae6f58d"
+    },
+    "confetti-tree#35": {
+      "v0": "f4aeb5865d393581",
+      "v1": "19463062b25d478e",
+      "v2": "7c23044a8bcc418a",
+      "v3": "eed70b8837ca3b0c"
+    },
+    "tidy-totem#36": {
+      "v0": "b6d021a93d665d79",
+      "v1": "a7a7755c32e8f765",
+      "v2": "903bfc46c3d752f9",
+      "v3": "6b81dfd8c3826b3a"
+    },
+    "lollipop-lamp#37": {
+      "v0": "f8364772f8d5accd",
+      "v1": "52c9c4f9ce204a9a",
+      "v2": "2354c7b19e922057",
+      "v3": "a654cbe1fffc612c"
+    },
+    "sunburst-flowers#38": {
+      "v0": "e44f16fe27a5c2db",
+      "v1": "9a0dafe7b949dd4a",
+      "v2": "fbe7a5e6aedb312e",
+      "v3": "ee2d33bd86ebc07a"
+    },
+    "tidy-totem#39": {
+      "v0": "0733ca0f6ce28e9d",
+      "v1": "489bbbfc7fe41f0f",
+      "v2": "13adde81898d566d",
+      "v3": "cbd074a8ad5bbc5b"
+    },
+    "ribbon-bench#40": {
+      "v0": "19e4cf7cfe5ebc54",
+      "v1": "65d67d39f0d7f8a3",
+      "v2": "0e7ae6f403264196",
+      "v3": "23398c3041abbe5d"
+    },
+    "sunburst-flowers#41": {
+      "v0": "d5a6a83ed42e1116",
+      "v1": "cf875e15cca9edbe",
+      "v2": "308ed7924c3874e5",
+      "v3": "8aab7ed1bedbaec9"
+    },
+    "lollipop-lamp#42": {
+      "v0": "4c0be5ee75fb1c4f",
+      "v1": "279c45e1454246f8",
+      "v2": "d868dc3ede2c134a",
+      "v3": "e1fe6329959351de"
+    },
+    "tidy-totem#43": {
+      "v0": "53a57e5099972c57",
+      "v1": "5517ce65ae67256a",
+      "v2": "a6f8c4407dbb3ec2",
+      "v3": "f801b0edfe2750ec"
+    },
+    "ribbon-bench#44": {
+      "v0": "667e52ec1012022a",
+      "v1": "2d0db78462c08b89",
+      "v2": "b22f4957c188a5a7",
+      "v3": "9ad8aaacec1a839f"
+    },
+    "confetti-tree#45": {
+      "v0": "16d1968f4e334671",
+      "v1": "d7fe9ccbdccc0b9a",
+      "v2": "b17702f6405e9b86",
+      "v3": "1a2b0e2a68fde80e"
+    },
+    "tidy-totem#46": {
+      "v0": "d1acc45f0c458e7b",
+      "v1": "44337b5fd6f76d7f",
+      "v2": "271b7784df643a23",
+      "v3": "19cd7d30de201f54"
+    },
+    "lollipop-lamp#47": {
+      "v0": "f5154cbf181ed3d3",
+      "v1": "04fd33cbd8e0ba61",
+      "v2": "a85ae7473124a1bc",
+      "v3": "b27574bbcad0af64"
+    },
+    "sunburst-flowers#48": {
+      "v0": "ae037fa8ca0f690f",
+      "v1": "f604462c89e0ad82",
+      "v2": "5fdd3c8c2b85a17b",
+      "v3": "97b5a76a303a785c"
+    },
+    "tidy-totem#49": {
+      "v0": "a5d225e3db0f4a93",
+      "v1": "bc5c43e8ec96b249",
+      "v2": "b0f38bf6af3a357d",
+      "v3": "bfd8265e504ac7e6"
+    },
+    "ribbon-bench#50": {
+      "v0": "f3694bdbf16b6657",
+      "v1": "ef84745ba036ad28",
+      "v2": "4941d0fc5bbf7883",
+      "v3": "5b205cf80ac7ab24"
+    },
+    "sunburst-flowers#51": {
+      "v0": "29d5e48e6d2d15e0",
+      "v1": "1e93fa9758ec035c",
+      "v2": "9e55cca0434417ed",
+      "v3": "27fb983a34b6f0fe"
+    },
+    "lollipop-lamp#52": {
+      "v0": "760474e47d41e527",
+      "v1": "fbc9302fdaeb32f8",
+      "v2": "9121f6aeb404f5aa",
+      "v3": "e66c0373cb577a3d"
+    },
+    "tidy-totem#53": {
+      "v0": "16c96017c46f4fe5",
+      "v1": "8bd8416d73b674bd",
+      "v2": "16113079c15c2455",
+      "v3": "35ff120403318270"
+    },
+    "ribbon-bench#54": {
+      "v0": "f0a149f64b46c860",
+      "v1": "bbe5038039259ec4",
+      "v2": "48e50a2de74b2cb0",
+      "v3": "f3036061f4963d6b"
+    },
+    "confetti-tree#55": {
+      "v0": "a72d791cede2e895",
+      "v1": "9a1132bbfea95e70",
+      "v2": "5948811f317d610e",
+      "v3": "74b8045510913783"
+    },
+    "tidy-totem#56": {
+      "v0": "2324ee9b7efdbc9c",
+      "v1": "261d165b17a40c4c",
+      "v2": "53e4211648206d80",
+      "v3": "e065ae473fc5651c"
+    },
+    "lollipop-lamp#57": {
+      "v0": "acb786107047facf",
+      "v1": "fdf9b26e7ea91ca8",
+      "v2": "211bfab3024714ff",
+      "v3": "04be0d9424f531e0"
+    },
+    "sunburst-flowers#58": {
+      "v0": "7610c9a5c2568f23",
+      "v1": "6909dcbfa561256f",
+      "v2": "c064991ba70a9d3e",
+      "v3": "c9a9410d7a03f201"
+    },
+    "tidy-totem#59": {
+      "v0": "ddabe9f2c0ead55a",
+      "v1": "bb4d8a359437a8e6",
+      "v2": "81bff5e5f8a08341",
+      "v3": "2f39b1de30b9adf8"
+    },
+    "ribbon-bench#60": {
+      "v0": "bba14c9d740c4ba9",
+      "v1": "f7458e718c4ea1bb",
+      "v2": "896921934d53e852",
+      "v3": "7678752430c14eaf"
+    },
+    "sunburst-flowers#61": {
+      "v0": "d192a09998f39c26",
+      "v1": "f2d79fd8ca951b02",
+      "v2": "8d43ddff4b602401",
+      "v3": "140d0e373496fa51"
+    },
+    "lollipop-lamp#62": {
+      "v0": "7ca9f570db6b7d60",
+      "v1": "8c8b4d0715017475",
+      "v2": "a4ad308f417b1b58",
+      "v3": "08e581bb03d0421d"
+    },
+    "tidy-totem#63": {
+      "v0": "1b6470fc812a95d5",
+      "v1": "0d9dca506f40cd8e",
+      "v2": "ec9548aa48d4f1ab",
+      "v3": "238d3c67303bc25f"
+    },
+    "ribbon-bench#64": {
+      "v0": "51ee6ab887e8cc10",
+      "v1": "7b6a514d365662ec",
+      "v2": "7c20269072a635fd",
+      "v3": "d4ecbc919fca8110"
+    },
+    "confetti-tree#65": {
+      "v0": "9aa78802879bcab7",
+      "v1": "1639b19ffb236070",
+      "v2": "1f7a08bbabb67245",
+      "v3": "4c0583e39e17227d"
+    },
+    "tidy-totem#66": {
+      "v0": "bf7ba090b26bd8b0",
+      "v1": "4f10e2bf3873f8ac",
+      "v2": "9430c76c3b89f3c9",
+      "v3": "811e9565d29dc75b"
+    },
+    "comet-trail#67": {
+      "v0": "5374f82200054c16",
+      "v1": "602a3c3d76c17d2f",
+      "v2": "24b7cabfb4ae26fa",
+      "v3": "d58d1ba8e90fc31c"
+    },
+    "skyline-serpent#68": {
+      "v0": "1d45681cbfb60e1f",
+      "v1": "5e5281065c4eea51",
+      "v2": "c7181389eca4ad97",
+      "v3": "f63e35e63d4400fa"
+    },
+    "ripple-fountain#69": {
+      "v0": "f29d9a61f1d7c580",
+      "v1": "5f10a2e9e8965e0e",
+      "v2": "26cb4d1c4891371f",
+      "v3": "5cdc74e0e148389b"
+    }
+  },
+  "entrance": {
+    "v0": "6d8022e264015775",
+    "v1": "984840ffccdac3f7",
+    "v2": "5df0508bc16a1b2c",
+    "v3": "043652f3a52d80ef"
+  },
+  "trains": {
+    "comet-trail": "1d1adccb73dc6d32",
+    "star-chaser": "ca3e427d1360c61c",
+    "skyline-serpent": "ca894dd9de104434"
+  },
+  "previews": {
+    "picnic-pocket:r0:ok": "8eaefe67e847ac5e",
+    "picnic-pocket:r0:bad": "54b182477e1bf525",
+    "picnic-pocket:r1:ok": "8eaefe67e847ac5e",
+    "picnic-pocket:r1:bad": "54b182477e1bf525",
+    "fizz-foundry:r0:ok": "38a675f34cd3e116",
+    "fizz-foundry:r0:bad": "4d0bfa68a2bfb77d",
+    "fizz-foundry:r1:ok": "38a675f34cd3e116",
+    "fizz-foundry:r1:bad": "4d0bfa68a2bfb77d",
+    "glacier-scoop:r0:ok": "db81b369696aac7a",
+    "glacier-scoop:r0:bad": "c15d1b3e03eb0ed3",
+    "glacier-scoop:r1:ok": "db81b369696aac7a",
+    "glacier-scoop:r1:bad": "c15d1b3e03eb0ed3",
+    "lemon-light:r0:ok": "50f6a826b94b0dea",
+    "lemon-light:r0:bad": "f2084eccec01eb33",
+    "lemon-light:r1:ok": "50f6a826b94b0dea",
+    "lemon-light:r1:bad": "f2084eccec01eb33",
+    "waffle-windmill:r0:ok": "704d55f8a9540ad0",
+    "waffle-windmill:r0:bad": "dbc926f539254ff5",
+    "waffle-windmill:r1:ok": "704d55f8a9540ad0",
+    "waffle-windmill:r1:bad": "dbc926f539254ff5",
+    "snack-sprint:r0:ok": "f6ad576fb7b674a5",
+    "snack-sprint:r0:bad": "f222271efb7ad174",
+    "snack-sprint:r1:ok": "519d9a3fbb081d6b",
+    "snack-sprint:r1:bad": "b7e1f0298ba5de64",
+    "comfort-cabin:r0:ok": "b9b8efad72eac3c8",
+    "comfort-cabin:r0:bad": "09f840c7d6c8e11d",
+    "comfort-cabin:r1:ok": "b9b8efad72eac3c8",
+    "comfort-cabin:r1:bad": "09f840c7d6c8e11d",
+    "comfort-pavilion:r0:ok": "b6fc56792248ffa5",
+    "comfort-pavilion:r0:bad": "6df2e654c2930856",
+    "comfort-pavilion:r1:ok": "b97e3a6c7e638645",
+    "comfort-pavilion:r1:bad": "89904b8b8db76ba7",
+    "ribbon-bench:r0:ok": "c622ee8c9a5ad15f",
+    "ribbon-bench:r0:bad": "582411f2b7b48e81",
+    "ribbon-bench:r1:ok": "c622ee8c9a5ad15f",
+    "ribbon-bench:r1:bad": "582411f2b7b48e81",
+    "tidy-totem:r0:ok": "089f034177639431",
+    "tidy-totem:r0:bad": "e00fa466af11f0ff",
+    "tidy-totem:r1:ok": "089f034177639431",
+    "tidy-totem:r1:bad": "e00fa466af11f0ff",
+    "lollipop-lamp:r0:ok": "f44db53b7f004fa5",
+    "lollipop-lamp:r0:bad": "b336698a042f0217",
+    "lollipop-lamp:r1:ok": "f44db53b7f004fa5",
+    "lollipop-lamp:r1:bad": "b336698a042f0217",
+    "confetti-tree:r0:ok": "ff94e1c99d5cd6f0",
+    "confetti-tree:r0:bad": "0b19abfed8e433d6",
+    "confetti-tree:r1:ok": "ff94e1c99d5cd6f0",
+    "confetti-tree:r1:bad": "0b19abfed8e433d6",
+    "sunburst-flowers:r0:ok": "8fb74624d5757b13",
+    "sunburst-flowers:r0:bad": "af1e10b0be7eb8bd",
+    "sunburst-flowers:r1:ok": "8fb74624d5757b13",
+    "sunburst-flowers:r1:bad": "af1e10b0be7eb8bd",
+    "ripple-fountain:r0:ok": "6a32a1ec75d4764e",
+    "ripple-fountain:r0:bad": "dbbdfea0f55082c5",
+    "ripple-fountain:r1:ok": "6a32a1ec75d4764e",
+    "ripple-fountain:r1:bad": "dbbdfea0f55082c5",
+    "cactus-cooler:r0:ok": "6180329ced74f932",
+    "cactus-cooler:r0:bad": "557621e4884c8d72",
+    "cactus-cooler:r1:ok": "909d9b69052bb42a",
+    "cactus-cooler:r1:bad": "77d45beda930b8d1",
+    "cocoa-chalet:r0:ok": "0e35b730dcce7b99",
+    "cocoa-chalet:r0:bad": "1708e802dd9bfc37",
+    "cocoa-chalet:r1:ok": "0e35b730dcce7b99",
+    "cocoa-chalet:r1:bad": "1708e802dd9bfc37",
+    "lantern-maple:r0:ok": "dbf77b3048668c46",
+    "lantern-maple:r0:bad": "1f01c4936a172c49",
+    "lantern-maple:r1:ok": "dbf77b3048668c46",
+    "lantern-maple:r1:bad": "1f01c4936a172c49",
+    "pretzel-pram:r0:ok": "884142bf27fdc98d",
+    "pretzel-pram:r0:bad": "3cabf3c1e407d157",
+    "pretzel-pram:r1:ok": "210b9cf49a67e0ff",
+    "pretzel-pram:r1:bad": "8dfecccae7583aa9",
+    "coconut-cove:r0:ok": "a7d90535f6348ec5",
+    "coconut-cove:r0:bad": "3a50d2560816b9d7",
+    "coconut-cove:r1:ok": "a7d90535f6348ec5",
+    "coconut-cove:r1:bad": "3a50d2560816b9d7",
+    "bunting-mast:r0:ok": "d0db99c115e3b499",
+    "bunting-mast:r0:bad": "d7645bb43b367611",
+    "bunting-mast:r1:ok": "d0db99c115e3b499",
+    "bunting-mast:r1:bad": "d7645bb43b367611",
+    "shell-planter:r0:ok": "6334e4b8f01af166",
+    "shell-planter:r0:bad": "dcfd27ccf32821a8",
+    "shell-planter:r1:ok": "6334e4b8f01af166",
+    "shell-planter:r1:bad": "dcfd27ccf32821a8",
+    "harbor-lighthouse:r0:ok": "bcc326df1452459b",
+    "harbor-lighthouse:r0:bad": "cfa0da0db0a8c89a",
+    "harbor-lighthouse:r1:ok": "bcc326df1452459b",
+    "harbor-lighthouse:r1:bad": "cfa0da0db0a8c89a",
+    "tiki-torch:r0:ok": "6d2ffae1579e3f69",
+    "tiki-torch:r0:bad": "bc57c91b3725c84b",
+    "tiki-torch:r1:ok": "6d2ffae1579e3f69",
+    "tiki-torch:r1:bad": "bc57c91b3725c84b",
+    "jungle-idol:r0:ok": "d225876549c50345",
+    "jungle-idol:r0:bad": "5d7d715c38898e03",
+    "jungle-idol:r1:ok": "d225876549c50345",
+    "jungle-idol:r1:bad": "5d7d715c38898e03",
+    "neon-pylon:r0:ok": "6cf2ce7aee2fbb18",
+    "neon-pylon:r0:bad": "8f1488b2f6d30268",
+    "neon-pylon:r1:ok": "6cf2ce7aee2fbb18",
+    "neon-pylon:r1:bad": "8f1488b2f6d30268",
+    "orbit-globe:r0:ok": "f11ffb5ca202d68d",
+    "orbit-globe:r0:bad": "6faaa6e853e60a17",
+    "orbit-globe:r1:ok": "f11ffb5ca202d68d",
+    "orbit-globe:r1:bad": "6faaa6e853e60a17"
+  }
+}

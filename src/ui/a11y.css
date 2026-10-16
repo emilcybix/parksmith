@@ -1,0 +1,156 @@
+/*
+ * Accessibility layer (Phase 18). Loaded after styles.css and only ever adds: one focus ring for the
+ * whole interface, the structural helpers that real ARIA roles need, and text colours that clear
+ * WCAG AA on the cream paper. Layout lives in styles.css; nothing here moves a panel.
+ *
+ * THE RING. Two tones so it reads on cream paper, ink and the green panels alike: an ink outline
+ * with a cream gap inside it. Tokens, so a surface that is dark can swap them (`--focus-ring`).
+ * Contrast of the ring against the surface it sits on is checked by phase18/a11y-audit.mjs (>= 3:1,
+ * WCAG 1.4.11) at every UI scale; the ring is in CSS pixels inside the zoomed UI layer, so it scales
+ * with the interface.
+ */
+:root {
+  --focus-ring: #173f3b;
+  --focus-halo: #fffaf0;
+  --focus-width: 3px;
+  --focus-offset: 2px;
+}
+
+.ui-layer :is(a, button, input, select, textarea, summary, [tabindex], [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"]):focus-visible:where(:not([tabindex="-1"]:not(button, input, select, textarea, [role="tab"], [role="button"]))):where(:not(.menu-entry, .menu-back)) {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  box-shadow: 0 0 0 calc(var(--focus-offset) + 1px) var(--focus-halo);
+}
+
+/*
+ * Panels that clip their children (overflow hidden, for the rounded corners and the scroll area) would cut an outer ring off at
+ * their edge, so inside them the ring is drawn inward: the cream band first, then the ink one. Same colours, same width.
+ */
+.ui-layer :is(.pulse-card, .management-dashboard) :is(a, button, input, select, textarea, summary, [tabindex], [role="tab"]):focus-visible {
+  outline-offset: calc(var(--focus-width) * -1);
+  box-shadow: inset 0 0 0 var(--focus-width) var(--focus-halo);
+}
+
+/* Headings and panels that take focus programmatically (a dialog's title) are not controls: no ring. */
+.ui-layer [tabindex="-1"]:focus:not(button, input, select, textarea, [role="tab"], [role="button"]) { outline: none; }
+
+/* The category tabs sit in one flex row with the tool buttons; the tablist wrapper must not break that row. */
+.category-tablist { display: contents; }
+
+/*
+ * MUTED TEXT. Every small-print colour in styles.css below 4.5:1 on the cream paper (WCAG 1.4.3), darkened in the same hue until it clears 4.6:1 on the
+ * darkest paper tint (#e6eee1). Light text on the ink and green panels is left alone. Generated from styles.css; the a11y audit
+ * (axe color-contrast over every state) is what proves the list is complete, and `a11yCss.test.ts` checks it never contradicts styles.css.
+ */
+.brand small { color: #556d65; } /* was #719086 */
+.clock-chip small { color: #566c65; } /* was #749187 */
+.clock-phase { color: #526e65; } /* was #5f7f75 */
+.weather-chip small { color: #566c65; } /* was #749187 */
+.clock-setting-title { color: #566c65; } /* was #749187 */
+.clock-segments button { color: #526e65; } /* was #5f7f75 */
+.clock-help { color: #526e65; } /* was #5f7f75 */
+.speed-controls button { color: #596c64; } /* was #70887e */
+.cash-pill small { color: #566c65; } /* was #749187 */
+.management-tabs button { color: #5a6b64; } /* was #71877e */
+.management-loading { color: #586b65; } /* was #769087 */
+.management-kpis small, .finance-summary small { color: #5d6c66; } /* was #80958c */
+.management-kpis strong.negative, .finance-summary strong.negative, .negative { color: #b04358; } /* was #c24a61 */
+.research-summary small { color: #5d6c66; } /* was #80958c */
+.research-summary em { color: #5c6b65; } /* was #81958d */
+.research-intro p, .research-category > p { color: #596c65; } /* was #6d847c */
+.research-milestones article > span small { color: #5d6c66; } /* was #7f938b */
+.research-milestones article > span em { color: #866223; } /* was #997028 */
+.research-project > header small { color: #5d6c66; } /* was #7d9189 */
+.research-project-costs small { color: #5d6a65; } /* was #82948d */
+.research-requirements dt { color: #5c6b65; } /* was #81958d */
+.research-requirements .met dd::before { color: #1b7657; } /* was #21906b */
+.research-project-action span { color: #5c6c66; } /* was #788d85 */
+.management-section > header span small { color: #5d6c66; } /* was #82978e */
+.management-section > header > b small { color: #5d6c66; } /* was #80948c */
+.mini-chart.empty { color: #5d6c65; } /* was #8aa096 */
+.rating-factor > span small { color: #5d6b66; } /* was #82968e */
+.operations-grid small { color: #5c6a64; } /* was #81948c */
+.need-chips span { color: #546c65; } /* was #638078 */
+.operations-summary small { color: #5d6c66; } /* was #80958c */
+.operations-summary em { color: #5d6c66; } /* was #80958c */
+.operations-summary > span.warning strong, .management-section > header > b.warning { color: #8f5e1c; } /* was #a16a20 */
+.operations-detail-grid small { color: #5c6a64; } /* was #81948c */
+.staff-copy small { color: #5d6c66; } /* was #7e928a */
+.staff-payroll small { color: #5e6b66; } /* was #83968f */
+.staff-payroll em { color: #5f6b66; } /* was #8a9c95 */
+.staff-training-level { color: #606b66; } /* was #7c8a83 */
+.staff-actions button { color: #596c65; } /* was #6b8179 */
+.dashboard-insights p.empty-copy, .empty-copy { color: #5d6b66; } /* was #82968e */
+.trend-grid header small { color: #5d6b65; } /* was #84978f */
+.finance-categories span small { color: #5e6b66; } /* was #879a92 */
+.recent-transactions small { color: #5e6b66; } /* was #879a92 */
+.activity-list article small { color: #5d6b65; } /* was #83978f */
+.category-tabs button { color: #5b6b65; } /* was #72877f */
+.category-tabs .rotate-tab { color: #387262; } /* was #3f7f6e */
+.build-copy small { color: #5d6b65; } /* was #82958d */
+.build-scenery-stat { color: #28755d; } /* was #2c8167 */
+.ride-inspector header small { color: #5d6c65; } /* was #84998f */
+.ride-inspector header button { color: #5b6c65; } /* was #758b82 */
+.ride-status { color: #586c64; } /* was #667d74 */
+.ride-condition-panel header small { color: #5d6c66; } /* was #80948c */
+.ride-condition-stats small { color: #5e6b66; } /* was #83968f */
+.ride-condition-stats em { color: #5d6b65; } /* was #84978f */
+.scenery-impact header small { color: #596b64; } /* was #779086 */
+.scenery-impact > div:last-child small { color: #5c6a64; } /* was #81948c */
+.ride-metrics small { color: #5d6b66; } /* was #82968e */
+.ride-details dt { color: #5c6c65; } /* was #7b9188 */
+.management-notifications button small { color: #566c65; } /* was #668078 */
+.scenario-picker > header small { color: #586c5b; } /* was #79957e */
+.scenario-card .scenario-tagline { color: #3f725c; } /* was #4d8a70 */
+.scenario-card dt { color: #586c5b; } /* was #79957e */
+.scenario-result small { color: #586c5b; } /* was #79957e */
+.scenario-result.failed h2 { color: #bc3750; } /* was #cf3d58 */
+.scenario-result-meta { color: #586c5b; } /* was #79957e */
+.loadout-constraint { color: #8a5f2a; } /* was #9a6a2f */
+.loadout-cards header em { color: #586c5b; } /* was #79957e */
+.pulse-card-tile small { color: #586c5b; } /* was #79957e */
+.loadout-neutral { color: #586c5b; } /* was #79957e */
+.coaster-persist-hint { color: #576d65; } /* was #6f8b81 */
+.coaster-panel > header small { color: #586c5b; } /* was #79957e */
+.coaster-height-row > small { color: #586c5b; } /* was #79957e */
+.coaster-height-row em { color: #586c5b; } /* was #79957e */
+.coaster-stats small { color: #586c5b; } /* was #79957e */
+.coaster-validation { color: #8a5f2a; } /* was #9a6a2f */
+.coaster-specials-row > small { color: #586c5b; } /* was #79957e */
+.build-intensity-tag.designer { color: #8a5f2a; } /* was #9a6a2f */
+.building-sort button { color: #596c65; } /* was #6b8179 */
+.building-identity small { color: #5d6c66; } /* was #7b8f87 */
+.building-identity em { color: #5f6a65; } /* was #93a49c */
+.building-metric small { color: #5f6a65; } /* was #93a49c */
+.building-metric.warning strong { color: #8c5f23; } /* was #a5702a */
+.saves-dialog > header small { color: #586c5b; } /* was #79957e */
+.saves-dirty { color: #8a5f2a; } /* was #9a6a2f */
+.saves-state { color: #566c65; } /* was #668078 */
+.save-tag { color: #506f64; } /* was #5c7f72 */
+.save-row.empty .save-name { color: #5e6b65; } /* was #8da197 */
+.save-sub { color: #566c65; } /* was #668078 */
+.save-stats dt { color: #586c5b; } /* was #79957e */
+.saves-dialog > footer { color: #586c5b; } /* was #79957e */
+.recovery-dialog > small { color: #586c5b; } /* was #79957e */
+.recovery-card dt { color: #586c5b; } /* was #79957e */
+.recovery-note { color: #586c5b; } /* was #79957e */
+.settings-group > h3, .settings-developer > summary { color: #586c5b; } /* was #79957e */
+.settings-hint { color: #536e66; } /* was #5d7b72 */
+.menu-brand small { color: #586c5b; } /* was #79957e */
+.menu-entry-detail { color: #526e66; } /* was #5f7f76 */
+.menu-foot { color: #586c5b; } /* was #79957e */
+.menu-version { color: #586c5b; } /* was #79957e */
+.menu-changelog h3 small { color: #586c5b; } /* was #79957e */
+
+/* The start / pause menu draws its own ring (white gap, then a coloured band); the coral band on the primary entry is only 2.6:1 on its surface. */
+.menu-entry.primary:focus-visible,
+.menu-back:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--focus-ring); }
+
+/* Small print on tinted chips and pills: the mint green and the grey placeholders are below 4.5:1 on their own tints. */
+.clock-segments button small { opacity: 1; }
+.coaster-validation.ready,
+.build-intensity-tag.gentle,
+.saves-notice .save-notice,
+.save-row.auto .save-tag { color: #0f7355; }
+
+.coaster-lift-rows > small { color: #586c5b; } /* was #79957e */

@@ -1,0 +1,95 @@
+{
+ "_note": "Phase 28 step 2: the extended colour test park (dev park + Comet Trail + Skyline Serpent + Ripple Fountain, game/session/colourTestPark.ts) built with REGISTRY content and DEFAULT colours, BEFORE any step-2 change: per chunk box count and StaticWorld.chunkHash. Coaster chunk sets are pinned too.",
+ "chunkCount": 16,
+ "totalBoxes": 18465,
+ "boxes": [
+  1119,
+  474,
+  887,
+  573,
+  369,
+  1505,
+  2218,
+  340,
+  26,
+  1925,
+  1826,
+  112,
+  134,
+  4574,
+  2373,
+  10
+ ],
+ "hashes": [
+  "e1fbf2ad17f8dac3",
+  "db5f1ffd49d1a24a",
+  "f3ef9705727bc2ab",
+  "59a9d89df65a2cf8",
+  "71c396856b726e87",
+  "d7a7ee917c8452af",
+  "1b55e8f43a425b13",
+  "4b22567d6ffe5fdc",
+  "19857663fc8b5f1c",
+  "92d17d55f3af4222",
+  "875b49b42d9cdf08",
+  "3fba33bd156afa0b",
+  "fa2c9afd7ad05ded",
+  "a03c648e14323176",
+  "0d1f80f6c3d11d30",
+  "9ea1b82362f2ecd0"
+ ],
+ "coasters": [
+  {
+   "definitionId": "star-chaser",
+   "chunks": [
+    0,
+    1,
+    4,
+    5
+   ],
+   "stationChunk": 4
+  },
+  {
+   "definitionId": "comet-trail",
+   "chunks": [
+    0,
+    1
+   ],
+   "stationChunk": 0
+  },
+  {
+   "definitionId": "skyline-serpent",
+   "chunks": [
+    2,
+    3
+   ],
+   "stationChunk": 2
+  }
+ ],
+ "homes": {
+  "cloud-hopper": 6,
+  "comet-cups": 6,
+  "lemon-light": 6,
+  "waffle-windmill": 6,
+  "snack-sprint": 6,
+  "comfort-pavilion": 6,
+  "comfort-cabin": 6,
+  "ripple-fountain": 7,
+  "ribbon-bench": 8,
+  "lollipop-lamp": 8,
+  "harbor-swings": 9,
+  "splash-rings": 9,
+  "tidy-totem": 9,
+  "sunburst-flowers": 9,
+  "confetti-tree": 9,
+  "bumble-coach": 10,
+  "aurora-wheel": 10,
+  "moonpetal-carousel": 13,
+  "petal-roundabout": 13,
+  "picnic-pocket": 13,
+  "fizz-foundry": 14,
+  "glacier-scoop": 14,
+  "gale-spinner": 5,
+  "thunder-drum": 5
+ }
+}
