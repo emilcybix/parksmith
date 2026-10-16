@@ -164,7 +164,7 @@ describe('swatch grid keyboard (the roving rules the component applies)', () => 
 
 describe('colourSection model for the step-2 kinds', () => {
   it('exists for every colourable catalog id, with labels that fit the 62 px column, and for nothing else', () => {
-    expect(COLOURABLE.length, "29 before Phase 16, plus its 12 entries, Phase 29's 6 stalls and Phase 39's 4 coasters").toBe(51);
+    expect(COLOURABLE.length, "29 before Phase 16, plus its 12 entries, Phase 29's 6 stalls and Phase 39's 4 coasters and Phase 45's Titan Hyper").toBe(52);
     for (const id of COLOURABLE) {
       const model = colourSection(id, null);
       expect(model, id).not.toBeNull();

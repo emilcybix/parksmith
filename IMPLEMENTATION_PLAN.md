@@ -3081,13 +3081,21 @@ uphill the train climbs and rolls backward to the station, so the track does not
   BALANCE_NOTES Phase 44. Code: `game/coaster/shuttle.ts`, the shuttle branches of `design.ts`, `lift.ts`,
   `centreLine.ts`, `coasterTrain.ts`; designer `GameApp.coasterAdjustLaunch`, Hud launch row.
 
-## Phase 45 — Tall Coasters (owner request 2026-10-16)
+## Phase 45 — Tall Coasters (built 2026-10-16; owner request 2026-10-16)
 
-- [ ] `coaster.absoluteMaximumHeight` becomes 10 (the save cap); each type keeps its own cap. Thunder Launch goes to
-  10 (a spike needs height); a new advanced steel type **Titan Hyper** (`titan-hyper`, research *Hyper Engineering*,
-  tier 4) reaches 10 and takes every element of Phase 46.
-- [ ] Check every height-bound consumer at level 10: voxel chunk bounds and culling, shadows, picking, the ride
-  camera, supports and bracing, the classic renderer.
+- [x] `coaster.absoluteMaximumHeight` is 10 (the save cap; `launchMaximumHeight` is gone); each type keeps its own cap
+  (`coasterMaximumHeight`). Thunder Launch reaches 10 (a shuttle's spike); the new steel **Titan Hyper**
+  (`titan-hyper`, research *Hyper Engineering*, tier 3 after Vertical Motion, 120 RP, $1,500) reaches 10. Catalog card,
+  colour slots and classic palette reuse existing catalog colours (no new palette material); the serpent's car.
+  **Deviation:** tier 3, not 4 (the tree has three tiers); the Titan takes loops and boosts now, the Phase 46 elements
+  when they exist.
+- [x] Intensity: a drop deeper than 4 levels counts each level past 4 at a quarter (`coaster.tall`), in both the
+  biggest drop and the descent, so a level-10 hyper reads about 90, not a pinned 100. Every layout of the old cap
+  derives exactly as before (the golden invariance and determinism pins did not move).
+- [x] Checked at level 10 in headless Chromium (software GPU): towers and bracing reach the ground, chunk bounds come
+  from the boxes, the shuttle train runs out to the spike and back. Classic renderer has no height bound.
+- [x] Tests: `families.test.ts` (caps, intensity, save at level 10), `coasterFamilies.test.ts` (a level-10 tower, no
+  overlaps); enumeration tests name the new card and project.
 
 ## Phase 46 — Coaster Elements (owner request 2026-10-16)
 

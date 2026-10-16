@@ -308,6 +308,7 @@ export const COASTER_COLOUR_SLOTS: Readonly<Record<string, readonly ColourSlotDe
   'timber-twister': coaster(0xc0392b, 0xffd166, 0xffd166, 0x79543a),
   'thunder-launch': coaster(0x9557d1, 0xf5f06c, 0xf5f06c, 0x2c5b64),
   'bat-wing': coaster(0x335c67, 0xffe66d, 0xffe66d, 0x4d7f86),
+  'titan-hyper': coaster(0xc0392b, 0xf5f06c, 0xf5f06c, 0x2c5b64),
 });
 
 const shop = (walls: number, roof: number): readonly ColourSlotDef[] => table([

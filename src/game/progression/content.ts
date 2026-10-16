@@ -225,6 +225,19 @@ export const RESEARCH_PROJECTS: readonly ResearchProjectDefinition[] = [
     requiredMilestoneIds: [],
     unlockDefinitionIds: ['bat-wing'],
   },
+  {
+    // Phase 45.
+    id: 'hyper-engineering',
+    tier: 3,
+    name: 'Hyper Engineering',
+    category: 'rides',
+    description: 'Taller towers and longer chains: a steel coaster up to level 10.',
+    researchPointCost: 120,
+    cashCost: 1_500,
+    prerequisiteIds: ['vertical-motion'],
+    requiredMilestoneIds: [],
+    unlockDefinitionIds: ['titan-hyper'],
+  },
 ] as const;
 
 export const RESEARCH_PROJECT_BY_ID = new Map<ResearchProjectId, ResearchProjectDefinition>(

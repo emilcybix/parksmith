@@ -116,3 +116,18 @@ describe('Phase 44: the shuttle art', () => {
     }
   });
 });
+
+describe('Phase 45: tall track art', () => {
+  const TALL_LAYOUT = layoutFromMoves({ x: 2, y: 2 }, `${'E'.repeat(18)}SS${'W'.repeat(18)}NN`,
+    [0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 1, 0]);
+  it('a level-10 piece stands on a braced tower reaching the ground, no two boxes overlapping', () => {
+    const writer = new BoxWriter(64);
+    coasterContent.pieceBoxes(TALL_LAYOUT, 12, BUILD_BY_ID.get('titan-hyper')!, palette, 1, writer);
+    const list = Array.from({ length: writer.count }, (_unused, box) => writer.data.slice(box * BOX_FLOATS, box * BOX_FLOATS + 8));
+    expect(Math.max(...list.map((box) => box[2] + box[6]))).toBeGreaterThanOrEqual(coasterRailTopZ(10) - 1);
+    expect(Math.min(...list.map((box) => box[2]))).toBeLessThanOrEqual(1);
+    for (let a = 0; a < list.length; a += 1) {
+      for (let b = a + 1; b < list.length; b += 1) expect(overlaps(list[a], list[b]), `boxes ${a} and ${b}`).toBe(false);
+    }
+  });
+});

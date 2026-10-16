@@ -132,7 +132,7 @@ export interface PlacedObjectState {
 
 export interface CoasterPieceState {
   cell: CellState;
-  /** Integer 0..4. Part of the layout the renderer and the train animation read. */
+  /** Integer 0..10 (Phase 45; 0..4 before Phase 39). Part of the layout the renderer and the train animation read. */
   height: number;
   /** Omitted for plain track, never `undefined`. Restore re-creates the in-memory `special: undefined`. */
   special?: CoasterSpecial;

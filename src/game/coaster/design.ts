@@ -213,11 +213,9 @@ export const validateCoasterLayout = (
   return { ok: true };
 };
 
-/** The height cap of a type: its own, within the save's absolute cap (the launch family's own before Phase 45). */
-export const coasterMaximumHeight = (type: CoasterTypeDefinition): number => {
-  const config = GAME_CONFIG.coaster;
-  return Math.min(type.maximumHeight, type.family === 'launch' ? config.launchMaximumHeight : config.absoluteMaximumHeight);
-};
+/** The height cap of a type: its own, within the save's absolute cap (Phase 45: 10). */
+export const coasterMaximumHeight = (type: CoasterTypeDefinition): number =>
+  Math.min(type.maximumHeight, GAME_CONFIG.coaster.absoluteMaximumHeight);
 
 /** The station rules: the first `stationLength` pieces flat at level 0, in a straight line. */
 const validateStation = (pieces: readonly CoasterPiece[]): CoasterValidation | null => {
@@ -318,6 +316,8 @@ export const deriveCoasterStats = (
   let drops = 0;
   let biggestDrop = 0;
   let currentDrop = 0;
+  // Phase 45: the descent as intensity reads it (each drop through `dropIntensityLevels`; = totalDescent at the old cap).
+  let intensityDescent = 0;
   // The loop wraps: the segment after the last piece is the first piece again.
   for (let index = 0; index < pieces.length; index += 1) {
     const previous = pieces[(index - 1 + pieces.length) % pieces.length];
@@ -337,12 +337,14 @@ export const deriveCoasterStats = (
     } else if (currentDrop > 0) {
       drops += 1;
       biggestDrop = Math.max(biggestDrop, currentDrop);
+      intensityDescent += dropIntensityLevels(currentDrop);
       currentDrop = 0;
     }
   }
   if (currentDrop > 0) {
     drops += 1;
     biggestDrop = Math.max(biggestDrop, currentDrop);
+    intensityDescent += dropIntensityLevels(currentDrop);
   }
   const highestHeight = Math.max(...pieces.map((piece) => piece.height));
   const loops = pieces.filter((piece) => piece.special === 'loop').length;
@@ -362,7 +364,7 @@ export const deriveCoasterStats = (
     + (speed.topSpeed - GAME_CONFIG.coaster.speed.cruise) * 2.5
     + airtime
     + launches * specials.launch.excitement;
-  const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + totalDescent * 2.5 + steepTurnPairs * family.steepTurns
+  const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + intensityDescent * 2.5 + steepTurnPairs * family.steepTurns
     + loops * specials.loop.intensity + boosts * specials.boost.intensity
     + speed.topSpeed * 1.2
     + launches * specials.launch.intensity;
@@ -438,11 +440,13 @@ const deriveShuttleStats = (
   // A run of falls going out, and a run of climbs (a drop on the way back).
   let fall = 0;
   let climb = 0;
+  let intensityDescent = 0;
   const closeRuns = (): void => {
     for (const run of [fall, climb]) {
       if (run <= 0) continue;
       drops += 1;
       biggestDrop = Math.max(biggestDrop, run);
+      intensityDescent += dropIntensityLevels(run);
     }
   };
   for (let index = 0; index < count - 1; index += 1) {
@@ -470,7 +474,7 @@ const deriveShuttleStats = (
     + loops * specials.loop.excitement * 2 + boosts * specials.boost.excitement
     + (profile.topSpeed - config.speed.cruise) * 2.5
     + specials.launch.excitement + shuttle.backwardExcitement;
-  const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + totalDescent * 2.5 + steepTurnPairs * family.steepTurns
+  const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + intensityDescent * 2.5 + steepTurnPairs * family.steepTurns
     + loops * specials.loop.intensity * 2 + boosts * specials.boost.intensity
     + profile.topSpeed * 1.2
     + specials.launch.intensity + shuttle.backwardIntensity;

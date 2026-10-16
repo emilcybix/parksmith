@@ -15,7 +15,7 @@ describe('Phase 39: coaster families', () => {
   it('every type names a family; the three original types are steel', () => {
     expect(COASTER_TYPES.map((type) => [type.definitionId, type.family])).toEqual([
       ['comet-trail', 'steel'], ['star-chaser', 'steel'], ['skyline-serpent', 'steel'],
-      ['whisker-mouse', 'wild-mouse'], ['timber-twister', 'wooden'], ['thunder-launch', 'launch'], ['bat-wing', 'inverted'],
+      ['whisker-mouse', 'wild-mouse'], ['timber-twister', 'wooden'], ['thunder-launch', 'launch'], ['bat-wing', 'inverted'], ['titan-hyper', 'steel'],
     ]);
     expect(MOUSE.trainCars).toBe(2);
     expect(MOUSE.allowedSpecials).toEqual([]);
@@ -146,5 +146,39 @@ describe('Phase 39 step 3: the inverted family', () => {
     restored.restore(structuredClone(world.serialize()));
     expect(restored.canPlacePath({ x: 9, y: 4 })).toBe(false);
     expect(restored.serialize()).toEqual(world.serialize());
+  });
+});
+
+describe('Phase 45: tall coasters', () => {
+  const TITAN = COASTER_TYPE_BY_ID.get('titan-hyper')!;
+  /** A 40-piece hyper: a chain to level 10, one long drop, a camel hump and the way home. */
+  const hyper = () => layoutFromMoves({ x: 2, y: 2 }, `${'E'.repeat(18)}SS${'W'.repeat(18)}NN`,
+    [0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 1, 0]);
+
+  it('the Titan Hyper and the Thunder Launch reach level 10; everyone else keeps their cap', () => {
+    expect(GAME_CONFIG.coaster.absoluteMaximumHeight).toBe(10);
+    expect(TITAN.maximumHeight).toBe(10);
+    expect(COASTER_TYPE_BY_ID.get('thunder-launch')!.maximumHeight).toBe(10);
+    expect(validateCoasterLayout(hyper(), TITAN)).toEqual({ ok: true });
+    expect(validateCoasterLayout(hyper(), COASTER_TYPE_BY_ID.get('skyline-serpent')!)).toMatchObject({ ok: false, reason: 'height-range' });
+  });
+
+  it('a level-10 drop is wild but does not pin intensity at 100 by itself', () => {
+    const stats = deriveCoasterStats(hyper(), TITAN);
+    expect(stats.biggestDrop).toBe(10);
+    expect(stats.intensity).toBeLessThan(100);
+    expect(stats.excitement).toBeGreaterThan(deriveCoasterStats(hillDipLayout(), { ...TITAN, maximumHeight: 3 }).excitement);
+  });
+
+  it('builds, saves and loads at level 10', () => {
+    const world = new GameWorld(200_000);
+    world.setBuildAccessPolicy(null);
+    const pieces = hyper();
+    const placed = world.placeCoaster('titan-hyper', pieces, deriveCoasterStats(pieces, TITAN), coasterBaseCost(pieces, TITAN));
+    expect('error' in placed).toBe(false);
+    const state = world.serialize();
+    const restored = new GameWorld();
+    restored.restore(structuredClone(state));
+    expect(restored.serialize()).toEqual(state);
   });
 });

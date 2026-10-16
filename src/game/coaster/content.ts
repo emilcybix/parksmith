@@ -10,7 +10,7 @@ export type CoasterSpecial = 'loop' | 'boost' | 'launch';
  *   bonus per hill, lower reliability.
  * - `launch` (step 2; Phase 44 made Thunder Launch a shuttle, see `layout`): at least one `launch` piece replaces the chain lift's job (the train leaves it at
  *   `speed.launch`, and a chain-free climb after it rides that momentum up a top hat); the height cap is
- *   `coaster.launchMaximumHeight` (5) instead of the usual 4.
+ *   5 (Phase 45: 10, a shuttle's spike) instead of the usual 4.
  * - `inverted` (step 3): the train hangs under the track (drawn one level up, on gantries from above). A path needs
  *   one level more under it, it never crosses other track, and it takes no loops.
  */
@@ -103,7 +103,8 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
   {
     definitionId: 'thunder-launch',
     family: 'launch',
-    maximumHeight: 5,
+    // Phase 45: a shuttle's spike reaches level 10.
+    maximumHeight: 10,
     trainCapacity: 12,
     trainCars: 4,
     reliability: 82,
@@ -125,6 +126,19 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     pieceCost: 62,
     heightCostPerLevel: 45,
     allowedSpecials: ['boost'],
+  },
+  {
+    // Phase 45: the tall steel coaster, chain lift to level 10.
+    definitionId: 'titan-hyper',
+    family: 'steel',
+    maximumHeight: 10,
+    trainCapacity: 12,
+    trainCars: 6,
+    reliability: 78,
+    stationCost: 1_200,
+    pieceCost: 80,
+    heightCostPerLevel: 55,
+    allowedSpecials: ['loop', 'boost'],
   },
 ] as const;
 

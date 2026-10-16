@@ -279,17 +279,22 @@ export const BUILD_CATALOG: readonly BuildDefinition[] = [
   },
   {
     id: 'thunder-launch', name: 'Thunder Launch', kind: 'ride', category: 'rides', icon: '⚡', custom: 'coaster',
-    description: 'A launch coaster: no chain lift, a launch fires the train up a top hat to level 5.', buildCost: 900, footprint: [1, 1], color: 0x9557d1, accent: 0xf5f06c,
+    description: 'A shuttle launch coaster: the station fires the train up a spike as high as level 10, and it rolls back the whole way.', buildCost: 900, footprint: [1, 1], color: 0x9557d1, accent: 0xf5f06c,
   },
   {
     id: 'bat-wing', name: 'Bat Wing', kind: 'ride', category: 'rides', icon: '⋎', custom: 'coaster',
     description: 'An inverted coaster: the train hangs under the track, feet dangling through tight turns. Paths need a level more beneath.', buildCost: 800, footprint: [1, 1], color: 0x335c67, accent: 0xffe66d,
   },
+  // Phase 45: the tall steel coaster, appended last.
+  {
+    id: 'titan-hyper', name: 'Titan Hyper', kind: 'ride', category: 'rides', icon: '⛰', custom: 'coaster',
+    description: 'A hyper coaster: a chain lift to level 10, long fast drops and room for every element.', buildCost: 1200, footprint: [1, 1], color: 0xc0392b, accent: 0xf5f06c,
+  },
 ] as const;
 
 /** Phase 29: the entries appended for guest life and souvenirs (five souvenir stalls and the warm drink barrow), in order. */
 export const PHASE29_DEFINITION_IDS: readonly string[] = ['brolly-booth', 'hat-hutch', 'balloon-bouquet', 'plushie-parlour', 'glow-cart', 'bean-barrow'];
-/** Phase 39: the coaster families' catalog cards, appended last. */
-export const PHASE39_DEFINITION_IDS: readonly string[] = ['whisker-mouse', 'timber-twister', 'thunder-launch', 'bat-wing'];
+/** Phase 39: the coaster families' catalog cards, appended last (Phase 45 appends the Titan Hyper). */
+export const PHASE39_DEFINITION_IDS: readonly string[] = ['whisker-mouse', 'timber-twister', 'thunder-launch', 'bat-wing', 'titan-hyper'];
 
 export const BUILD_BY_ID = new Map(BUILD_CATALOG.map((definition) => [definition.id, definition]));

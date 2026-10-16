@@ -492,9 +492,8 @@ export const GAME_CONFIG = {
     stationLength: 3,
     minimumPieces: 12,
     maximumPieces: 64,
-    absoluteMaximumHeight: 4,
-    /** Phase 39 step 2: the launch family's height cap (its top hat); the rest keep `absoluteMaximumHeight`. */
-    launchMaximumHeight: 5,
+    /** Phase 45: the tallest any coaster may be (the save's cap); each type keeps its own `maximumHeight` under it. */
+    absoluteMaximumHeight: 10,
     pathClearanceHeight: 2,
     /** Phase 38: two track pieces may share a cell when their heights differ by at least this many levels. */
     trackClearanceLevels: 2,
@@ -584,7 +583,7 @@ export const GAME_CONFIG = {
      * family's biggest-drop weight, so a level-10 drop is wild but does not pin intensity at 100 on its own. Every
      * layout of the old height cap (4) derives exactly as before.
      */
-    tall: { fullIntensityLevels: 4, tallLevelShare: 0.4 },
+    tall: { fullIntensityLevels: 4, tallLevelShare: 0.25 },
     specials: {
       loop: { cost: 260, excitement: 9, intensity: 12 },
       boost: { cost: 140, excitement: 3, intensity: 4 },

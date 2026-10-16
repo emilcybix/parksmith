@@ -912,9 +912,10 @@ Not played; measured on fixture layouts (`shuttle.test.ts`). Numbers in `GAME_CO
 - The station launch adds the launch special's excitement 6 / intensity 8 and $420; riding backward adds 5 / 6; a
   loop counts twice (ridden both ways). Every climb counts as a drop on the way back (pure geometry, so restore
   re-derives it).
-- New for every family (Phases 44-45): a drop deeper than 4 levels counts each level past 4 at 40 % of the family's
-  biggest-drop weight (`coaster.tall`). No layout of the old cap changes; the Phase 39 launch top hat (drop 5)
-  derives intensity about 6 lower than recorded there.
+- New for every family (Phases 44-45): a drop deeper than 4 levels counts each level past 4 at a quarter
+  (`coaster.tall`), in the biggest drop and in the descent. No layout of the old cap changes; the Phase 39 launch top
+  hat (drop 5) derives intensity lower than recorded there. A 40-piece Titan Hyper with a level-10 drop: intensity
+  below 100 (it was over 100 before the rule). Titan Hyper: station $1,200, piece $80, $55 a level, reliability 78.
 - What would change these numbers: a playtest finding shuttles too intense for most guests (lower
   `backwardIntensity` first), or ride times so short the queue never moves differently from a circuit.
 

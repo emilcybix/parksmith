@@ -269,6 +269,8 @@ const TYPE_LOOK: Readonly<Record<string, { tie?: number; spine: number; support:
   'thunder-launch': { spine: MAT.INK, support: MAT.STEEL },
   // Phase 39 step 3: an inverted coaster on light steel gantries.
   'bat-wing': { spine: MAT.INK, support: MAT.STEEL_LIGHT },
+  // Phase 45: a tall steel coaster on light steel towers.
+  'titan-hyper': { spine: MAT.INK, support: MAT.STEEL_LIGHT },
 };
 
 /**
@@ -1288,7 +1290,7 @@ type CoasterKind = 'comet' | 'star' | 'serpent' | 'mouse' | 'timber';
 
 const kindOf = (definition: BuildDefinition): CoasterKind => {
   if (definition.id === 'star-chaser') return 'star';
-  if (definition.id === 'skyline-serpent') return 'serpent';
+  if (definition.id === 'skyline-serpent' || definition.id === 'titan-hyper') return 'serpent';
   // Phase 39: the families after steel get their own car by family, so a second type of a family looks the part.
   const family = COASTER_TYPE_BY_ID.get(definition.id)?.family;
   if (family === 'wild-mouse') return 'mouse';
