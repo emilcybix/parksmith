@@ -2970,50 +2970,43 @@ counts, search, sort both ways, a stored view; the two windows' markup; the came
 `app/GameApp.windows.test.ts` (K and O, Esc order, bulk close only the given rows, a price step by id, workers published
 only while the Staff window is open), the lazy-panel and import-graph tests (five lazy panels).
 
-## Phase 43 — Main Menu Bar (planned, not started; owner request 2026-10-16)
+## Phase 43 — Main Menu Bar (built 2026-10-16; owner request 2026-10-16)
 
-**Today.** The ways into the game's panels are spread out. The top bar (`TopBar` in `src/ui/Hud.tsx`) holds the park
-toggle, clock, speed, Parks / Run map, Save / Load, and the cash pill, which is the only button that opens the
-Management dashboard (on its Finances tab). The utility bar (`UtilityBar`) holds Menu, view toggles (grid, scenery
-influence, crowd heatmap, performance) and Settings. The build dock and Park Pulse are always on screen. Research,
-Operations, Activity and the Buildings list are reachable only as tabs inside the dashboard.
+**Before.** The ways into the panels were spread out (the cash pill opened the dashboard; Research, Operations and the
+Buildings list were only dashboard tabs; the dock and Park Pulse were always on screen).
 
-**Goal.** One menu bar with a button for each main area of the game, so every panel has an obvious way in, and a
-player can open and close each area the same way.
+**Built.** Code: `ui/MenuBar.tsx`, `ui/menuBarModel.ts`, `ui/windows.css`; store `dockOpen` / `pulseOpen` (remembered
+with the window prefs); four new keybindings; `layoutModel.ts` anchors.
 
-**The bar.**
-- [ ] Buttons (icon plus short label, the key in the tooltip): **Build** (the build dock), **Staff** and
-  **Buildings** (the Phase 42 windows), **Park Pulse**, **Finances**, **Research**, **Land** (the Phase 21 tool),
-  and **Run map** / **Parks** in the mode that has it. Order and names to be confirmed by the owner.
-- [ ] Each button toggles its panel or window and shows it as pressed while open. Open panels follow one rule:
-  windows can be open together, but only one full-screen panel at a time.
-- [ ] **Badges** on a button when something needs attention: broken rides or rides waiting for a mechanic (Staff), closed
-  or unreachable buildings (Buildings), a finished research project (Research), a new Pulse warning (Park Pulse). The
-  same rules as the existing notifications; one aria-live line, not one per badge.
-- [ ] **Keys:** every button has a default key, listed in KEYBINDINGS.md and rebindable in Settings > Keyboard. Defaults
-  must not take keys from existing actions (the Phase 26 `yieldsDefault` pattern for players who rebound).
+- [x] Buttons along the bottom edge, in this order: **Build**, **Staff**, **Buildings**, **Park Pulse**, **Finances**,
+  **Research**, **Land**, and **Parks** (or **Run map** in a run). Icon plus label; the key and any attention line in
+  the tooltip. The order and names are open for the owner to change.
+- [x] Each button toggles its area and shows as pressed while it is open: the build menu, the two Phase 42 windows,
+  Park Pulse, the dashboard on Finances or Research, the Land tool (off an estate it says the park owns all its land).
+  Windows may be open together; the dashboard is still the one full-screen-height panel.
+- [x] Badges: Staff (rides broken or waiting for a mechanic), Buildings (no path access, which includes a Phase 40
+  front facing no path), Research (projects ready to buy), Park Pulse (warnings while the card is closed). One polite
+  live line reads them all.
+- [x] Keys (all `yieldsDefault`, rebindable in Settings > Keyboard, in KEYBINDINGS.md): Build menu **Shift+B**, Park
+  Pulse **Shift+P**, Finances **Shift+F**, Research **Shift+R**; Staff **K** and Buildings **O** (Phase 42); Land **L**
+  (Phase 21).
+- [x] Placement as the owner decided: along the bottom edge (`.menu-bar`, bottom 12, 44 tall); the dock now opens above
+  it (bottom 66, `--dock-reserve` 300, the help hint on it). **Deviation:** the build menu and Park Pulse are open by
+  default and can be closed with the bar (both remembered per player), rather than the dock starting hidden: a new
+  player still sees the dock on the First Day. While a First Day build step is active and the dock is closed, the Build
+  button is outlined.
+- [x] The top bar keeps park status, clock, speed, Parks / Run map, Save / Load and cash (the cash pill still opens
+  Finances). The view toggles and Settings stay on the rail; Menu (Esc) stays.
+- [x] Narrow layouts (container width ≤ 1240): icons only, labels in the tooltips; the bar scrolls sideways instead of
+  wrapping. The clean view hides it with the rest of the HUD.
+- [x] Layout: the anchor model includes the bar and caps Park Pulse above the dock reserve (it scrolls past it, with
+  the Phase 35 cue). Checked in headless Chromium at 1280×800 and 1100×690 (Phase 42 windows and the bar together).
+- [ ] Not built: the camera's bottom inset does not shrink when the build menu is closed; the First Day hint texts were
+  not reworded (they name tabs, which open from Build).
 
-**Placement.**
-- [x] **Decided by the owner (2026-10-16): along the bottom edge.** The build dock opens above the bar when Build is
-  pressed (it stops being always visible), and Park Pulse becomes a panel that can be closed (open by default,
-  remembered). The view toggles and Settings stay in the utility bar; Menu (Esc) stays where it is.
-- [ ] The top bar keeps the park status, clock, speed, cash and Save / Load; the cash pill keeps opening Finances.
-- [ ] Phone and narrow screens: icons only, the labels in tooltips, and the bar scrolls sideways instead of wrapping.
-- [ ] The clean-view handle hides the bar like the rest of the HUD.
-
-**Layout and the First Day.**
-- [ ] The HUD layout anchors and the Phase 36 camera insets take the bar into account; nothing may cover it.
-- [ ] The First Day hints point at the bar's Build button instead of the dock where a step talks about building, and
-  the Map offer card stays clear of the bar.
-- [ ] The Management dashboard keeps its tabs for now. The bar's Finances and Research buttons open it on that tab, so
-  nothing needs moving at once. Splitting the dashboard further is a later decision.
-
-**Order.** After Phase 42, so the Staff and Buildings buttons have their windows; the bar can also land first with
-those two opening the dashboard tabs, and switch when Phase 42 lands.
-
-**Tests.** Each button opens and closes its area and shows the pressed state; the keys work and can be rebound; a
-badge appears and clears with its condition; only one full-screen panel at a time; the bar is inside the camera
-insets; the First Day build step points at the bar; the narrow layout does not wrap; the clean view hides the bar.
+**Tests.** `ui/menuBar.test.tsx` (order, Parks/Run map, pressed states, badges appear and clear, the live line, the
+First Day outline, Land off an estate, the markup with key hints), `layoutModel.test.ts` (the bar in the anchor model,
+Park Pulse above the dock), the keybinding registry and doc.
 
 ## Voxel Renderer (main renderer)
 

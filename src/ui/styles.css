@@ -32,9 +32,9 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
      top of the tallest dock (17 + 223, Phase 36: measured in the browser) plus a gap: anything above the dock stays clear of it.
      --band-l / --band-r are the horizontal clearances of the centre band, the strip between the left
      and right rails where the save banner, toast and notifications stack. */
-  --dock-reserve: 251px;
+  --dock-reserve: 300px;
   /* Side panels (inspector, coaster designer) stop above the help hint, which sits on the dock's top edge. */
-  --side-floor: 271px;
+  --side-floor: 320px;
   --band-l: 300px;
   --band-r: 300px;
   /* Only the message stack is in flow: a grid of [left clearance | centre band | right clearance], with the
@@ -606,7 +606,7 @@ button.clock-chip:hover, button.clock-chip[aria-expanded="true"] { background: #
   position: absolute;
   z-index: 3;
   left: 50%;
-  bottom: 17px;
+  bottom: 66px; /* Phase 43: above the menu bar (12 + 44 + a 10px gap) */
   width: min(1010px, calc(var(--ui-vw) - 190px));
   transform: translateX(-50%);
   background: var(--paper);
@@ -1120,7 +1120,7 @@ button.clock-chip:hover, button.clock-chip[aria-expanded="true"] { background: #
   position: absolute;
   z-index: 5;
   left: 50%;
-  bottom: 251px;
+  bottom: 300px;
   display: flex;
   align-items: center;
   gap: 8px;

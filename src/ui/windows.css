@@ -8,10 +8,12 @@
   max-height: calc(var(--ui-vh, 100vh) - 94px - var(--dock-reserve, 251px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   border: 1px solid rgba(255,255,255,.9);
   border-radius: 18px;
   color: var(--ink);
-  background: var(--paper);
+  /* Solid, not the translucent paper of the docked panels: two windows may overlap. */
+  background: #fbf9f1;
   box-shadow: var(--shadow);
   pointer-events: auto;
   overflow: hidden;
@@ -20,7 +22,7 @@
 .game-window-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; cursor: grab; background: rgba(55,189,145,.12); user-select: none; touch-action: none; }
 .game-window-title:active { cursor: grabbing; }
 .game-window-close { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(19,58,51,.08); font-size: 18px; line-height: 1; cursor: pointer; }
-.game-window-body { overflow: auto; padding: 10px 12px 12px; display: grid; gap: 10px; align-content: start; }
+.game-window-body { min-width: 0; overflow: auto; padding: 10px 12px 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
 .window-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .window-kpis span { display: grid; padding: 6px 8px; border-radius: 10px; background: rgba(19,58,51,.05); }
 .window-kpis small { font-size: 10px; letter-spacing: .04em; opacity: .7; }
@@ -43,6 +45,7 @@
 .window-chips button.active { background: rgba(55,189,145,.2); border-color: rgba(55,189,145,.6); }
 .window-chips b { opacity: .6; font-weight: 600; }
 .window-bulk { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.buildings-scroll { overflow-x: auto; min-width: 0; }
 .buildings-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .buildings-table th { text-align: left; font-weight: 600; }
 .buildings-table th button { border: 0; background: transparent; font: inherit; cursor: pointer; padding: 2px 0; }
@@ -55,3 +58,59 @@
 .open-window-link { justify-self: start; margin-bottom: 6px; padding: 4px 10px; border-radius: 9px; border: 1px solid rgba(55,189,145,.5); background: rgba(55,189,145,.1); cursor: pointer; }
 .clean-view .game-window { display: none; }
 :root[data-motion="reduce"] .buildings-table tr.flash { animation: none; }
+
+/* Phase 43: the main menu bar along the bottom edge; the build menu opens above it. */
+.menu-bar {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  height: 44px;
+  max-width: min(780px, calc(var(--ui-vw) - 330px));
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  border: 1px solid rgba(255,255,255,.85);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 10px 26px rgba(19,58,51,.22);
+  pointer-events: auto;
+}
+.menu-bar-button {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-bar-button:hover { background: rgba(55,189,145,.1); }
+.menu-bar-button.active { background: rgba(55,189,145,.2); border-color: rgba(55,189,145,.6); }
+.menu-bar-button[aria-disabled="true"] { opacity: .5; }
+.menu-bar-button.hinted { box-shadow: 0 0 0 2px #f4b94e; }
+.menu-bar-icon { font-size: 15px; }
+.menu-bar-badge {
+  position: absolute; top: 1px; right: 2px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box;
+  border-radius: 999px; background: #e0485f; color: #fff; font-size: 10px; line-height: 15px; text-align: center;
+}
+/* Narrow layouts: icons only (the labels stay in the tooltips and the accessible names). */
+@container ui (max-width: 1240px) {
+  .menu-bar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .menu-bar-button { padding: 0 9px; }
+}
+/* The message band (toasts, notifications) moves right of an open window. */
+.ui-layer:has(.game-window) { --band-l: 460px; }

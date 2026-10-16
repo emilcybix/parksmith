@@ -383,6 +383,11 @@ export interface UiState {
   workers: WorkerSnapshot[];
   /** Phase 42: the Buildings window's filters, search and sort (remembered per player). */
   buildingsView: BuildingsView;
+  /** Phase 43: the build menu (dock) and Park Pulse can be closed from the menu bar; both open by default, remembered. */
+  dockOpen: boolean;
+  pulseOpen: boolean;
+  toggleDock: () => void;
+  togglePulse: () => void;
   toggleWindow: (id: WindowId) => void;
   closeWindow: (id: WindowId) => void;
   setBuildingsView: (patch: Partial<BuildingsView>) => void;
@@ -563,22 +568,34 @@ export const useUiStore = create<UiState>((set) => ({
   openWindows: INITIAL_WINDOW_PREFS.open,
   workers: [],
   buildingsView: INITIAL_WINDOW_PREFS.buildings,
+  dockOpen: INITIAL_WINDOW_PREFS.dockOpen,
+  pulseOpen: INITIAL_WINDOW_PREFS.pulseOpen,
+  toggleDock: () => set((state) => {
+    const dockOpen = !state.dockOpen;
+    saveWindowPrefs({ open: state.openWindows, buildings: state.buildingsView, dockOpen, pulseOpen: state.pulseOpen });
+    return { dockOpen };
+  }),
+  togglePulse: () => set((state) => {
+    const pulseOpen = !state.pulseOpen;
+    saveWindowPrefs({ open: state.openWindows, buildings: state.buildingsView, dockOpen: state.dockOpen, pulseOpen });
+    return { pulseOpen };
+  }),
   toggleWindow: (id) => set((state) => {
     const openWindows = state.openWindows.includes(id)
       ? state.openWindows.filter((open) => open !== id)
       : [...state.openWindows, id];
-    saveWindowPrefs({ open: openWindows, buildings: state.buildingsView });
+    saveWindowPrefs({ open: openWindows, buildings: state.buildingsView, dockOpen: state.dockOpen, pulseOpen: state.pulseOpen });
     return { openWindows };
   }),
   closeWindow: (id) => set((state) => {
     if (!state.openWindows.includes(id)) return {};
     const openWindows = state.openWindows.filter((open) => open !== id);
-    saveWindowPrefs({ open: openWindows, buildings: state.buildingsView });
+    saveWindowPrefs({ open: openWindows, buildings: state.buildingsView, dockOpen: state.dockOpen, pulseOpen: state.pulseOpen });
     return { openWindows };
   }),
   setBuildingsView: (patch) => set((state) => {
     const buildingsView = { ...state.buildingsView, ...patch };
-    saveWindowPrefs({ open: state.openWindows, buildings: buildingsView });
+    saveWindowPrefs({ open: state.openWindows, buildings: buildingsView, dockOpen: state.dockOpen, pulseOpen: state.pulseOpen });
     return { buildingsView };
   }),
   cleanView: false,

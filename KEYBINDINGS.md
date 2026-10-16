@@ -36,6 +36,10 @@ Every shortcut below can be changed in Settings, in the Keyboard section. Esc an
 | Crowd heatmap | T | Park view: everywhere except overlays, dialogs and menus | Show or hide the crowd flow heatmap (the same as the ≋ button). |
 | Staff window | K | Park view: everywhere except overlays, dialogs and menus | Open or close the Staff window: every worker, hiring and training. |
 | Buildings window | O | Park view: everywhere except overlays, dialogs and menus | Open or close the Buildings window: every building, with filters, search and bulk actions. |
+| Build menu | Shift+B | Park view: everywhere except overlays, dialogs and menus | Open or close the build menu above the menu bar. |
+| Park Pulse | Shift+P | Park view: everywhere except overlays, dialogs and menus | Show or hide the Park Pulse card. |
+| Finances | Shift+F | Park view: everywhere except overlays, dialogs and menus | Open or close the Finances tab of the management dashboard. |
+| Research | Shift+R | Park view: everywhere except overlays, dialogs and menus | Open or close the Research tab of the management dashboard. |
 | See through | X | While building: not behind the management dashboard, overlays, dialogs or menus | Hold to see through buildings and scenery near the cursor. Hold the key; release to stop. |
 
 ## Sound

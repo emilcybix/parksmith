@@ -4710,6 +4710,17 @@ export class GameApp implements GameCommands, RunCommands {
         return;
       case 'paintTool': useUiStore.getState().selectPaint(false); return;
       case 'staffWindow': useUiStore.getState().toggleWindow('staff'); return;
+      case 'toggleBuildMenu': useUiStore.getState().toggleDock(); return;
+      case 'togglePulse': useUiStore.getState().togglePulse(); return;
+      case 'openFinances':
+      case 'openResearch': {
+        const ui = useUiStore.getState();
+        const tab = action === 'openFinances' ? 'finances' : 'research';
+        if (ui.managementOpen && ui.managementTab === tab) ui.closeManagement();
+        else if (tab === 'research') ui.openResearch();
+        else ui.openManagement('finances');
+        return;
+      }
       case 'buildingsWindow': useUiStore.getState().toggleWindow('buildings'); return;
       case 'eyedropper': useUiStore.getState().selectPaint(true); return;
       case 'rotate': this.rotateBuild(); return;

@@ -95,6 +95,7 @@ export const BuildingsWindowBody = (): React.JSX.Element => {
         <button disabled={selectedIds.length === 0} onClick={() => gameBridge.setObjectsOpen(selectedIds, false)}>Close</button>
         <button disabled={selectedIds.length === 0} onClick={() => setSelected(new Set())}>Clear</button>
       </div>
+      <div className="buildings-scroll">
       <table className="buildings-table">
         <thead>
           <tr>
@@ -144,6 +145,7 @@ export const BuildingsWindowBody = (): React.JSX.Element => {
           })}
         </tbody>
       </table>
+      </div>
       {shown.rows.length === 0 && <p className="empty-copy">{buildings.length === 0 ? 'Nothing built yet.' : 'No building matches these filters.'}</p>}
     </WindowFrame>
   );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GameApp } from '../app/GameApp';
 import { BuildDock, ViewControls, CoasterPanel, CursorReadout, GuestInspector, HelpHint, ParkPulse, PerformanceOverlay, RideInspector, ServiceInspector, Toast, TopBar, UtilityBar } from './Hud';
 import { MainMenu } from './MainMenu';
+import { MenuBar } from './MenuBar';
 import { ManagementDashboard, ManagementNotifications } from './ManagementDashboard';
 import { RecoveryPrompt } from './RecoveryPrompt';
 import { SaveBanner, SaveStatusStrip, useSaveBannerVisible } from './SaveBanner';
@@ -32,6 +33,9 @@ export const App = (): React.JSX.Element => {
   const managementOpen = useUiStore((state) => state.managementOpen);
   const cleanView = useUiStore((state) => state.cleanView);
   const menuKind = useUiStore((state) => state.menuKind);
+  // Phase 43: the menu bar can close the build menu and Park Pulse (both open by default, remembered).
+  const dockOpen = useUiStore((state) => state.dockOpen);
+  const pulseOpen = useUiStore((state) => state.pulseOpen);
   // Behind the start screen the park is only a backdrop: no HUD at all. Behind the pause menu it stays
   // visible but inert, so neither the mouse nor Tab can reach it.
   const hudHidden = cleanView || menuKind === 'start';
@@ -59,7 +63,7 @@ export const App = (): React.JSX.Element => {
         <div className={`ui-layer ${managementOpen ? 'management-open' : ''} ${saveBannerVisible ? 'save-banner-open' : ''} ${cleanView ? 'clean-view' : ''}`}>
           <div className="clean-hideable" hidden={hudHidden} inert={menuKind !== null}>
             <TopBar />
-            <ParkPulse />
+            {pulseOpen && <ParkPulse />}
             <UtilityBar />
             <PerformanceOverlay />
             <RideInspector />
@@ -85,7 +89,8 @@ export const App = (): React.JSX.Element => {
           <Toast />
           <div className="clean-hideable" hidden={hudHidden} inert={menuKind !== null}>
             <HelpHint />
-            <BuildDock />
+            {dockOpen && <BuildDock />}
+            <MenuBar />
           </div>
           <ViewControls />
         </div>

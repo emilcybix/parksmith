@@ -33,6 +33,7 @@ export type KeyGroup = 'camera' | 'speed' | 'view' | 'sound' | 'tools' | 'design
 export type ActionId =
   | 'toggleGrid' | 'toggleCleanView' | 'peek' | 'rotateViewLeft' | 'rotateViewRight' | 'recentreView'
   | 'toggleCrowdHeatmap' | 'toggleMute' | 'staffWindow' | 'buildingsWindow'
+  | 'toggleBuildMenu' | 'togglePulse' | 'openFinances' | 'openResearch'
   | 'speedPause' | 'speed1' | 'speed2' | 'speed4'
   | 'bulldozer' | 'pathTool' | 'rotate' | 'paintTool' | 'eyedropper' | 'landTool'
   | 'coasterRaise' | 'coasterLower' | 'coasterToggleLift'
@@ -97,6 +98,10 @@ export const KEY_ACTIONS: readonly KeyActionDef[] = [
   { id: 'toggleCrowdHeatmap', label: 'Crowd heatmap', description: 'Show or hide the crowd flow heatmap (the same as the ≋ button).', group: 'view', scope: 'view', defaultKey: 'k:t', match: 'auto', yieldsDefault: true },
   { id: 'staffWindow', label: 'Staff window', description: 'Open or close the Staff window: every worker, hiring and training.', group: 'view', scope: 'view', defaultKey: 'k:k', match: 'auto', yieldsDefault: true },
   { id: 'buildingsWindow', label: 'Buildings window', description: 'Open or close the Buildings window: every building, with filters, search and bulk actions.', group: 'view', scope: 'view', defaultKey: 'k:o', match: 'auto', yieldsDefault: true },
+  { id: 'toggleBuildMenu', label: 'Build menu', description: 'Open or close the build menu above the menu bar.', group: 'view', scope: 'view', defaultKey: 'shift+k:b', match: 'auto', yieldsDefault: true },
+  { id: 'togglePulse', label: 'Park Pulse', description: 'Show or hide the Park Pulse card.', group: 'view', scope: 'view', defaultKey: 'shift+k:p', match: 'auto', yieldsDefault: true },
+  { id: 'openFinances', label: 'Finances', description: 'Open or close the Finances tab of the management dashboard.', group: 'view', scope: 'view', defaultKey: 'shift+k:f', match: 'auto', yieldsDefault: true },
+  { id: 'openResearch', label: 'Research', description: 'Open or close the Research tab of the management dashboard.', group: 'view', scope: 'view', defaultKey: 'shift+k:r', match: 'auto', yieldsDefault: true },
   { id: 'peek', label: 'See through', description: 'Hold to see through buildings and scenery near the cursor.', group: 'view', scope: 'build', defaultKey: 'k:x', match: 'auto', hold: true },
   // Phase 35: master mute. Muting sets the Master volume to 0 and unmuting brings the level back, so the Sound slider
   // always shows the truth and the choice survives a reload without a new settings field.

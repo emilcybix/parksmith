@@ -13,6 +13,9 @@ const KEY = 'parksmith-windows';
 interface StoredWindows {
   open: WindowId[];
   buildings: BuildingsView;
+  /** Phase 43: whether the build menu and Park Pulse are shown (both open by default). */
+  dockOpen: boolean;
+  pulseOpen: boolean;
 }
 
 const storage = (): Storage | null => {
@@ -28,9 +31,14 @@ export const loadWindowPrefs = (): StoredWindows => {
     const raw = storage()?.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) as Record<string, unknown> : {};
     const open = Array.isArray(parsed.open) ? parsed.open.filter((id): id is WindowId => WINDOW_IDS.includes(id as WindowId)) : [];
-    return { open: [...new Set(open)], buildings: parseBuildingsView(parsed.buildings) };
+    return {
+      open: [...new Set(open)],
+      buildings: parseBuildingsView(parsed.buildings),
+      dockOpen: parsed.dockOpen !== false,
+      pulseOpen: parsed.pulseOpen !== false,
+    };
   } catch {
-    return { open: [], buildings: { ...DEFAULT_BUILDINGS_VIEW } };
+    return { open: [], buildings: { ...DEFAULT_BUILDINGS_VIEW }, dockOpen: true, pulseOpen: true };
   }
 };
 

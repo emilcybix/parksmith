@@ -124,7 +124,7 @@ describe('anchor model', () => {
 
   it('keeps Park Pulse above the tallest dock where they share columns', () => {
     for (const cell of supportedMatrix().filter((c) => c.viewport.tier === 'supported')) {
-      const [, dock, pulse] = anchorModel(cell.layoutWidth, cell.layoutHeight);
+      const [, dock, , pulse] = anchorModel(cell.layoutWidth, cell.layoutHeight);
       expect(pulse.y1, `${cell.viewport.width}x${cell.viewport.height}@${cell.scale}`).toBeLessThan(dock.y0);
     }
   });

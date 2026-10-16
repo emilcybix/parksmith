@@ -35,6 +35,8 @@ export const FLOATING_PANELS: readonly PanelDef[] = [
   { id: 'paint-panel', selector: '.paint-panel', layer: 'hud' },
   { id: 'management-dashboard', selector: '.management-dashboard', layer: 'hud' },
   { id: 'build-dock', selector: '.build-dock', layer: 'hud' },
+  { id: 'menu-bar', selector: '.menu-bar', layer: 'hud' },
+  { id: 'game-window', selector: '.game-window', layer: 'popover' },
   { id: 'cursor-readout', selector: '.cursor-readout', layer: 'hud' },
   { id: 'help-hint', selector: '.help-hint', layer: 'hud' },
   { id: 'view-rotate', selector: '.view-rotate', layer: 'hud' },
@@ -211,7 +213,10 @@ export const ANCHORS = {
   /** The same content after the short-screen tightening (about 45px); the map offer is the tallest case. */
   pulseHeightCompact: 337,
   compactAtMostHeight: 720,
-  dockBottom: 17,
+  /** Phase 43: the main menu bar along the bottom edge (`.menu-bar`); the dock opens above it. */
+  barBottom: 12,
+  barHeight: 44,
+  dockBottom: 66,
   dockWidthMax: 1010,
   dockSideReserve: 190,
   /**
@@ -221,7 +226,7 @@ export const ANCHORS = {
    */
   dockHeight: 223,
   /** --dock-reserve: from the bottom edge to the top of the tallest dock, plus a gap. */
-  dockReserve: 251,
+  dockReserve: 300,
   /** The ride / service inspector beside Park Pulse (`.ride-inspector`: right 300, width 292). */
   inspectorRight: 300,
   inspectorWidth: 292,
@@ -245,9 +250,17 @@ export const anchorModel = (layoutWidth: number, layoutHeight: number): PlacedPa
       x0: dockX0, x1: dockX0 + dockWidth, y1: layoutHeight - a.dockBottom, y0: layoutHeight - a.dockBottom - a.dockHeight,
     },
     {
+      // Phase 43: the menu bar under the dock (`.menu-bar`: max-width min(780px, 100% - 330px), centred).
+      id: 'menu-bar', layer: 'hud',
+      x0: (layoutWidth - Math.min(780, layoutWidth - 330)) / 2, x1: (layoutWidth + Math.min(780, layoutWidth - 330)) / 2,
+      y0: layoutHeight - a.barBottom - a.barHeight, y1: layoutHeight - a.barBottom,
+    },
+    {
       id: 'pulse-card', layer: 'hud',
       x0: layoutWidth - a.sideGutter - a.pulseWidth, x1: layoutWidth - a.sideGutter,
-      y0: a.pulseTop, y1: a.pulseTop + (compact ? a.pulseHeightCompact : a.pulseHeight),
+      // The card is capped above the dock reserve (`max-height` in styles.css) and scrolls beyond it, with the Phase 35
+      // "more below" cue; Phase 43's higher dock makes the cap bind on short layouts.
+      y0: a.pulseTop, y1: Math.min(a.pulseTop + (compact ? a.pulseHeightCompact : a.pulseHeight), layoutHeight - a.dockReserve),
     },
   ];
 };
