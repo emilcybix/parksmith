@@ -248,6 +248,9 @@ const playRefusalText = (reason: Extract<PlayCardResult, { ok: false }>['reason'
   }
 };
 
+/** Phase 40: the hover line of a building whose front looks onto no path (it can still be built). */
+export const FRONT_FACES_NO_PATH = 'Front faces no path: guests cannot reach it. Press R to turn it.';
+
 /** Phase 38: what stops a coaster draft from being built where it is (the designer's status line). */
 const coasterConflictMessage = (conflict: 'blocked' | 'object' | 'path' | 'track' | null): string => {
   switch (conflict) {
@@ -301,6 +304,8 @@ export class GameApp implements GameCommands, RunCommands {
   private coasterDraft: CoasterPiece[] = [];
   private coasterHeight = 0;
   private coasterLastCell: Cell | null = null;
+  /** Phase 40: the cell R was pressed on: the ghost keeps the player's turn there instead of facing the path. */
+  private manualFacingCell: Cell | null = null;
   /** Phase 38: the cell whose refused crossing was last toasted, so a drag over it says so once. */
   private coasterDraftRefusal: string | null = null;
   private coasterTypeId: string | null = null;
@@ -907,6 +912,8 @@ export class GameApp implements GameCommands, RunCommands {
       return;
     }
     state.rotateBuild();
+    // Phase 40: a turn the player chose is not undone by the auto-facing while the pointer stays on this cell.
+    this.manualFacingCell = this.renderer?.hoveredCell ? { ...this.renderer.hoveredCell } : null;
     const [width, depth] = footprintSize(definition, this.buildRotation());
     // Phase 40: every building faces one of four ways; say where its front now points on screen.
     const facing = hasMeaningfulFront(definition) ? ` · front ${facingOnScreen(this.buildRotation(), this.viewRotation)}` : '';
@@ -2837,6 +2844,13 @@ export class GameApp implements GameCommands, RunCommands {
         : shortfallMessage(this.world.pathCost, this.world.cash));
       return;
     }
+    // Phase 40: arriving beside a path, a front-only building turns its front toward it by itself; R wins on the cell it
+    // was pressed on (until the pointer moves to another cell).
+    if (this.manualFacingCell !== null && !sameCell(cell, this.manualFacingCell)) this.manualFacingCell = null;
+    if (this.manualFacingCell === null && this.world.frontAccessFor(definition)) {
+      const facing = this.world.facingRotation(definition, cell, this.buildRotation());
+      if (facing !== this.buildRotation()) useUiStore.setState({ buildRotation: facing });
+    }
     const rotation = this.buildRotation();
     const cells = this.world.footprintCells(definition, cell, rotation);
     const effectiveCost = this.world.objectCost(definition);
@@ -2846,12 +2860,16 @@ export class GameApp implements GameCommands, RunCommands {
     this.renderer?.drawPreview(cells, definition, check.ok, false, rotation, this.nextColours(definition.id));
     // Suppress the readout on the exact cell a toast just explained: one message per refusal.
     const explainedByToast = this.blockToastCell !== null && sameCell(cell, this.blockToastCell);
+    // Phase 40: buildable, but with its front to no path guests could never use it: say so (it can still be built).
+    const frontWarning = check.ok && this.world.frontAccessFor(definition) && !this.world.frontFacesPath(definition, cell, rotation)
+      ? FRONT_FACES_NO_PATH
+      : null;
     state.setHover(
       cell,
       effectiveCost,
       check.ok,
       check.ok || explainedByToast
-        ? null
+        ? frontWarning
         : placementBlockReason(this.world, check.reason, definition, cell, rotation, check.reason === 'locked' ? this.session.buildLockOf(definition.id) : null),
     );
     if (!explainedByToast) this.blockToastCell = null;
@@ -3009,7 +3027,8 @@ export class GameApp implements GameCommands, RunCommands {
     const colours = this.nextColours(definition.id);
     const placed = check.ok
       ? this.world.batch(() => {
-        const built = this.world.buildObject(definition.id, cell, rotation);
+        // Phase 40: the player gets exactly the turn the ghost showed (the world turns only non-player placements).
+        const built = this.world.buildObject(definition.id, cell, rotation, { exactRotation: true });
         if (built && colours) this.world.setObjectColours(built.id, colours);
         return built;
       })

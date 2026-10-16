@@ -104,6 +104,13 @@ export interface ParkRuleset {
    * feedback. Not card-modifiable, not a scenario override, no bonus.
    */
   crowdFeedback?: number;
+  /**
+   * Phase 40 base layer (schema 16): 1 = services and benches are used from their front only (`isFrontOnly`), and
+   * buildings placed by anything but the player's own click turn to face a path. Compiled from
+   * GAME_CONFIG.access.frontOnly for a NEW park, written LAST and only when on. Absent = off (every side), which is
+   * every save written before Phase 40: an old park keeps every side. Not card-modifiable, not a scenario override.
+   */
+  frontAccess?: 1;
 }
 
 /** The two keys only a permanent bonus can write. */
@@ -122,6 +129,10 @@ export type Phase16RuleKey = (typeof PHASE16_RULE_KEYS)[number];
 export const PHASE14_RULE_KEYS = ['crowdFeedback'] as const;
 export type Phase14RuleKey = (typeof PHASE14_RULE_KEYS)[number];
 
+/** The Phase 40 base-layer key: compiled from GAME_CONFIG for a new park, never from a card, scenario or bonus. */
+export const PHASE40_RULE_KEYS = ['frontAccess'] as const;
+export type Phase40RuleKey = (typeof PHASE40_RULE_KEYS)[number];
+
 /**
  * Whether `compileParkRules` writes the Phase 14 key. Phase 14 Wave 1 landed the compile switched OFF (the session did
  * not save the key yet, and a live key that the save drops would make every restored session differ from the one that
@@ -136,7 +147,7 @@ export type BiomeRules = Readonly<Record<BiomeRuleKey, number>>;
 export const NEUTRAL_RULES_OF_BIOME: BiomeRules = Object.freeze({ hungerRateMultiplier: 1, thirstRateMultiplier: 1 });
 
 /** The numeric multiplier rules Pulse Cards are allowed to touch. */
-export type CardModifiableRule = Exclude<keyof ParkRuleset, 'startingCash' | 'lockedDefinitionIds' | BiomeRuleKey | BonusOnlyRuleKey | Phase16RuleKey | Phase14RuleKey>;
+export type CardModifiableRule = Exclude<keyof ParkRuleset, 'startingCash' | 'lockedDefinitionIds' | BiomeRuleKey | BonusOnlyRuleKey | Phase16RuleKey | Phase14RuleKey | Phase40RuleKey>;
 
 export type CardModifiers = Partial<Record<CardModifiableRule, number>>;
 
@@ -312,8 +323,17 @@ export const compileParkRules = (
     ...bonusKeys(bonus),
     ...phase16Keys(),
     ...(CROWD_FEEDBACK_COMPILED ? crowdFeedbackKeys() : {}),
+    ...frontAccessKeys(),
   };
 };
+
+/** Phase 40: whether a ruleset has front-only access: absent = off (every side, every save before Phase 40). */
+export const frontAccessOf = (rules: Pick<ParkRuleset, 'frontAccess'>): boolean => rules.frontAccess === 1;
+
+/** The Phase 40 key, read from GAME_CONFIG at COMPILE time (a `vi.mock` of the config reaches it), written only when on. */
+export const frontAccessKeys = (): Partial<Pick<ParkRuleset, Phase40RuleKey>> => (
+  GAME_CONFIG.access.frontOnly ? { frontAccess: 1 } : {}
+);
 
 /** The effective theme-affinity share of a ruleset: absent = 0 (off). */
 export const themeAffinityOf = (rules: Pick<ParkRuleset, 'themeAffinity'>): number => rules.themeAffinity ?? 0;

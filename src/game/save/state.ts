@@ -930,6 +930,8 @@ export interface ParkSaveV13 extends ParkSaveV12 {
  */
 export interface ParkRulesetStateV14 extends ParkRulesetStateV13 {
   landCostMultiplier?: number;
+  /** Phase 40 (schema 16): front-only access, written LAST and only when on (exactly 1). Absent = every side. */
+  frontAccess?: 1;
 }
 
 /**
@@ -953,6 +955,14 @@ export interface ParkSaveV14 extends ParkSaveV13 {
  * schema-15 reader that ignores unknown keys.
  */
 export type ParkSaveV15 = ParkSaveV14;
+
+/**
+ * Schema 16 (Phase 40, building fronts) is schema 15 plus the optional ruleset key `frontAccess` (exactly 1, written
+ * last, only when on; see ParkRuleset). Rotations 2 and 3 now draw the building facing that way (a picture change, not
+ * a state change). Migration 15->16 is the identity apart from dropping a hand-edited `rules.frontAccess`, which a
+ * schema-15 build ignored: every schema-15 park keeps every side and is byte-identical at schema 16.
+ */
+export type ParkSaveV16 = ParkSaveV15;
 
 /** @deprecated use ParkSaveV14. Kept so code outside src/game keeps compiling. */
 export type ParkSaveV8 = ParkSaveV14;

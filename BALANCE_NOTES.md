@@ -899,6 +899,27 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 40: front-only access · **PROVISIONAL**
+
+Measured on 2026-10-16 with the three opt-in sweeps, once with `GAME_CONFIG.access.frontOnly` on (shipped) and once
+with it off on the same tree, so only the rule differs. **Nothing was retuned.**
+
+- **`RUN_SWEEP=1`:** identical to Phase 32 in every cell (range and median, all 300 rows), with the same two Standard
+  L5 misses at the same values (seed 102 at 95 %, seed 106 at 93 %). The run stages' stalls already faced their paths.
+- **`CARD_BALANCE=1`:** byte-identical output on and off (588 rows and 48 summaries).
+- **`STRATEGY_SWEEP=1`:** 54 of 54 parks healthy both ways. Over those parks, off -> on:
+
+| Strategy | Lowest cash (min) | Rating (mean) | Happiness (mean) | Guests (mean) | Operating profit 35-45 (mean) | Final cash (mean) |
+|---|---|---|---|---|---|---|
+| cheap-and-wide | 343 -> 343 | 73.92 -> 73.90 | 81.12 -> 81.32 | 104.4 -> 104.3 | 4,486 -> 4,520 | 11,035 -> 11,023 |
+| one-premium | 406 -> 406 | 73.56 -> 73.56 | 80.47 -> 80.47 | 89.9 -> 89.9 | 4,232 -> 4,232 | 11,075 -> 11,075 |
+| service-and-scenery | 396 -> 335 | 74.19 -> 73.20 | 78.07 -> 78.18 | 70.5 -> 69.5 | 2,764 -> 2,927 | 8,427 -> 9,366 |
+
+Only one park moved operating profit by more than $300 (service-and-scenery, Meadow seed 105: +$329). The
+service-heavy strategy is the one that places most stalls, so it is the one whose stalls the bot now turns; its lowest
+cash fell by $61 and its final cash rose by $939. Open: whether a player who ignores the hover warning loses enough to
+need a stronger cue (an unreachable stall is flagged, but still costs its price).
+
 ## Phase 39: coaster families (wild mouse, wooden) · **PROVISIONAL**
 
 Set on 2026-10-16 from the ride model only (no play, no bot). Same layouts, every type that may build them

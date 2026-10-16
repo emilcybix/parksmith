@@ -6,6 +6,7 @@ import { GUEST_ACCENTS, GUEST_COLORS } from '../../../game/guests/GuestSimulatio
 import { ParkSession } from '../../../game/session/ParkSession';
 import { seedColourTestPark } from '../../../game/session/colourTestPark';
 import type { BuildDefinition, Cell } from '../../../game/types';
+import { visualQuarterTurn } from '../contracts/space';
 import { createModelCache } from '../blueprint/compile';
 import { BOX_FLOATS, unpackBoxWord } from '../contracts/boxes';
 import type { GhostState, VoxelGpuSink } from '../contracts/frame';
@@ -145,22 +146,24 @@ describe('ghost colours (GhostPreview)', () => {
     const { world, models, session } = parkRig();
     const stall = [...world.objects.values()].find((object) => object.definitionId === 'picnic-pocket')!;
     const definition = definitionOf('picnic-pocket');
+    const turn = visualQuarterTurn(stall.rotation);
     const ghost = new GhostPreview();
     ghost.set([stall.anchor], null, true, true, 0);
     const plain = ghost.resolve(world, models)!.boxes;
-    expect(plain, 'a default object: the cached flat').toBe(models.objectFlat(definition, 0).boxes);
+    // Phase 40: the dev park turns its stalls toward their paths, so the cached flat is the stall's own turn.
+    expect(plain, 'a default object: the cached flat').toBe(models.objectFlat(definition, turn).boxes);
     world.setObjectColours(stall.id, [19, 6]);
     session.syncWithWorld();
     const painted = ghost.resolve(world, models)!.boxes;
     expect(painted).not.toBe(plain);
     expect(ghost.resolve(world, models)!.boxes, 'resolved again after a world change: the same list').toBe(painted);
-    const flat = models.objectFlat(definition, 0);
+    const flat = models.objectFlat(definition, turn);
     for (let box = 0; box < flat.boxCount; box += 1) {
       const tag = flat.tags![box];
       expect(materialOf(painted, box)).toBe(tag === 1 ? swatchMaterial(19) : tag === 2 ? swatchMaterial(6) : materialOf(flat.boxes, box));
     }
     world.clearObjectColours(stall.id);
-    expect(ghost.resolve(world, models)!.boxes).toBe(models.objectFlat(definition, 0).boxes);
+    expect(ghost.resolve(world, models)!.boxes).toBe(models.objectFlat(definition, turn).boxes);
   });
 });
 

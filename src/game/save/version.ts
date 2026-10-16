@@ -14,7 +14,7 @@ import type { GameMode } from '../modes/types';
  */
 
 /** Bumped whenever the shape of ParkSaveV15 (or the envelope) changes. Add a migration with it. */
-export const SAVE_SCHEMA_VERSION = 15;
+export const SAVE_SCHEMA_VERSION = 16;
 
 /**
  * Bumped when catalog, GAME_CONFIG or card/scenario content changes in a way that alters how an

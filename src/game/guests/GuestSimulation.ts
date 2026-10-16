@@ -1,3 +1,4 @@
+import { frontEdgeCells } from '../access';
 import { BUILD_BY_ID } from '../content/catalog';
 import { GAME_CONFIG } from '../config';
 import { PathNetwork } from '../navigation/PathNetwork';
@@ -923,13 +924,20 @@ export class GuestSimulation implements Serializable<GuestSimulationState> {
       }
       const bench = GAME_CONFIG.guestLife.enabled && definition?.kind === 'amenity' && definition.stats?.amenityType === undefined;
       if (!definition || (definition.kind !== 'ride' && !definition.stats?.serviceType && !bench)) continue;
-      const footprintCells = this.world.objectFootprint(object);
-      const footprint = new Set(footprintCells.map(keyOf));
       const access = new Map<string, Cell>();
-      for (const occupied of footprintCells) {
-        for (const direction of CARDINALS) {
-          const cell = { x: occupied.x + direction.x, y: occupied.y + direction.y };
-          if (!footprint.has(keyOf(cell)) && this.world.paths.has(keyOf(cell))) access.set(keyOf(cell), cell);
+      if (this.world.frontAccessFor(definition)) {
+        // Phase 40: a service or a bench is used from the path in front of its front edge only.
+        for (const cell of frontEdgeCells(definition, object.anchor, object.rotation)) {
+          if (this.world.paths.has(keyOf(cell))) access.set(keyOf(cell), cell);
+        }
+      } else {
+        const footprintCells = this.world.objectFootprint(object);
+        const footprint = new Set(footprintCells.map(keyOf));
+        for (const occupied of footprintCells) {
+          for (const direction of CARDINALS) {
+            const cell = { x: occupied.x + direction.x, y: occupied.y + direction.y };
+            if (!footprint.has(keyOf(cell)) && this.world.paths.has(keyOf(cell))) access.set(keyOf(cell), cell);
+          }
         }
       }
       const reachableAccess = [...access.values()].filter((cell) =>

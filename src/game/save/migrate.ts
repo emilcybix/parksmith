@@ -408,6 +408,20 @@ export const SAVE_MIGRATIONS: readonly SaveMigration[] = [
       return { ...save, schemaVersion: 15, state: { ...state, guests: { ...guests, guests: migratedGuests } } };
     },
   },
+  {
+    from: 15,
+    to: 16,
+    description: 'Building fronts: the optional front-access rule (a schema-15 park keeps every side)',
+    // A schema-15 park never had front-only access: a hand-edited `rules.frontAccess` (which a schema-15 build
+    // ignored) is dropped, so the park plays as it did. Nothing else changes.
+    migrate: (save) => {
+      const state = save.state as PlainRecord;
+      if (!isRecord(state.rules) || !Object.hasOwn(state.rules, 'frontAccess')) return { ...save, schemaVersion: 16 };
+      const { frontAccess: _front, ...rules } = state.rules as PlainRecord;
+      void _front;
+      return { ...save, schemaVersion: 16, state: { ...state, rules } };
+    },
+  },
 ];
 
 export interface MigrateOptions {

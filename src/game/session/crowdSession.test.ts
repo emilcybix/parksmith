@@ -115,7 +115,8 @@ describe('saving the crowd (schema 13)', () => {
     const state = saved(session);
     const keys = Object.keys(state);
     expect(keys.indexOf('crowd')).toBe(keys.indexOf('guests') + 1);
-    expect(Object.keys(state.rules).at(-1)).toBe('crowdFeedback');
+    // Phase 40's `frontAccess` is the last key when compiled; crowdFeedback ends the rest.
+    expect(Object.keys(state.rules).filter((key) => key !== 'frontAccess').at(-1)).toBe('crowdFeedback');
     expect(state.rules.crowdFeedback).toBe(1);
     expect(state.crowd).toEqual(session.crowd.serialize());
     expect(state.crowd!.pressure.length).toBeGreaterThan(20);

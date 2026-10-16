@@ -2801,7 +2801,7 @@ coaster stores its type id).
 - [ ] Per family still open: a lift/launch sound per family (Phase 15 synth), a classic train style per family,
   determinism fixtures with one coaster per family, and a played balance check (BALANCE_NOTES Phase 39).
 
-## Phase 40 — Building Fronts: Four Directions and Front-Only Access (40a built 2026-10-16; 40b in progress)
+## Phase 40 — Building Fronts: Four Directions and Front-Only Access (built 2026-10-16)
 
 **Problem.** A building can only face two ways. The build rotation (R) runs 0–3 and is saved that way, but it is
 treated as a footprint orientation only: `footprintSize` swaps width and depth on odd turns, and the voxel models turn
@@ -2828,33 +2828,40 @@ q times; the cache holds four turns), `scene/rigid.ts` (`writeRotatedPartTransfo
   slots are materials, not geometry). No pin moved: no fixture holds a building at rotation 2 or 3.
 - [ ] The Phase 27 visual matrix gains the two new turns: with the browser verification pass.
 
-**Front-only access.**
-- [ ] Each build definition gets its front side (default: model +y). The access cells of an object are the path cells
-  in front of its front edge, not on every side. For a footprint wider than one cell, every cell along the front edge
-  counts.
-- [ ] **Decide: which kinds.** Recommended: services (food, drink, souvenirs, toilets, info) and benches front-only.
-  Rides keep every side for now, because a real queue entrance and exit belong with the "Custom queue paths" idea under
-  Future Candidates. Decorations and bins are unchanged (no access).
-- [ ] **Placement help:** when the pointer arrives beside a path, the ghost turns its front toward the path by itself
-  (the player can still turn it with R). This is the friction fix and prevents most mistakes.
-- [ ] **Feedback:** a building whose front faces no path can still be built, but the ghost shows it in a warning colour
-  with "Front faces no path: guests cannot reach it". Once built, it gets an "unreachable" badge in the inspector, and
-  Park Pulse names it with a link to the building (like the Phase 30 complaint links).
+**Front-only access (40b, built).** Code: `game/access.ts` (`frontEdgeCells`, `isFrontOnly`, `sameFootprintRotations`),
+`GameWorld` (`setFrontAccess`, `frontAccessFor`, `frontFacesPath`, `facingRotation`, `buildObject(…, { exactRotation })`),
+`GuestSimulation.refreshDestinations` and `ManagementSimulation` connectivity, the ruleset key `frontAccess`
+(`scenarios/rules.ts`, `ParkSession`, schema 16 with migration 15→16), `GameApp` hover (auto-facing, R override,
+`FRONT_FACES_NO_PATH`).
+- [x] The access cells of a front-only building are the path cells just outside its front edge (every cell along a
+  wider front counts). Staff still use every side.
+- [x] **Decided (as recommended): services and benches are front-only**; rides keep every side; bins and scenery have
+  no access.
+- [x] **Placement help:** arriving beside a path, the ghost turns a front-only building toward it (a turn that keeps
+  the footprint first, then a quarter turn where that fits). R wins on the cell it was pressed on, until the pointer
+  moves to another cell. The player's click builds exactly the turn the ghost shows.
+- [x] **Feedback:** a building whose front faces no path can still be built; the hover line says "Front faces no path:
+  guests cannot reach it. Press R to turn it." Once built it counts as not connected, so the existing no-path badge
+  (Phase 11, PA-024) and the management warnings name it. The ghost keeps the build colour (red means "cannot be
+  built"); a separate warning tint is not built.
+- [x] **Existing parks do not break — deviation from the per-object plan.** Front-only access is a ruleset key
+  (`frontAccess`, written last, only when on), like Phase 14's `crowdFeedback`: a NEW park compiles it from
+  `GAME_CONFIG.access.frontOnly`; every park saved before Phase 40 has no key and keeps every side for every building,
+  old or new. No object is turned at load and there is no `legacyAccess` flag: an old park plays exactly as it did, and
+  its saves and the frozen fixtures load byte for byte. Schema 16; migration 15→16 drops only a hand-edited key.
+- [x] Anything but the player's click turns a front-only building to face a path where its footprint allows: scenario
+  and map starting objects, the dev park, the strategy and scenario bots, the determinism fixtures. Every starting park
+  has every service and bench facing a path (`frontAccess.test.ts`).
+- [x] Pins: with `frontOnly` off every pin holds (`defaultIdentity.review.test.ts`; the renderer identity tests run with
+  it off). With it on: fixture 2c moved only by the key; the seven lift-review parks that seed or build their own
+  stalls were re-pinned; the four scenario parks did not move.
+- [x] Re-measure: see BALANCE_NOTES "Phase 40".
 
-**Saves and balance.**
-- [ ] **Existing parks must not break.** Old saves stored rotations 0–3, but the front was never shown that way. At
-  load, an object whose front has no path is turned to the nearest direction whose front has a path, if its
-  footprint still fits; otherwise it keeps any-side access with a `legacyAccess` flag until it is moved or rebuilt.
-  Schema bump with a migration and a test.
-- [ ] Scenario starting objects, the dev park plots and the strategy bot (`game/balance/strategyBot.ts`) face their
-  paths. The determinism fixtures and the observables are re-pinned once.
-- [ ] Re-measure: the L5 run-margin proofs are knife-edge (Phase 29 notes), so the BALANCE_NOTES sweeps are re-run and
-  any retune is an owner decision.
-
-**Tests.** All four turns draw a different model and keep picking correct; a stall facing the path sells and one
-facing away is unreachable (no access cells, warning, Pulse line); a two-wide front edge gives two access cells; the
-ghost auto-faces a path and R still overrides it; an old save loads with every service still reachable (turned or
-`legacyAccess`); save and load round-trip all four rotations.
+**Tests (built).** `blueprint/fourTurns.test.ts` and `scene/rigid.test.ts` (four distinct turns, the cache, moving parts
+in every turn), `app/buildFacing.test.ts`, `game/frontAccess.test.ts` (the rule compiles and saves last; front edge
+cells; a stall facing the path is a destination and one facing away is not, a two-wide front gives two access cells;
+non-player placement turns, the player's is exact; every starting park faces its paths; every dev park service sells),
+`app/GameApp.fronts.test.ts` (auto-facing, R override with the warning, rides not turned), migration 15→16.
 
 ## Phase 41 — Cinematic 3D Camera (planned, not started; owner request 2026-10-16)
 

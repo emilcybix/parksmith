@@ -6,13 +6,19 @@ import { seedDevPark } from './devPark';
 /**
  * Phase 16: this test was calibrated on a park without theme affinity and is not about themes, so it runs with the
  * affinity share at 0 (any non-zero share shifts guest choices and so who litters where and when guests arrive).
+ * Phase 40: likewise with front-only access off: the dev park's stalls turn toward their paths, which moves where the
+ * crowd queues and litters, and this test is about the crew, not about building fronts.
  */
 vi.mock('../config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../config')>();
   const config = actual.GAME_CONFIG;
   return {
     ...actual,
-    GAME_CONFIG: { ...config, scenery: { ...config.scenery, themeAffinity: { ...config.scenery.themeAffinity, share: 0 } } },
+    GAME_CONFIG: {
+      ...config,
+      scenery: { ...config.scenery, themeAffinity: { ...config.scenery.themeAffinity, share: 0 } },
+      access: { ...config.access, frontOnly: false },
+    },
   };
 });
 

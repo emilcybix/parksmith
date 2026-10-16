@@ -18,6 +18,7 @@ import { MEADOW_LAYOUT, layoutFromState, groundRowsOf, propFootprintSize } from 
 import { PROP_KIND_BY_ID, type PropKindDefinition } from './maps/props';
 import { GROUND_BASE, GROUND_WATER, type Facing, type GroundKind, type MapLayout, type PropPlacement } from './maps/types';
 import { footprintSize } from './types';
+import { frontEdgeCells, isFrontOnly, sameFootprintRotations } from './access';
 import { LandOwnership, checkOwnedParcels, type LandPurchaseBlockReason } from './land/LandOwnership';
 import { parcelGridOf, parcelIndexOfCell, parcelsOfRect, type CellRect } from './land/parcels';
 import { plainNumber } from './save/plainData';
@@ -265,6 +266,12 @@ export class GameWorld implements Serializable<GameWorldState> {
   private nextTransactionId = 1;
   private readonly listeners = new Set<() => void>();
   private buildAccessPolicy: BuildAccessPolicy | null = null;
+  /**
+   * Phase 40: CONFIG, from the ruleset's `frontAccess` (ParkSession sets it before seeding; never saved here). On, a
+   * service or a bench is used from its front only (`frontAccessFor`), and a building placed by anything but the
+   * player's own click is turned to face a path where its footprint allows (`facingRotation`).
+   */
+  private frontAccess = false;
   private gateSchedule: GateSchedule | null = null;
   private batchDepth = 0;
   private batchedChange = false;
@@ -491,6 +498,41 @@ export class GameWorld implements Serializable<GameWorldState> {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Phase 40: switches the front-access rule (ParkSession, from the ruleset). */
+  setFrontAccess(on: boolean): void {
+    this.frontAccess = on;
+  }
+
+  get frontAccessRule(): boolean {
+    return this.frontAccess;
+  }
+
+  /** Phase 40: whether guests use this kind from its front only in this park. */
+  frontAccessFor(definition: BuildDefinition): boolean {
+    return this.frontAccess && isFrontOnly(definition);
+  }
+
+  /** Phase 40: whether the front of a footprint at this rotation looks onto a path. */
+  frontFacesPath(definition: BuildDefinition, anchor: Cell, rotation: Rotation): boolean {
+    return frontEdgeCells(definition, anchor, rotation).some((cell) => this.paths.has(cellKey(cell)));
+  }
+
+  /**
+   * Phase 40: the rotation a front-only building should take here so its front looks onto a path: first a turn that
+   * keeps its footprint (`sameFootprintRotations`), then a quarter turn of a non-square one where that fits at the same
+   * anchor; the given rotation when the rule is off, the kind has no front, or no turn finds a path.
+   */
+  facingRotation(definition: BuildDefinition, anchor: Cell, rotation: Rotation): Rotation {
+    if (!this.frontAccessFor(definition)) return rotation;
+    const same = sameFootprintRotations(definition, rotation).find((turn) => this.frontFacesPath(definition, anchor, turn));
+    if (same !== undefined) return same;
+    // A quarter turn of a non-square footprint covers other cells: only where it fits at the same anchor.
+    const quarter = ([1, 3] as const)
+      .map((step) => ((rotation + step) % 4) as Rotation)
+      .find((turn) => this.canPlace(definition, anchor, turn) && this.frontFacesPath(definition, anchor, turn));
+    return quarter ?? rotation;
   }
 
   setBuildAccessPolicy(policy: BuildAccessPolicy | null): void {
@@ -740,7 +782,14 @@ export class GameWorld implements Serializable<GameWorldState> {
     return { built: accepted.length, spent, added: accepted.map((cell) => ({ ...cell })) };
   }
 
-  buildObject(definitionId: string, anchor: Cell, rotation: Rotation = 0): PlacedObject | null {
+  /**
+   * Builds a placed object. Phase 40: with the front-access rule on, a front-only building is turned to face a path
+   * where its footprint allows (`facingRotation`), unless `exactRotation` (the player's own placement: the ghost
+   * already showed the turn they chose).
+   */
+  buildObject(definitionId: string, anchor: Cell, rotation: Rotation = 0, options: { exactRotation?: boolean } = {}): PlacedObject | null {
+    const requested = BUILD_BY_ID.get(definitionId);
+    if (requested && options.exactRotation !== true) rotation = this.facingRotation(requested, anchor, rotation);
     const check = this.checkObjectBuild(definitionId, anchor, rotation);
     if (!check.ok) return null;
     const { definition } = check;
@@ -881,7 +930,10 @@ export class GameWorld implements Serializable<GameWorldState> {
   /** Places a scenario starter object without cost, transactions, or unlock checks. */
   seedScenarioObject(definitionId: string, anchor: Cell, rotation: Rotation = 0): PlacedObject | null {
     const definition = BUILD_BY_ID.get(definitionId);
-    if (!definition || definition.kind === 'path' || !this.canPlace(definition, anchor, rotation)) return null;
+    if (!definition || definition.kind === 'path') return null;
+    // Phase 40: starting content faces its paths where the footprint allows (paths are seeded first).
+    rotation = this.facingRotation(definition, anchor, rotation);
+    if (!this.canPlace(definition, anchor, rotation)) return null;
     const placed: PlacedObject = { id: this.nextObjectId++, definitionId, anchor: { ...anchor }, rotation };
     this.objects.set(placed.id, placed);
     for (const cell of this.footprintCells(definition, anchor, rotation)) this.occupancy.set(cellKey(cell), placed.id);

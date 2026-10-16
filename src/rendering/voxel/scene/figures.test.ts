@@ -6,7 +6,7 @@ import type { Guest, GuestState } from '../../../game/guests/types';
 import type { StaffRuntime } from '../../../game/operations/types';
 import { seedDevPark } from '../../../game/session/devPark';
 import { ParkSession } from '../../../game/session/ParkSession';
-import type { Cell } from '../../../game/types';
+import { frontOf, type Cell } from '../../../game/types';
 import {
   FIGURE_CAPACITY,
   FIGURE_FLAG_DESATURATE,
@@ -793,7 +793,8 @@ describe('guest life poses, seats and souvenirs (Phase 29)', () => {
       expect(record.frame).toBe(FIGURE_FRAME_SIT);
       expect(Math.floor(record.x / VOXELS_PER_TILE), 'on the bench tile (x)').toBe(bench.anchor.x);
       expect(Math.floor(record.y / VOXELS_PER_TILE), 'on the bench tile (y)').toBe(bench.anchor.y);
-      expect(record.heading, 'facing the bench front').toBe(bench.rotation % 2 === 1 ? 0 : 1);
+      // Phase 40: the bench faces one of four ways (the dev park turns it toward its path).
+      expect(record.heading, 'facing the bench front').toBe(frontOf(bench.rotation).heading);
     }
     expect(Math.hypot(a.x - b.x, a.y - b.y), 'two seats, side by side').toBeCloseTo(10, 5);
   });

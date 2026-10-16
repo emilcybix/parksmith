@@ -503,7 +503,8 @@ describe('every leaf of a save is validated: flipping its type is refused with a
     // Phase 16 (content version 3): the two base-layer ruleset keys are optional by design. A save without them is a
     // pre-Phase-16 park (absent = affinity 0, cost scale 1), so deleting one is a legitimate older shape, not a gap.
     // Phase 30: a guest's `thoughtObjectId` is written only while a complaint names a building; absent = null.
-    expect(accepted).toEqual(['.rules.themeAffinity', '.rules.researchCostScale', '.guests.guests[].thoughtObjectId']);
+    // Phase 40: `frontAccess` is optional the same way (absent = every side, a pre-Phase-40 park).
+    expect(accepted).toEqual(['.rules.themeAffinity', '.rules.researchCostScale', '.rules.frontAccess', '.guests.guests[].thoughtObjectId']);
   });
 });
 

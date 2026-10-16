@@ -51,6 +51,8 @@ const preChangeHash = (state: unknown): string => {
     delete copy.rules.researchCostScale;
     // Phase 14 (content version 4): the crowd feedback rule a new park now stores.
     delete copy.rules.crowdFeedback;
+    // Phase 40 (schema 16): the front-access rule a new park now stores. Its EFFECT on play is re-pinned below.
+    delete copy.rules.frontAccess;
   }
   // Phase 24 (schema 8): the land layer is a new top-level key.
   delete copy.map;
@@ -107,19 +109,26 @@ const PRE_CHANGE_SAVE_RUNS: Record<string, readonly string[]> = {
  * canPlaceCoasterPiece on every cell, and track may now run over low objects and other track at clearance, so the
  * answers for cells under benches or beside existing coasters changed by design. Final state, events and fingerprints
  * are unchanged in every fixture.
+ *
+ * Re-pinned 2026-10-16, Phase 40 (schema 16), a deliberate gameplay change: a new park stores `rules.frontAccess`
+ * (stripped by `preChangeHash`), and its services and benches are used from the front only, with the dev park's and
+ * the fixtures' own buildings turned toward their paths. Moved: the seven parks that build or seed stalls themselves
+ * (dev park, the player-built coaster, the hand-driven park, first day, pre-first-step, the calendar and the weather
+ * park). Unmoved: the four scenario parks, whose starting stalls already faced their paths. With
+ * `GAME_CONFIG.access.frontOnly` off every value is the Phase 38 one (defaultIdentity.review.test.ts keeps its pins).
  */
 const PRE_CHANGE_FIXTURES: Record<string, { final: string; events: string; fingerprints: string; observables: string }> = {
-  'dev park, 1,000 guests, coaster': { final: 'e7426a1460e9c532', events: '434357e733752ff5', fingerprints: '0c091d5c29dd207d', observables: '55e05c7475c9ae12' },
+  'dev park, 1,000 guests, coaster': { final: '379b13b45571cf9a', events: '9d8422c4ec00197e', fingerprints: 'c47df8134681994c', observables: '8296a1bed74a9887' },
   'scenario with Pulse Cards and a rules-locked id': { final: '61979b25761df373', events: '5d9b00c22adcfee6', fingerprints: 'e02f287bea932338', observables: '42467d5c6cdf4a2e' },
   'scenario latched success': { final: 'e5c36d65bc70dee2', events: '9030f462ddf66049', fingerprints: '28065ad7d491be07', observables: '07e11b8f39c612d6' },
   'scenario latched failure': { final: '13f46a1213a0c5d9', events: '6ace405e46b8ecc5', fingerprints: 'b3e95127fb35fc41', observables: '83c0c8b337a916ea' },
   'scenario mid sustain streak': { final: '1e4ebf326333c689', events: '008be93323b5a50d', fingerprints: '257c3bc00aee79d5', observables: 'a3081cc19109beb2' },
-  'player-built coaster with loop and boost, bulldozed later': { final: 'b763cf8dc108dd3d', events: '006aba6e0edb64d2', fingerprints: '99c95c29dd5d96dd', observables: '1807aaa8a69cafd1' },
-  'hand-driven park: breakdown, repair, litter, closure, research': { final: '47e98c509914e8f2', events: 'e7164638c7e0e06f', fingerprints: '150ab2e0ccb4a712', observables: '5a5810b9487a32f9' },
-  'first day: sandbox progression latching, skip and dismiss': { final: 'c538ab72587fd479', events: '9edf55db86116ffb', fingerprints: 'a8194581755b9e05', observables: '10db11263bf5f717' },
-  'pre-first-step and right after removeAll': { final: '62f86010c6d2a219', events: 'bf28cd9330b85580', fingerprints: '0ae8926bcf542f2d', observables: '4b8233b736ee5d25' },
-  'park calendar: short days, a length change and a time lock': { final: '1906767a12d1429a', events: '48e3543b50ee22ac', fingerprints: '6e66ee2c190a20f9', observables: '405a85976658df40' },
-  'weather: a stormy afternoon with a storm-closed ride, a player-closed ride and opening hours': { final: 'd3c460c30e208ba0', events: '7211ebd9cb3cf3c1', fingerprints: 'd24163be0630ad08', observables: 'be5ad71b5e28f279' },
+  'player-built coaster with loop and boost, bulldozed later': { final: 'bd84fa2e79b5d0ce', events: '8acca766ef6fcacb', fingerprints: '69c337d33e858e1f', observables: '4c02cfabb7fa64f1' },
+  'hand-driven park: breakdown, repair, litter, closure, research': { final: '3e9c2164b43493f7', events: 'e7164638c7e0e06f', fingerprints: '2ce6418cd4ee7c36', observables: 'aeed607748596fef' },
+  'first day: sandbox progression latching, skip and dismiss': { final: '09b7c75125318943', events: '9edf55db86116ffb', fingerprints: 'a8194581755b9e05', observables: '10db11263bf5f717' },
+  'pre-first-step and right after removeAll': { final: '41ff24cd8fd34646', events: 'bf28cd9330b85580', fingerprints: '0ae8926bcf542f2d', observables: '2644ea894fe6a4b9' },
+  'park calendar: short days, a length change and a time lock': { final: 'bd2dd9d61b99bf9c', events: '9b53e4d5be56c295', fingerprints: '47c959b75906dc5f', observables: '69e91d228112e290' },
+  'weather: a stormy afternoon with a storm-closed ride, a player-closed ride and opening hours': { final: '69402cd4cc57043a', events: '7211ebd9cb3cf3c1', fingerprints: 'd24163be0630ad08', observables: 'be5ad71b5e28f279' },
 };
 
 describe('lift review: a chained park is bit-identical to the pre-change code', () => {

@@ -23,7 +23,7 @@ describe('the biome rule layer', () => {
     expect('hungerRateMultiplier' in desert).toBe(false);
     expect(desert.thirstRateMultiplier).toBe(1.12);
     // Phase 16's two base-layer keys and Phase 14's one, when written, come after the biome keys.
-    const phase16: readonly string[] = [...PHASE16_RULE_KEYS, ...PHASE14_RULE_KEYS];
+    const phase16: readonly string[] = [...PHASE16_RULE_KEYS, ...PHASE14_RULE_KEYS, 'frontAccess'];
     expect(Object.keys(rules).filter((key) => !phase16.includes(key)).slice(-2)).toEqual(['hungerRateMultiplier', 'thirstRateMultiplier']);
   });
 

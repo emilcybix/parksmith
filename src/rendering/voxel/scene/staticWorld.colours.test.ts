@@ -1,4 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+/**
+ * Phase 40: these pins are of the renderer (or of the park it draws), frozen before buildings had fronts; with front-only
+ * access on, the dev park's stalls turn toward their paths and draw differently. The renderer is not what moved, so the
+ * pins run with the rule off (the turn itself is pinned in game/frontAccess.test.ts).
+ */
+vi.mock('../../../game/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../game/config')>();
+  return { ...actual, GAME_CONFIG: { ...actual.GAME_CONFIG, access: { ...actual.GAME_CONFIG.access, frontOnly: false } } };
+});
 import { BUILD_BY_ID, BUILD_CATALOG } from '../../../game/content/catalog';
 import { COLOUR_SLOT_TAG, COLOUR_SWATCHES, colourSlotsFor, SWATCH_COUNT } from '../../../game/content/colours';
 import { GUEST_ACCENTS, GUEST_COLORS } from '../../../game/guests/GuestSimulation';

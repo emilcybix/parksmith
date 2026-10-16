@@ -1,3 +1,4 @@
+import { frontEdgeCells } from '../access';
 import { COASTER_TYPE_BY_ID } from '../coaster/content';
 import { GAME_CONFIG } from '../config';
 import { BUILD_BY_ID, BUILD_CATALOG } from '../content/catalog';
@@ -805,10 +806,14 @@ export class ManagementSimulation implements Serializable<ManagementState> {
     for (const object of this.world.objects.values()) {
       const footprint = this.world.objectFootprint(object);
       const footprintKeys = new Set(footprint.map(cellKey));
-      const hasAccess = footprint.some((cell) => CARDINALS.some((direction) => {
-        const neighbor = { x: cell.x + direction.x, y: cell.y + direction.y };
-        return !footprintKeys.has(cellKey(neighbor)) && connected.has(cellKey(neighbor));
-      }));
+      const definition = BUILD_BY_ID.get(object.definitionId);
+      // Phase 40: a front-only building counts as connected only through the path in front of it.
+      const hasAccess = definition !== undefined && this.world.frontAccessFor(definition)
+        ? frontEdgeCells(definition, object.anchor, object.rotation).some((cell) => connected.has(cellKey(cell)))
+        : footprint.some((cell) => CARDINALS.some((direction) => {
+          const neighbor = { x: cell.x + direction.x, y: cell.y + direction.y };
+          return !footprintKeys.has(cellKey(neighbor)) && connected.has(cellKey(neighbor));
+        }));
       if (hasAccess) this.connectedObjectIds.add(object.id);
     }
   }

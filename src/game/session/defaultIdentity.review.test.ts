@@ -53,6 +53,8 @@ vi.mock('../config', async (importOriginal) => {
       crowd: { ...config.crowd, feedback: 0 },
       // Phase 29: guest life switched off (the master switch); the four guest fields it saves are stripped below.
       guestLife: { ...config.guestLife, enabled: false },
+      // Phase 40: front-only access switched off, so new parks compile no `frontAccess` key and seed as they did.
+      access: { ...config.access, frontOnly: false },
     },
   };
 });

@@ -29,7 +29,8 @@ const rig = () => {
     return object.id;
   };
   const addService = (x: number, y: number): number => {
-    const object = session.world.seedScenarioObject('fizz-foundry', { x, y })!;
+    // Phase 40: facing east (rotation 1), toward the column-15 path `connect` lays, so its front is its access.
+    const object = session.world.seedScenarioObject('fizz-foundry', { x, y }, 1)!;
     session.shops.syncWithWorld();
     tops.set(object.id, 40);
     return object.id;

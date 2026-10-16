@@ -144,12 +144,20 @@ describe('fixture 2c (Phase 25): the one-shot ledger has the same hash in every 
     // Phase 30 (2026-10-15) moved nothing here: the need gate on life activities sits at the leave thresholds (its
     // designed level, 72, moved this to f26de45713f9ad70 and two run-margin proofs to exactly 90%, so it was not kept),
     // and no guest in this stage ends with a complaint link (the optional thoughtObjectId key).
-    expect(trace.finalHash).toBe('1084c7e6bdd7acf4');
+    // Re-pinned 2026-10-16, Phase 40 (schema 16): a new run stage's ruleset gains frontAccess 1 (was 1084c7e6bdd7acf4).
+    // Only the key moves it: every service of the stage already faces its path, so with the key removed the final
+    // state hashes exactly as before (the assertion below).
+    expect(trace.finalHash).toBe('e2363ed1a989f9fe');
+    const withoutFront = JSON.parse(JSON.stringify(trace.finalState)) as { rules: Record<string, unknown> };
+    expect(withoutFront.rules.frontAccess).toBe(1);
+    delete withoutFront.rules.frontAccess;
+    expect(hashState(withoutFront)).toBe('1084c7e6bdd7acf4');
     const withoutCrowd = JSON.parse(JSON.stringify(trace.finalState)) as { crowd?: unknown; rules?: Record<string, unknown> };
     expect(withoutCrowd.rules?.crowdFeedback).toBe(1);
     expect(withoutCrowd.crowd).toBeDefined();
     delete withoutCrowd.crowd;
     delete withoutCrowd.rules?.crowdFeedback;
-    expect(hashState(withoutCrowd), 'the stage without the two Phase 14 keys').toBe('d2b6a7663d9ded75');
+    delete withoutCrowd.rules?.frontAccess;
+    expect(hashState(withoutCrowd), 'the stage without the two Phase 14 keys (and the Phase 40 one)').toBe('d2b6a7663d9ded75');
   }, 20_000);
 });

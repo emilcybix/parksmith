@@ -483,6 +483,11 @@ export const GAME_CONFIG = {
       litterItems: 5,
     },
   },
+  /**
+   * Phase 40: front-only access. `frontOnly` is what a NEW park stores in its ruleset (`frontAccess`): services and
+   * benches are then used from their front only. An old park (no key) keeps every side.
+   */
+  access: { frontOnly: true },
   coaster: {
     stationLength: 3,
     minimumPieces: 12,

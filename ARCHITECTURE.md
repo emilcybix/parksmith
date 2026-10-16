@@ -687,6 +687,18 @@ its class on the element and a glyph per class (`TOAST_GLYPHS`: "!" for alerts).
 through `GameApp.openParksChooser`, which asks the Quit question when there are unsaved changes and remembers the target
 panel in `chooserAfterQuit` (read once by `quitToMenu`, cleared when the menu opens, resumes or a plain Quit starts).
 
+## Building fronts (Phase 40)
+
+A placed object's `rotation` (0–3) is also where it faces: `frontOf(rotation)` is +y, +x, −y, −x, and the voxel model
+is drawn in that turn (`visualQuarterTurn`; map props keep two looks). `game/access.ts` holds the shared geometry:
+`frontEdgeCells` (the cells just outside the front edge) and `isFrontOnly` (services and benches). In a park whose
+ruleset has `frontAccess` (every new park; ParkSession calls `GameWorld.setFrontAccess` before seeding) guests use a
+front-only building from its front cells only (`GuestSimulation.refreshDestinations`), and management counts it as
+connected only through them; staff still use every side. `GameWorld.buildObject` and `seedScenarioObject` turn a
+front-only building to face a path (`facingRotation`: a footprint-keeping turn first, then a quarter turn that fits)
+unless the caller passes `{ exactRotation: true }`, which the player's click does after the ghost auto-faced (R wins on
+its cell). A park saved before Phase 40 has no key and keeps every side.
+
 ## Custom coasters
 
 Coaster design is pure data and pure functions: a layout is an ordered closed loop of track pieces (cell + height + optional special), validated per coaster type (height limits, allowed specials) and converted to a deterministic ride profile in `src/game/coaster/design.ts` with no world or rendering dependencies. A marble-physics speed sweep assigns each piece a travel time — chain lift up (or, on a free climb, a fixed-point momentum climb, see Lift hills), acceleration down drops, drag on flats, loop scrub, launch boosts — which yields duration, top speed, and the timing the renderer uses to move the train. Ground cells under track at clearance height stay open for walkways, and bulldozing removes the walkway before the track above it. The world stores built coasters beside placed objects, occupies every track cell, and answers two queries the rest of the game uses for all rides: `objectFootprint` (a coaster's whole track, a normal object's rectangle) and `rideProfile` (custom stats win over catalog stats). RideSimulation, guests, scenery, and management read profiles and footprints through those two calls, so a coaster behaves like any other ride — queues, cycles, tickets, wear, breakdowns, rating — without duplicated logic. Bulldozing any track cell removes the whole ride and refunds from the actually paid cost.

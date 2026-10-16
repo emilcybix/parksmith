@@ -1,5 +1,14 @@
 import { Container } from 'pixi.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+/**
+ * Phase 40: these pins are of the classic renderer, frozen before buildings had fronts; with front-only access on, the
+ * dev park's stalls turn toward their paths. The renderer is not what moved, so the pins run with the rule off.
+ */
+vi.mock('../game/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../game/config')>();
+  return { ...actual, GAME_CONFIG: { ...actual.GAME_CONFIG, access: { ...actual.GAME_CONFIG.access, frontOnly: false } } };
+});
 import { BUILD_BY_ID, BUILD_CATALOG, PHASE29_DEFINITION_IDS, PHASE39_DEFINITION_IDS } from '../game/content/catalog';
 import { COLOUR_SWATCHES, COLOURABLE_DEFINITION_IDS, ENTRANCE_COLOUR_ID, colourKindOf, colourSlotsFor, type ObjectColours } from '../game/content/colours';
 import { COASTER_TYPE_BY_ID } from '../game/coaster/content';

@@ -30,6 +30,7 @@ import {
   OPTIONAL_RULE_KEYS,
   compileParkRules,
   crowdFeedbackOf,
+  frontAccessOf,
   preBonusStartingCash,
   researchCostScaleOf,
   type OptionalRuleKey,
@@ -199,6 +200,11 @@ const phase14KeysOf = (rules: ParkRuleset): Partial<Pick<ParkRulesetStateV14, 'c
   rules.crowdFeedback !== undefined && rules.crowdFeedback !== 0 ? { crowdFeedback: rules.crowdFeedback } : {}
 );
 
+/** The Phase 40 key sits after the Phase 14 key (the LAST key of a saved ruleset) and exists only when on. */
+const phase40KeysOf = (rules: ParkRuleset): Partial<Pick<ParkRulesetStateV14, 'frontAccess'>> => (
+  rules.frontAccess === 1 ? { frontAccess: 1 } : {}
+);
+
 /** Field-by-field copy: a spread of the live object could drag a future non-plain field into a save. */
 const toPlainRuleset = (rules: ParkRuleset): ParkRulesetStateV14 => ({
   startingCash: rules.startingCash,
@@ -222,6 +228,7 @@ const toPlainRuleset = (rules: ParkRuleset): ParkRulesetStateV14 => ({
   ...bonusKeysOf(rules),
   ...phase16KeysOf(rules),
   ...phase14KeysOf(rules),
+  ...phase40KeysOf(rules),
 });
 
 /** What a saved Phase 16 or Phase 14 key may hold (the compile clamps of GAME_CONFIG; a save outside them is refused). */
@@ -321,6 +328,12 @@ const fromPlainRuleset = (state: unknown): ParkRuleset => {
     }
     if (value !== 0) phase14.crowdFeedback = value;
   }
+  // Phase 40 (schema 16): absent = every side; present = exactly 1; anything else is refused.
+  const phase40: Partial<Pick<ParkRuleset, 'frontAccess'>> = {};
+  if ('frontAccess' in state) {
+    if (state.frontAccess !== 1) throw new SaveError('invalid-state', 'ParkSession cannot restore: rules.frontAccess is not exactly 1');
+    phase40.frontAccess = 1;
+  }
   return Object.freeze({
     ...numbers,
     ...optional,
@@ -329,6 +342,7 @@ const fromPlainRuleset = (state: unknown): ParkRuleset => {
     ...bonus,
     ...phase16,
     ...phase14,
+    ...phase40,
   });
 };
 
@@ -619,6 +633,8 @@ export class ParkSession {
       ...(scenarioDefinition?.ownedArea !== undefined ? { ownedArea: scenarioDefinition.ownedArea } : {}),
       landCostMultiplier: this.rules.landCostMultiplier,
     });
+    // Phase 40: before seeding, so starting content turns to face its paths in a front-access park.
+    this.world.setFrontAccess(frontAccessOf(this.rules));
     if (options.seedScenarioContent !== false) {
       // The map's free starting content first, then the scenario's (both without cost or transactions).
       const starting = this.map.startingObjects;

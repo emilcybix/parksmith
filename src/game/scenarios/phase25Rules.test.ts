@@ -92,6 +92,8 @@ describe('Phase 25 rule keys: declaration', () => {
       ...PHASE16_RULE_KEYS.filter((key) => key in saved),
       // Phase 14: the crowd feedback key after them, when compiled.
       ...PHASE14_RULE_KEYS.filter((key) => key in saved),
+      // Phase 40: the front-access key last, when compiled.
+      ...['frontAccess'].filter((key) => key in saved),
     ]);
     expect(saved.weatherEffectMultiplier).toBe(0.8);
   });

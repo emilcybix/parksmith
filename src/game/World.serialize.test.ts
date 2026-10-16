@@ -372,7 +372,8 @@ describe('GameWorld field coverage', () => {
       // Phase 24: the live props and their grid belong to the `map` key of the save (serializeMap / restoreMap), not to this state.
       derived: ['occupancy', 'trackLayers', 'props', 'propGrid'],
       // Constants of the map and injected collaborators; the target is built with the same ones.
-      config: ['width', 'height', 'entrance', 'entranceFacing', 'map', 'buildAccessPolicy', 'gateSchedule', 'landCostMultiplier'],
+      // Phase 40: `frontAccess` comes from the ruleset (ParkSession sets it), like the build access policy.
+      config: ['width', 'height', 'entrance', 'entranceFacing', 'map', 'buildAccessPolicy', 'gateSchedule', 'landCostMultiplier', 'frontAccess'],
       // Subscribers, an open batch and the edit counters (Phase 28 appearance, Phase 24 props, Phase 21 land: transient stamps) are never part of a park.
       transient: ['listeners', 'batchDepth', 'batchedChange', 'appearanceCounter', 'propRevisionCounter', 'landRevisionCounter'],
     }), 'GameWorld gained or lost a field: update serialize(), restore(), GameWorldState and this test').toEqual([]);

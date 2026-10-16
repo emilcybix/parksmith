@@ -94,7 +94,7 @@ describe('Phase 16 ruleset keys', () => {
       expect(state.rules.themeAffinity, state.mode).toBe(0.3);
       expect(state.rules.researchCostScale, state.mode).toBe(10);
       // Phase 14's `crowdFeedback` (when compiled) is written after them: the Phase 16 keys end the rest.
-      expect(Object.keys(state.rules).filter((key) => key !== 'crowdFeedback').slice(-2), state.mode).toEqual([...KEYS]);
+      expect(Object.keys(state.rules).filter((key) => key !== 'crowdFeedback' && key !== 'frontAccess').slice(-2), state.mode).toEqual([...KEYS]);
     }
   });
 

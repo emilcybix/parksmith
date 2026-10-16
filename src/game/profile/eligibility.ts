@@ -1,5 +1,5 @@
 import { slotCostTotal } from '../cards/content';
-import { PHASE14_RULE_KEYS, PHASE16_RULE_KEYS, compileParkRules, preBonusStartingCash, type ParkRuleset } from '../scenarios/rules';
+import { PHASE14_RULE_KEYS, PHASE16_RULE_KEYS, PHASE40_RULE_KEYS, compileParkRules, preBonusStartingCash, type ParkRuleset } from '../scenarios/rules';
 import type { ParkSession } from '../session/ParkSession';
 import { compileBonusLayer } from './bonuses';
 
@@ -11,7 +11,7 @@ import { compileBonusLayer } from './bonuses';
  * The Phase 14 key (`crowdFeedback`) is ignored for the same reason: a Scenario or run park saved before Phase 14
  * (content version 3, no key) stays reward-eligible although today's config compiles feedback for a new park.
  */
-const IGNORED_KEYS: ReadonlySet<string> = new Set<string>([...PHASE16_RULE_KEYS, ...PHASE14_RULE_KEYS]);
+const IGNORED_KEYS: ReadonlySet<string> = new Set<string>([...PHASE16_RULE_KEYS, ...PHASE14_RULE_KEYS, ...PHASE40_RULE_KEYS]);
 
 /** A ruleset as canonical text (sorted keys; an absent optional key is simply absent; IGNORED_KEYS dropped). */
 const canonical = (rules: ParkRuleset): string => JSON.stringify(

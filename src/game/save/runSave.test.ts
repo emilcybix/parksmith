@@ -53,9 +53,9 @@ describe('migration 10 -> 11 (the run state)', () => {
   });
 
   it('is a link of the chain, followed by 11 -> 12 (the one-shot ledger, see v11Fixtures.test.ts) and 12 -> 13 (Phase 14)', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(15);
-    expect(SAVE_MIGRATIONS.at(-5)).toMatchObject({ from: 10, to: 11 });
-    expect(SAVE_MIGRATIONS.at(-4)).toMatchObject({ from: 11, to: 12 });
+    expect(SAVE_SCHEMA_VERSION).toBe(16);
+    expect(SAVE_MIGRATIONS.at(-6)).toMatchObject({ from: 10, to: 11 });
+    expect(SAVE_MIGRATIONS.at(-5)).toMatchObject({ from: 11, to: 12 });
   });
 
   it('keeps every Sandbox and Scenario park byte for byte, and turns the interim Map park into a Scenario park', () => {
