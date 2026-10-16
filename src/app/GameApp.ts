@@ -159,6 +159,8 @@ import { cardPlayedLabel, demolitionLabel, objectBuiltLabel, pathsBuiltLabel, re
 import { withSlotColour } from './colourEdit';
 import { lineCells } from './lineCells';
 import { blockedDraftCells, extendPathDraft } from './pathDraft';
+import { facingOnScreen } from './buildFacing';
+import { hasMeaningfulFront } from '../game/access';
 import { ENTRANCE_COLOUR_ID, isColourable, normaliseObjectColours, sameObjectColours, type ObjectColours } from '../game/content/colours';
 import { recolourCharge, type ColourCostMode } from '../game/content/colourCost';
 import { COLOUR_PRESET_BY_ID, brushPrimaryRgb, paintTargetFor, placementRecord, presetRecord, sameBrush, type ColourPresetId, type PaintBrush } from '../game/content/colourPresets';
@@ -906,7 +908,9 @@ export class GameApp implements GameCommands, RunCommands {
     }
     state.rotateBuild();
     const [width, depth] = footprintSize(definition, this.buildRotation());
-    this.toast(`${definition.name} · ${width}×${depth}`, 'routine');
+    // Phase 40: every building faces one of four ways; say where its front now points on screen.
+    const facing = hasMeaningfulFront(definition) ? ` · front ${facingOnScreen(this.buildRotation(), this.viewRotation)}` : '';
+    this.toast(`${definition.name} · ${width}×${depth}${facing}`, 'routine');
     const hovered = this.renderer?.hoveredCell;
     if (hovered) this.handleHover(hovered);
   }

@@ -1,7 +1,7 @@
 import type { Vec3 } from '../contracts/blueprint';
 import { TRANSFORM_CAPACITY, TRANSFORM_FLOATS, TRANSFORM_TEXELS, TRANSFORM_TEX_WIDTH } from '../contracts/boxes';
 import type { PartPose } from '../contracts/rigid';
-import { quarterTurnQuaternion } from '../contracts/space';
+import { quarterTurnQuaternion, type SingleTurn } from '../contracts/space';
 import type { QuarterTurn } from '../contracts/space';
 
 /**
@@ -234,6 +234,8 @@ export const createTransformTable = (): TransformTable => new DenseTransformTabl
 const QUARTER_TURN_ROTATIONS: readonly (readonly [number, number, number, number])[] = [
   quarterTurnQuaternion(0),
   quarterTurnQuaternion(1),
+  quarterTurnQuaternion(2),
+  quarterTurnQuaternion(3),
 ];
 
 /** Below this a pose quaternion carries no usable rotation (a driver bug); the part stays at rest. */
@@ -285,7 +287,7 @@ export const writePartTransform = (
   originX: number,
   originY: number,
   originZ: number,
-  quarterTurn: QuarterTurn,
+  quarterTurn: SingleTurn,
   footprintWidthVoxels: number,
   pivot: Vec3,
   pose: Readonly<PartPose>,
@@ -316,6 +318,13 @@ export const writePartTransform = (
 };
 
 const IDENTITY_ROTATION: readonly [number, number, number, number] = [0, 0, 0, 1];
+/** R_q's linear part per turn as (cos-like, cos-like, x-from-y, y-from-x): x' = c·x + s·y, y' = t·x + c·y. */
+const TURN_LINEAR: readonly (readonly [number, number, number, number])[] = [
+  [1, 1, 0, 0],
+  [0, 0, 1, -1],
+  [-1, -1, 0, 0],
+  [0, 0, -1, 1],
+];
 
 /**
  * The same world transform for a part whose boxes come from `rotateModel(model, q)`, i.e. are
@@ -336,14 +345,14 @@ export const writeRotatedPartTransform = (
   rotatedPivot: Vec3,
   pose: Readonly<PartPose>,
 ): boolean => {
-  // R_q's linear part is (x, y) → (y, −x); conjugating a quaternion by q_q turns its vector part
-  // by the same map and keeps its scalar part.
-  const turned = quarterTurn === 1;
-  COMPOSED[0] = originX + rotatedPivot[0] + (turned ? pose.dy : pose.dx);
-  COMPOSED[1] = originY + rotatedPivot[1] + (turned ? -pose.dx : pose.dy);
+  // R_1's linear part is (x, y) → (y, −x), and R_q is it applied q times (R_2: (−x, −y), R_3: (−y, x));
+  // conjugating a quaternion by q_q turns its vector part by the same map and keeps its scalar part.
+  const [cx, cy, sx, sy] = TURN_LINEAR[quarterTurn];
+  COMPOSED[0] = originX + rotatedPivot[0] + cx * pose.dx + sx * pose.dy;
+  COMPOSED[1] = originY + rotatedPivot[1] + sy * pose.dx + cy * pose.dy;
   COMPOSED[2] = originZ + rotatedPivot[2] + pose.dz;
-  COMPOSED[3] = turned ? pose.qy : pose.qx;
-  COMPOSED[4] = turned ? -pose.qx : pose.qy;
+  COMPOSED[3] = cx * pose.qx + sx * pose.qy;
+  COMPOSED[4] = sy * pose.qx + cy * pose.qy;
   COMPOSED[5] = pose.qz;
   COMPOSED[6] = pose.qw;
   normaliseComposedRotation(IDENTITY_ROTATION);

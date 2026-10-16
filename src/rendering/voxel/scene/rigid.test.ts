@@ -4,7 +4,7 @@ import { TRANSFORM_CAPACITY, TRANSFORM_FLOATS, TRANSFORM_TEX_WIDTH, TRANSFORM_TE
 import { coasterCarSlotKey, restPose } from '../contracts/rigid';
 import type { PartPose } from '../contracts/rigid';
 import { quarterTurnQuaternion, rotatePointInFootprint, VOXELS_PER_TILE } from '../contracts/space';
-import type { QuarterTurn } from '../contracts/space';
+import type { SingleTurn as QuarterTurn } from '../contracts/space';
 import {
   createTransformTable,
   setPoseRotation,
@@ -465,5 +465,34 @@ describe('pose rotation helper', () => {
     expect(part.dx).toBe(3);
     setPoseRotation(part, 0, 0, 0, 1);
     expect([part.qx, part.qy, part.qz, part.qw], 'a zero axis is the identity').toEqual([0, 0, 0, 1]);
+  });
+});
+
+describe('Phase 40: all four quarter turns', () => {
+  /** R_1 is (x, y) → (y, −x); R_q is it applied q times. */
+  const turn = (vector: Vector, quarterTurn: number): Vector => {
+    let [x, y] = [vector[0], vector[1]];
+    for (let step = 0; step < quarterTurn; step += 1) [x, y] = [y, -x];
+    return [x, y, vector[2]];
+  };
+
+  it.each([0, 1, 2, 3])('writeRotatedPartTransform poses a part in model space, then turns it (quarter turn %i)', (quarterTurn) => {
+    const random = randomStream(900 + quarterTurn);
+    const table = createTransformTable();
+    const slot = table.slotFor(1, 1);
+    for (let sample = 0; sample < 60; sample += 1) {
+      const part = sample === 0 ? pose() : randomPose(random);
+      const pivot: Vec3 = [Math.floor(random() * 96), Math.floor(random() * 64), Math.floor(random() * 50)];
+      writeRotatedPartTransform(table, slot, 32, 64, 0, quarterTurn as 0 | 1 | 2 | 3, pivot, part);
+      if (sample === 0) expectSameRotation(slotRecord(table, slot).rotation, [0, 0, 0, 1], 'the rest pose stays the identity');
+      for (let point = 0; point < 6; point += 1) {
+        const local: Vector = [random() * 40 - 20, random() * 40 - 20, random() * 40 - 20];
+        const posed = rotate([part.qx, part.qy, part.qz, part.qw], local);
+        const modelOffset: Vector = [part.dx + posed[0], part.dy + posed[1], part.dz + posed[2]];
+        const world = turn(modelOffset, quarterTurn);
+        const expected: Vector = [32 + pivot[0] + world[0], 64 + pivot[1] + world[1], pivot[2] + world[2]];
+        expectVector(drawn(table, slot, turn(local, quarterTurn)), expected, `sample ${sample} point ${point}`);
+      }
+    }
   });
 });

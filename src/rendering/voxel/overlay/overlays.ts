@@ -4,7 +4,8 @@ import { isExclusiveCoasterPiece, type CoasterPiece } from '../../../game/coaste
 import { BUILD_BY_ID } from '../../../game/content/catalog';
 import type { ParkSession } from '../../../game/session/ParkSession';
 import type { CrowdBand, CrowdHeatmapView } from '../../../game/crowd/types';
-import type { BuildDefinition, Cell, PlacedObject } from '../../../game/types';
+import { frontEdgeCells, hasMeaningfulFront } from '../../../game/access';
+import type { BuildDefinition, Cell, PlacedObject, Rotation } from '../../../game/types';
 import { cellToWorld, TILE_HEIGHT, TILE_WIDTH } from '../../isometric';
 import { cellToView, createViewFrame, rectToView, type CellRect as ViewRect, type MutableViewFrame, type ViewFrame, type XY } from '../../viewRotation';
 import type { GameWorld } from '../../../game/World';
@@ -53,6 +54,9 @@ const PREVIEW_FILL_ALPHA = 0.5;
  * outlines only. A refused clear keeps the 4/8 slate.
  */
 export const BULLDOZE_FILL_ALPHA = 6 / 8;
+/** Phase 40: the build ghost's front marker: a small diamond (inset in texels from the cell's) on each front cell. */
+const FRONT_MARKER_INSET = 10;
+const FRONT_MARKER_ALPHA = 0.85;
 const SELECTION_FILL_ALPHA = 0.25;
 /** Phase 28 paint hover: the brush colour over the target's cells, the same 25 % as the selection fill. */
 const PAINT_FILL_ALPHA = 0.25;
@@ -296,7 +300,7 @@ export class VoxelOverlays {
   private readonly frame: MutableViewFrame = createViewFrame();
   /** What was last asked for, in WORLD cells, so a turn can redraw it. */
   private preview: {
-    cells: Cell[]; definition: BuildDefinition | null; valid: boolean; bulldoze: boolean; blocked: Cell[] | null;
+    cells: Cell[]; definition: BuildDefinition | null; valid: boolean; bulldoze: boolean; blocked: Cell[] | null; rotation: Rotation;
   } | null = null;
   private draft: { pieces: CoasterPiece[]; armed: boolean } | null = null;
   /** The paint hover as asked for, in WORLD cells (a copy), so a turn can redraw it. */
@@ -363,7 +367,7 @@ export class VoxelOverlays {
     this.refreshSelection();
     this.drawPaintHover();
     const preview = this.preview;
-    if (preview !== null) this.drawPreview(preview.cells, preview.definition, preview.valid, preview.bulldoze, preview.blocked);
+    if (preview !== null) this.drawPreview(preview.cells, preview.definition, preview.valid, preview.bulldoze, preview.blocked, preview.rotation);
     const draft = this.draft;
     if (draft !== null) this.drawCoasterDraft(draft.pieces, draft.armed);
     this.version = before + 1;
@@ -447,12 +451,13 @@ export class VoxelOverlays {
    */
   drawPreview(
     cells: readonly Cell[], definition: BuildDefinition | null, valid: boolean, bulldoze = false, blocked: readonly Cell[] | null = null,
+    rotation: Rotation = 0,
   ): void {
     this.clearPreview();
     if (cells.length === 0) return;
     // Retained in WORLD cells for setView (a copy: callers reuse their arrays).
     const held = blocked && blocked.length > 0 ? blocked.slice() : null;
-    this.preview = { cells: cells.slice(), definition, valid, bulldoze, blocked: held };
+    this.preview = { cells: cells.slice(), definition, valid, bulldoze, blocked: held, rotation };
     if (definition?.kind === 'scenery' && definition.stats?.sceneryAppeal) {
       this.drawSceneryPreview(cells, definition);
     }
@@ -471,6 +476,20 @@ export class VoxelOverlays {
       const color = blockedKeys?.has(`${world.x},${world.y}`) ? refused : fill;
       graphic.poly(texelDiamond(point.x, point.y - lift, 1)).fill({ color, alpha: fillAlpha }).stroke({ color: OUTLINE_WHITE, alpha: 1, width: 1 });
     });
+    // Phase 40: a small marker on each cell in front of the building's front edge: where its front (counter, seat,
+    // entrance) faces. The anchor is the footprint's minimum cell.
+    if (!bulldoze && definition !== null && hasMeaningfulFront(definition)) {
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      for (const cell of cells) {
+        if (cell.x < minX) minX = cell.x;
+        if (cell.y < minY) minY = cell.y;
+      }
+      for (const cell of viewCells(this.frame, frontEdgeCells(definition, { x: minX, y: minY }, rotation))) {
+        const point = cellToWorld(cell);
+        graphic.poly(texelDiamond(point.x, point.y, FRONT_MARKER_INSET)).fill({ color: OUTLINE_WHITE, alpha: FRONT_MARKER_ALPHA });
+      }
+    }
     this.previewLayer.addChild(graphic);
     this.changed();
   }

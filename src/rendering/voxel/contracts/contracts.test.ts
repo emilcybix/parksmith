@@ -112,8 +112,9 @@ describe('voxel space contract', () => {
     const width = definition.footprint[0] * VOXELS_PER_TILE;
     const depth = definition.footprint[1] * VOXELS_PER_TILE;
     for (const rotation of [0, 1, 2, 3] as Rotation[]) {
-      const quarterTurn = visualQuarterTurn(rotation);
-      const whole = rotateBoxInFootprint(0, 0, width, depth, quarterTurn, width);
+      // Phase 40: turns 2 and 3 repeat the single turn; the footprint is the single turn's, swapped back on even turns.
+      expect(visualQuarterTurn(rotation)).toBe(rotation);
+      const whole = rotateBoxInFootprint(0, 0, width, depth, (rotation % 2) as 0 | 1, width);
       const [tilesX, tilesY] = footprintSize(definition, rotation);
       expect([whole.minX, whole.minY, whole.sizeX, whole.sizeY]).toEqual([0, 0, tilesX * VOXELS_PER_TILE, tilesY * VOXELS_PER_TILE]);
     }

@@ -15,7 +15,7 @@ import {
   GHOST_TINT_MIX_COLOURED,
   GHOST_TINT_VALID,
 } from '../contracts/gbuffer';
-import { GROUND_TOP_Z, visualQuarterTurn, VOXELS_PER_TILE } from '../contracts/space';
+import { GROUND_TOP_Z, propQuarterTurn, visualQuarterTurn, VOXELS_PER_TILE } from '../contracts/space';
 import type { FlatModel } from '../blueprint/compile';
 import { BOX_FLOATS, withMaterial } from '../contracts/boxes';
 import { COLOUR_TAG_LIMIT } from '../contracts/blueprint';
@@ -183,7 +183,7 @@ export class GhostPreview {
     if (!prop) return null;
     const kind = PROP_KIND_BY_ID.get(prop.kind);
     if (!kind) return null;
-    const flat = models.propFlat(kind, visualQuarterTurn(prop.rotation));
+    const flat = models.propFlat(kind, propQuarterTurn(prop.rotation));
     return this.fill(flat.boxes, flat.boxCount, prop.x * TILE, prop.y * TILE,
       this.valid ? GHOST_TINT_BULLDOZE : GHOST_TINT_BULLDOZE_REFUSED, false);
   }

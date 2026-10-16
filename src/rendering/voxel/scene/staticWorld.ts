@@ -35,6 +35,7 @@ import {
   PATH_TOP_Z,
   PLOT_TOP_Z,
   SOIL_DEPTH,
+  propQuarterTurn,
   visualQuarterTurn,
   VOXELS_PER_TILE,
 } from '../contracts/space';
@@ -1377,7 +1378,7 @@ export class StaticWorld {
 
   /** Phase 24: a map prop's boxes at 32 * its anchor, no plot slab and no fence, in a spread outline group of its own. */
   private emitProp(writer: BoxWriter, prop: { id: number; x: number; y: number; rotation: Rotation }, kind: PropKindDefinition): void {
-    const model = this.models.propModel(kind, visualQuarterTurn(prop.rotation));
+    const model = this.models.propModel(kind, propQuarterTurn(prop.rotation));
     const body = model.parts[0];
     this.pushBoxes(writer, body.boxes, body.boxCount, prop.x * TILE, prop.y * TILE, 0, propOutlineGroup(prop.id), STATIC_SLOT);
   }

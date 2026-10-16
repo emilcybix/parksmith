@@ -4,7 +4,7 @@ import type { StaffRuntime } from '../../../game/operations/types';
 import type { RideRuntime } from '../../../game/rides/types';
 import type { ParkSession } from '../../../game/session/ParkSession';
 import type { ServiceRuntime } from '../../../game/shops/types';
-import type { Cell } from '../../../game/types';
+import { frontOf, type Cell } from '../../../game/types';
 import { VIEW_ROTATIONS, type ViewRotation } from '../../viewRotation';
 import {
   FIGURE_CAPACITY,
@@ -549,15 +549,16 @@ class PooledFigurePacker implements FigurePacker {
     const bench = (this.session as ParkSession).world.objects.get(benchId);
     if (bench === undefined) return false;
     const side = activity === 'seatRight' ? 1 : -1;
-    const turned = bench.rotation % 2 === 1;
-    const alongX = turned ? HALF_TILE_VOXELS + SEAT_FORWARD : HALF_TILE_VOXELS + side * SEAT_ALONG;
-    const alongY = turned ? HALF_TILE_VOXELS - side * SEAT_ALONG : HALF_TILE_VOXELS + SEAT_FORWARD;
+    // Phase 40: the seat faces the bench's front (any of four ways); `along` runs across it, (fy, −fx).
+    const front = frontOf(bench.rotation);
+    const alongX = HALF_TILE_VOXELS + front.x * SEAT_FORWARD + front.y * side * SEAT_ALONG;
+    const alongY = HALF_TILE_VOXELS + front.y * SEAT_FORWARD - front.x * side * SEAT_ALONG;
     // Cells such that write()'s `cell · VOXELS_PER_TILE + HALF_TILE_VOXELS` lands on the seat.
     const x = bench.anchor.x + (alongX - HALF_TILE_VOXELS) / VOXELS_PER_TILE;
     const y = bench.anchor.y + (alongY - HALF_TILE_VOXELS) / VOXELS_PER_TILE;
     this.seatCell.x = x;
     this.seatCell.y = y;
-    this.seatHeading = turned ? 0 : 1;
+    this.seatHeading = front.heading as FigureHeading;
     return true;
   }
 

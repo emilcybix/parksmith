@@ -99,6 +99,19 @@ export interface PlacedObject {
   colours?: ObjectColours;
 }
 
+/**
+ * Phase 40: the direction a placed object's front faces. Models are authored front on +y; each rotation step turns
+ * them −90° about +z: 0 → +y (south on the map), 1 → +x (east), 2 → −y (north), 3 → −x (west). `heading` is the
+ * figure heading of that direction (0 +x, 1 +y, 2 −x, 3 −y).
+ */
+export const frontOf = (rotation: Rotation): { readonly x: number; readonly y: number; readonly heading: number } => FRONTS[rotation];
+const FRONTS = [
+  { x: 0, y: 1, heading: 1 },
+  { x: 1, y: 0, heading: 0 },
+  { x: 0, y: -1, heading: 3 },
+  { x: -1, y: 0, heading: 2 },
+] as const;
+
 /** A definition's footprint after rotation: quarter turns swap width and depth. */
 export const footprintSize = (
   definition: BuildDefinition,

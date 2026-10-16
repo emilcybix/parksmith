@@ -291,7 +291,13 @@ const rotateBoxes = (boxes: Float32Array, count: number, footprintWidth: number)
  * front-to-back, and q = 0 returns the model itself.
  */
 export const rotateModel = (model: CompiledModel, quarterTurn: QuarterTurn): CompiledModel => {
-  if (quarterTurn === 0) return model;
+  // Phase 40: turns 2 and 3 are the single turn applied again (each turn swaps the footprint).
+  let turned = model;
+  for (let turn = 0; turn < quarterTurn; turn += 1) turned = rotateOnce(turned);
+  return turned;
+};
+
+const rotateOnce = (model: CompiledModel): CompiledModel => {
   const width = VOXELS_PER_TILE * model.footprint[0];
   const parts = model.parts.map((part, index): CompiledPart => {
     if (index === 0) return partFrom(part.id, ZERO, rotateBoxes(part.boxes, part.boxCount, width), part.boxCount);
@@ -375,8 +381,8 @@ export interface ModelCache {
 }
 
 interface CacheEntry {
-  models: [CompiledModel | null, CompiledModel | null];
-  flats: [FlatModel | null, FlatModel | null];
+  models: [CompiledModel | null, CompiledModel | null, CompiledModel | null, CompiledModel | null];
+  flats: [FlatModel | null, FlatModel | null, FlatModel | null, FlatModel | null];
 }
 
 /**
@@ -444,7 +450,7 @@ class BlueprintModelCache implements ModelCache {
   private entryFor(blueprint: Blueprint): CacheEntry {
     let entry = this.entries.get(blueprint.id);
     if (entry === undefined) {
-      entry = { models: [null, null], flats: [null, null] };
+      entry = { models: [null, null, null, null], flats: [null, null, null, null] };
       this.entries.set(blueprint.id, entry);
     }
     return entry;

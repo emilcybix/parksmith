@@ -2801,7 +2801,7 @@ coaster stores its type id).
 - [ ] Per family still open: a lift/launch sound per family (Phase 15 synth), a classic train style per family,
   determinism fixtures with one coaster per family, and a played balance check (BALANCE_NOTES Phase 39).
 
-## Phase 40 — Building Fronts: Four Directions and Front-Only Access (planned, not started)
+## Phase 40 — Building Fronts: Four Directions and Front-Only Access (40a built 2026-10-16; 40b in progress)
 
 **Problem.** A building can only face two ways. The build rotation (R) runs 0–3 and is saved that way, but it is
 treated as a footprint orientation only: `footprintSize` swaps width and depth on odd turns, and the voxel models turn
@@ -2814,13 +2814,19 @@ the path still sells.
 **Goal.** Every building can face all four ways, and the front decides access: guests buy, queue and sit only from the
 front. A shop built facing away from the path cannot be reached.
 
-**Four real directions.**
-- [ ] `visualQuarterTurn` returns 0–3 and every model is drawn in all four turns (voxel; the classic renderer mirrors or
-  reuses its two sprites, as a fallback). The ghost shows the true front, plus a small arrow on the front edge.
-- [ ] The build rotation key (R) and the on-screen button step through four directions. The hover toast names the
-  direction ("Facing north-east"), not only the size.
-- [ ] Phase 26 view rotation and the Phase 28 colour slots work in all four turns. The Phase 27 visual matrix gains the
-  two new turns.
+**Four real directions (40a, built).** Code: `contracts/space.ts` (`QuarterTurn` 0–3, `visualQuarterTurn` = the
+rotation, `propQuarterTurn` keeps map props at two looks), `blueprint/compile.ts` (`rotateModel` applies the single turn
+q times; the cache holds four turns), `scene/rigid.ts` (`writeRotatedPartTransform` for all four turns), `figures.ts`
+(a bench seat faces the bench's front), `game/types.ts` `frontOf`, `game/access.ts` `frontEdgeCells`,
+`app/buildFacing.ts`.
+- [x] Every model is drawn in all four turns (voxel). The classic renderer keeps its two sprites (frozen fallback).
+  The ghost marks the cells in front of the front edge with small white diamonds (rides, stalls, facilities, comforts;
+  not scenery or paths).
+- [x] R and the Rotate button already stepped through four rotations; the toast now says where the front points on
+  screen ("Picnic Pocket · 2×2 · front lower left"), following the map view.
+- [x] Moving parts, colour slots and the view rotation work in all four turns (rigid test for every turn; the colour
+  slots are materials, not geometry). No pin moved: no fixture holds a building at rotation 2 or 3.
+- [ ] The Phase 27 visual matrix gains the two new turns: with the browser verification pass.
 
 **Front-only access.**
 - [ ] Each build definition gets its front side (default: model +y). The access cells of an object are the path cells

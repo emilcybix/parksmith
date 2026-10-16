@@ -108,13 +108,17 @@ export const cellCentreVoxel = (cell: Cell): { x: number; y: number } => ({
 });
 
 /**
- * Rotation is footprint orientation only (types.ts), so r and r + 2 are the same world model. Models
- * are authored with their front on model +y (screen lower-left in view 0); a visual quarter turn puts
- * it on world +x (screen lower-right in view 0). The map view turns (Phase 26, contracts/view.ts), so
- * every side of a model is seen from some view: a turned view shows its real back, never a mirror.
+ * Models are authored with their front on model +y (screen lower-left in view 0); each visual quarter turn turns
+ * them −90° about +z, so turn 1 puts the front on world +x, turn 2 on −y and turn 3 on −x (Phase 40: a building faces
+ * the way its rotation says; before, r and r + 2 drew the same model). The map view turns (Phase 26,
+ * contracts/view.ts), so every side of a model is seen from some view: a turned view shows its real back, never a
+ * mirror. Map props keep two looks (`propQuarterTurn`): a rock or a tree has no front.
  */
-export type QuarterTurn = 0 | 1;
-export const visualQuarterTurn = (rotation: Rotation): QuarterTurn => (rotation % 2) as QuarterTurn;
+export type QuarterTurn = 0 | 1 | 2 | 3;
+/** One single quarter turn or none: what the in-footprint point and box helpers below apply. */
+export type SingleTurn = 0 | 1;
+export const visualQuarterTurn = (rotation: Rotation): QuarterTurn => rotation;
+export const propQuarterTurn = (rotation: Rotation): QuarterTurn => (rotation % 2) as QuarterTurn;
 
 /**
  * Quarter turn of a point inside a model footprint `footprintWidth` voxels wide along model x.
@@ -124,7 +128,7 @@ export const visualQuarterTurn = (rotation: Rotation): QuarterTurn => (rotation 
 export const rotatePointInFootprint = (
   x: number,
   y: number,
-  quarterTurn: QuarterTurn,
+  quarterTurn: SingleTurn,
   footprintWidth: number,
 ): { x: number; y: number } =>
   quarterTurn === 0 ? { x, y } : { x: y, y: footprintWidth - x };
@@ -135,16 +139,22 @@ export const rotateBoxInFootprint = (
   minY: number,
   sizeX: number,
   sizeY: number,
-  quarterTurn: QuarterTurn,
+  quarterTurn: SingleTurn,
   footprintWidth: number,
 ): { minX: number; minY: number; sizeX: number; sizeY: number } =>
   quarterTurn === 0
     ? { minX, minY, sizeX, sizeY }
     : { minX: minY, minY: footprintWidth - minX - sizeX, sizeX: sizeY, sizeY: sizeX };
 
-/** Unit quaternion (x, y, z, w) of the visual quarter turn about +z: −90° maps +y to +x. */
-export const quarterTurnQuaternion = (quarterTurn: QuarterTurn): readonly [number, number, number, number] =>
-  quarterTurn === 0 ? [0, 0, 0, 1] : [0, 0, -Math.SQRT1_2, Math.SQRT1_2];
+/** Unit quaternion (x, y, z, w) of the visual quarter turn about +z: each turn is −90° (maps +y to +x). */
+export const quarterTurnQuaternion = (quarterTurn: QuarterTurn): readonly [number, number, number, number] => {
+  switch (quarterTurn) {
+    case 0: return [0, 0, 0, 1];
+    case 1: return [0, 0, -Math.SQRT1_2, Math.SQRT1_2];
+    case 2: return [0, 0, -1, 0];
+    default: return [0, 0, Math.SQRT1_2, Math.SQRT1_2];
+  }
+};
 
 /**
  * Static world chunks: 8×8 tiles. A 32×32 park is 16 chunks; each is rebuilt and uploaded on its

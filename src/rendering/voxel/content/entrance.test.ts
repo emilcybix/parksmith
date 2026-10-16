@@ -11,7 +11,7 @@ import { FIGURE_MAX_HEIGHT } from '../contracts/figures';
 import { MAT, MAT_COLOR, PATTERN } from '../contracts/palette';
 import type { Palette } from '../contracts/palette';
 import { PATH_TOP_Z, projectX, projectY, rotateBoxInFootprint, VOXELS_PER_TILE } from '../contracts/space';
-import type { QuarterTurn } from '../contracts/space';
+import type { QuarterTurn, SingleTurn } from '../contracts/space';
 import { buildPalette } from '../palette';
 import {
   ENTRANCE_BLUEPRINT_ID,
@@ -54,7 +54,7 @@ import {
  * a visible and upright WELCOME, lamps and their lights, colours, determinism — is pinned here.
  */
 
-const QUARTER_TURNS: readonly QuarterTurn[] = [0, 1];
+const QUARTER_TURNS: readonly SingleTurn[] = [0, 1];
 const TILE = VOXELS_PER_TILE;
 /** The art bible's walkway rule: nothing solid between the posts below this height. */
 const WALKWAY_RULE_Z = 40;
