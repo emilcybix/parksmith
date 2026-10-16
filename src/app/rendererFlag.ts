@@ -56,7 +56,11 @@ export interface RendererFlags {
   weather: Readonly<Partial<WeatherLookFlags>>;
   voxelWeather: VoxelWeatherFlag;
   voxelSeeThrough: VoxelSeeThroughFlag;
+  /** Phase 41 step 0 (spike): `&camera3d=1` (or `orbit`) orbits a perspective camera; `low` glides low across the map. */
+  camera3d: Camera3dFlag;
 }
+
+export type Camera3dFlag = 'orbit' | 'low' | null;
 
 export type VoxelWeatherFlag = 'off' | 'rain' | null;
 
@@ -73,6 +77,7 @@ const DEFAULT_FLAGS: RendererFlags = {
   debug: false,
   weather: {},
   voxelWeather: null,
+  camera3d: null,
   voxelSeeThrough: 'alpha',
 };
 
@@ -123,6 +128,10 @@ const parseRendererFlags = (search: string): RendererFlags => {
     weather: parseWeatherFlags(search),
     voxelWeather: parseVoxelWeather(parameters.get('voxelWeather')),
     voxelSeeThrough: parseSeeThroughLook(parameters.get('voxelSeeThrough')),
+    camera3d: (() => {
+      const value = parameters.get('camera3d');
+      return value === '1' || value === 'orbit' ? 'orbit' : value === 'low' ? 'low' : null;
+    })(),
   };
 };
 
@@ -168,3 +177,5 @@ export const VOXEL_DEBUG: boolean = FLAGS.debug;
 export const WEATHER_FLAGS: Readonly<Partial<WeatherLookFlags>> = FLAGS.weather;
 export const VOXEL_WEATHER: VoxelWeatherFlag = FLAGS.voxelWeather;
 export const VOXEL_SEE_THROUGH: VoxelSeeThroughFlag = FLAGS.voxelSeeThrough;
+/** Phase 41 step 0: the perspective camera spike (developer flag; presentation only). */
+export const CAMERA_3D: Camera3dFlag = FLAGS.camera3d;

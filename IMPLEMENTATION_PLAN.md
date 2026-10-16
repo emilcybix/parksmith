@@ -2863,7 +2863,7 @@ cells; a stall facing the path is a destination and one facing away is not, a tw
 non-player placement turns, the player's is exact; every starting park faces its paths; every dev park service sells),
 `app/GameApp.fronts.test.ts` (auto-facing, R override with the warning, rides not turned), migration 15→16.
 
-## Phase 41 — Cinematic 3D Camera (planned, not started; owner request 2026-10-16)
+## Phase 41 — Cinematic 3D Camera (step 0 spike done 2026-10-16: go/no-go for the owner; owner request 2026-10-16)
 
 **Why it is closer than it sounds.** The voxel renderer already holds the park as real 3D data: axis-aligned boxes (32
 voxels per tile) with heights, drawn by vertex pulling. What makes the picture isometric is the projection in the
@@ -2886,10 +2886,25 @@ is a different projection of the same boxes; the scene, the blueprints and the s
   camera to texel steps.
 
 **Steps.**
-- [ ] **0. Spike (decides the rest).** A perspective/orbit projection of the existing boxes behind a dev flag
-  (`&camera3d=1`): an orbit around the dev park and a low pass along a path. Measure fps and frame ms against the
-  isometric view on the reference machine and in SwiftShader (the table under Voxel Renderer), and write down what
-  breaks (lights, shadows, dither, sky). Go or no-go for the owner.
+- [x] **0. Spike (decides the rest).** Built behind the developer flag `&camera3d=1` (`orbit`) or `&camera3d=low`:
+  `gpu/shaders/perspective.ts` (a vertex stage that shows, per box axis, the face toward the eye and maps world voxels
+  through `uViewProj`; the isometric opaque fragment shader and the G-buffer unchanged), `voxel/cameraOrbit.ts` (orbit,
+  low pass, look-at and perspective matrices, unit-tested), `VoxelGpu.drawChunksPerspective` (every live chunk, no
+  cull yet), `rendererFlag.ts` `CAMERA_3D`. Without the flag nothing changes (no pin moved).
+  - **It works on the first real try.** Screenshots (local only, `.voxel-handoff/phase41-spike/`): the orbit shows the
+    whole dev park in true perspective; the low pass at 30 voxels walks between the Ferris wheel, the drop tower, a
+    fenced ride and a tree, and the boxes read well up close.
+  - **Measured (headless SwiftShader, 1280×800, dev park, clean view, 8 s):** isometric 9.6 fps, orbit 10.0 fps (no
+    figures drawn), low pass 7.9 fps (more fill from near boxes). SwiftShader-bound, as every number here; the real-GPU
+    cost is still unmeasured.
+  - **What breaks:** (1) the light is wrong: the picture is dark and blue-shifted, because the composite rebuilds world
+    positions and depth from the isometric depth key (shadows, light pools, fog and outlines all read it); a
+    perspective composite (or writing the key the composite expects) is needed. (2) No sky: beyond the map is the flat
+    background colour. (3) Guests, staff, litter, shadows, the ghost and the draft are not drawn (their programs are
+    isometric); coaster cars and riders are, as rigid parts. (4) No frustum cull. (5) Pixel snapping does not apply,
+    so a moving camera would shimmer; the spike renders at the low-res target and upscales like the isometric view.
+  - **Recommendation:** go for steps 1 to 3 (sky, menu shots, smooth view turns) after a perspective composite; ride-
+    along (step 4) after them. Decision for the owner.
 - [ ] **1. Sky and horizon.** Beyond the map edge: sky gradient by time of day (Phase 20 looks), a distance fog, and a
   ground skirt, so a low camera does not look into nothing.
 - [ ] **2. Menu shots.** The start-screen sweep (2026-10-16) gets real angles: orbiting shots, a low shot down the

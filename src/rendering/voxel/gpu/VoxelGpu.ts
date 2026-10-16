@@ -13,7 +13,7 @@ import {
   UniformGroup,
   type BindOptions,
   type Container,
-  type GlProgram,
+  GlProgram,
   type Renderer,
   type RenderSurface,
   type WebGLRenderer,
@@ -87,6 +87,8 @@ import type { WeatherTier } from './shaders/compositeWeather';
 import { WeatherUniformSync, type WeatherUniformTarget } from './weatherUniforms';
 import { rgbToUnit } from './shaders/glsl';
 import { GpuPassTimer, PASS_COMPOSITE, PASS_GBUFFER, PASS_LIGHT, PASS_UPSCALE, type GpuPassTimings } from './timing';
+import { perspectiveWorldShaderSource } from './shaders/perspective';
+import { lowPassCamera, orbitCamera, viewProjection, type CameraPose } from '../cameraOrbit';
 
 /**
  * The voxel renderer's GPU side (design §5–§7): every Pixi resource and every pass of a frame.
@@ -182,6 +184,8 @@ export interface VoxelGpuOptions {
    * owner must re-render the overlay target and re-send anything it only sends on change.
    */
   onContextRestored?: () => void;
+  /** Phase 41 step 0 (spike, developer flag `&camera3d`): draw the static chunks through a moving perspective camera. */
+  camera3d?: 'orbit' | 'low' | null;
 }
 
 /** Everything that changes per frame outside the scene. */
@@ -242,6 +246,8 @@ export interface VoxelGpuSurfaces {
 }
 
 export interface VoxelGpu extends VoxelGpuSink {
+  /** Phase 41 spike: the map size in tiles, for the perspective camera (`&camera3d`); otherwise unused. */
+  setCameraMap(widthTiles: number, heightTiles: number): void;
   /** The sources were built with the view-rotation code (VoxelGpuOptions.viewTurn); false = view 0 only. */
   readonly supportsViewTurn: boolean;
   /** The stage child that runs every pass; add it to `app.stage` once. */
@@ -290,6 +296,8 @@ class ChunkSlot implements ChunkDrawState {
   cutShader: Shader | null = null;
   /** The same chunk through the front-layer program, created the first time the translucent hole touches it. */
   frontShader: Shader | null = null;
+  /** Phase 41 spike: the same chunk through the perspective program (only with `&camera3d`). */
+  perspectiveShader: Shader | null = null;
   /** Whether this frame's draw of the chunk goes through the cut program (set by drawChunks for the visible chunks). */
   cutNow = false;
   count = 0;
@@ -452,6 +460,17 @@ class PixiVoxelGpu implements VoxelGpu {
     /** Phase 26: (c, s, ox, oy) of the view transform, written when its revision moves (view 0 = (1, 0, 0, 0)). */
     uView: { value: new Float32Array([1, 0, 0, 0]), type: 'vec4<f32>' },
   });
+  /** Phase 41 spike: the perspective camera (only read with `&camera3d`). */
+  private readonly perspectiveUniforms = new UniformGroup({
+    uViewProj: { value: new Float32Array(16), type: 'mat4x4<f32>' },
+    uEye: { value: vec3(), type: 'vec3<f32>' },
+  });
+  private readonly camera3d: 'orbit' | 'low' | null;
+  private perspectiveProgram: GlProgram | null = null;
+  private readonly cameraPose: CameraPose = { eye: [0, 0, 0], target: [0, 0, 0] };
+  private cameraSeconds = 0;
+  private cameraMapWidth = 32;
+  private cameraMapHeight = 32;
   private readonly ghostUniforms = new UniformGroup({
     uGhostOrigin: { value: vec3(), type: 'vec3<f32>' },
     uGhostDepthBias: { value: GHOST_DEPTH_BIAS, type: 'f32' },
@@ -627,6 +646,11 @@ class PixiVoxelGpu implements VoxelGpu {
     this.onContextRestored = options.onContextRestored ?? null;
     this.onTranslucentFailed = options.onTranslucentFailed ?? null;
     this.programSet = createVoxelPrograms(options.compositeVariant ?? 'full', options.weatherTier, this.translucent, this.supportsViewTurn);
+    this.camera3d = options.camera3d ?? null;
+    if (this.camera3d !== null) {
+      const { vertex, fragment } = perspectiveWorldShaderSource();
+      this.perspectiveProgram = new GlProgram({ name: 'voxel-worldPerspective', vertex, fragment, preferredVertexPrecision: 'highp', preferredFragmentPrecision: 'highp' });
+    }
     this.timer = options.timing ? GpuPassTimer.create(renderer.gl as WebGL2RenderingContext) : null;
 
     this.indexCapacity = indexCapacityFor(0, 0);
@@ -941,6 +965,7 @@ class PixiVoxelGpu implements VoxelGpu {
     uniforms.uDepthRange[0] = frame.depthRange.min;
     uniforms.uDepthRange[1] = frame.depthRange.max;
     uniforms.uTime = wrapShaderSeconds(frame.elapsedMs);
+    this.cameraSeconds = frame.elapsedMs / 1000;
     uniforms.uGrid = frame.grid ? 1 : 0;
     this.zoom = Math.max(1, camera.zoom);
     this.offsetX = camera.offsetX;
@@ -1147,15 +1172,20 @@ class PixiVoxelGpu implements VoxelGpu {
     // viewport it set, so it is restored before anything else binds.
     const frame = this.frameUniforms.uniforms;
     gl.viewport(0, 0, frame.uClipSize[0], frame.uClipSize[1]);
-    const frontActive = this.drawChunks();
-    this.drawFigures();
-    this.drawBoxes(this.litterShader, this.litterCount, this.opaque);
-    this.drawShadows();
+    // Phase 41 spike: the static chunks only, through the perspective camera (figures, litter, shadows, the draft and
+    // the ghost are drawn in the isometric projection, so they are left out).
+    const perspective = this.camera3d !== null && this.perspectiveProgram !== null;
+    const frontActive = perspective ? this.drawChunksPerspective() : this.drawChunks();
+    if (!perspective) {
+      this.drawFigures();
+      this.drawBoxes(this.litterShader, this.litterCount, this.opaque);
+      this.drawShadows();
+    }
     // The coaster draft: the real track, screen-doored, depth-tested so buildings hide its supports.
-    if (this.draftCount > 0) {
+    if (this.draftCount > 0 && !perspective) {
       this.drawBoxes(this.draftShader, this.draftCount, this.opaque);
     }
-    if (this.ghostCount > 0) {
+    if (this.ghostCount > 0 && !perspective) {
       if (this.ghostXray) this.drawGhostPass(this.ghostCount, true);
       this.drawGhostPass(this.ghostCount, false);
     }
@@ -1270,6 +1300,47 @@ class PixiVoxelGpu implements VoxelGpu {
       this.stats.chunksDrawn += 1;
     }
     return frontActive;
+  }
+
+  /** Phase 41 spike: the map size in tiles (the camera orbits its centre). */
+  setCameraMap(widthTiles: number, heightTiles: number): void {
+    this.cameraMapWidth = widthTiles;
+    this.cameraMapHeight = heightTiles;
+  }
+
+  /**
+   * Phase 41 spike: every live chunk (no cull yet) through the perspective program into the G-buffer, over the low
+   * target's own viewport. Never opens the see-through front layer.
+   */
+  private drawChunksPerspective(): boolean {
+    const frame = this.frameUniforms.uniforms;
+    const width = this.cameraMapWidth * VOXELS_PER_TILE_SPIKE;
+    const height = this.cameraMapHeight * VOXELS_PER_TILE_SPIKE;
+    const pose = this.camera3d === 'low' ? lowPassCamera(width, height, this.cameraSeconds, this.cameraPose) : orbitCamera(width, height, this.cameraSeconds, this.cameraPose);
+    const uniforms = this.perspectiveUniforms.uniforms;
+    viewProjection(pose, frame.uLowSize[0] / Math.max(1, frame.uLowSize[1]), (50 * Math.PI) / 180, 4, 8 * Math.max(width, height), uniforms.uViewProj);
+    uniforms.uEye[0] = pose.eye[0];
+    uniforms.uEye[1] = pose.eye[1];
+    uniforms.uEye[2] = pose.eye[2];
+    this.perspectiveUniforms.update();
+    const gl = this.renderer.gl;
+    gl.viewport(0, 0, frame.uLowSize[0], frame.uLowSize[1]);
+    for (const chunk of this.chunks) {
+      if (!chunk || chunk.count === 0) continue;
+      const shader = chunk.perspectiveShader ?? (chunk.perspectiveShader = new Shader({
+        glProgram: this.perspectiveProgram as GlProgram,
+        resources: {
+          uBoxes: chunk.source,
+          uTransforms: this.transforms,
+          uPalette: this.palette,
+          frameUniforms: this.frameUniforms,
+          perspectiveUniforms: this.perspectiveUniforms,
+        },
+      }));
+      this.drawBoxes(shader, chunk.count, this.opaque);
+      this.stats.chunksDrawn += 1;
+    }
+    return false;
   }
 
   /**
@@ -1663,6 +1734,9 @@ class PixiVoxelGpu implements VoxelGpu {
     this.onContextRestored?.();
   }
 }
+
+/** Voxels per tile (contracts/space VOXELS_PER_TILE), local to the spike so the import list stays as it was. */
+const VOXELS_PER_TILE_SPIKE = 32;
 
 /**
  * Builds the voxel GPU pipeline on a WebGL2 renderer whose app was created with the voxel data

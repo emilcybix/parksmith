@@ -1,5 +1,5 @@
 import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from 'pixi.js';
-import { ALLOW_SOFTWARE_GPU, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
+import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
 import type { CoasterPiece } from '../../game/coaster/design';
 import { BUILD_BY_ID } from '../../game/content/catalog';
 import type { ObjectColours } from '../../game/content/colours';
@@ -1198,6 +1198,7 @@ export class VoxelRenderer implements RendererPort {
       translucentSeeThrough: rung.translucent && this.seeEnabled,
       onTranslucentFailed: this.handleTranslucentFailed,
       onContextRestored: this.handleContextRestored,
+      camera3d: CAMERA_3D ?? null,
     });
     this.gpu = gpu;
     this.viewTurnOk = gpu.supportsViewTurn;
@@ -1252,6 +1253,7 @@ export class VoxelRenderer implements RendererPort {
     frame.camera = snap;
     frame.grid = this.showGrid;
     this.updateLook();
+    if (CAMERA_3D) gpu.setCameraMap(this.session.world.width, this.session.world.height);
     gpu.setFrame(frame);
   }
 
