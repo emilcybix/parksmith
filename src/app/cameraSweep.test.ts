@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCameraSweep, SWEEP_DEFAULTS, type SweepPoint } from './cameraSweep';
+import { createCameraSweep, SWEEP_DEFAULTS, sweepDayPhase, sweepZoomStep, ZOOM_STEPS, type SweepPoint } from './cameraSweep';
 
 const make = () => createCameraSweep({ centreX: 16, centreY: 16 });
 const point = (): SweepPoint => ({ x: 0, y: 0 });
@@ -91,5 +91,34 @@ describe('the sweep centre follows the park (Phase 24)', () => {
     sweep.advance(5000, out);
     expect(Math.abs(out.x - 20)).toBeLessThanOrEqual(8);
     expect(sweep.elapsedSeconds).toBeGreaterThan(0);
+  });
+});
+
+describe('zoom steps and time of day', () => {
+  it('holds each zoom step, then cycles through them', () => {
+    expect(sweepZoomStep(0)).toBe(ZOOM_STEPS[0]);
+    expect(sweepZoomStep(SWEEP_DEFAULTS.zoomHoldSeconds - 0.01)).toBe(ZOOM_STEPS[0]);
+    expect(sweepZoomStep(SWEEP_DEFAULTS.zoomHoldSeconds)).toBe(ZOOM_STEPS[1]);
+    expect(sweepZoomStep(SWEEP_DEFAULTS.zoomHoldSeconds * ZOOM_STEPS.length)).toBe(ZOOM_STEPS[0]);
+    expect(Math.min(...ZOOM_STEPS)).toBe(0);
+  });
+
+  it('starts at the given time, eases in without a jump and wraps after one period', () => {
+    expect(sweepDayPhase(0, 0.5)).toBe(0.5);
+    let previous = sweepDayPhase(0, 0.5);
+    for (let t = 0.05; t < 10; t += 0.05) {
+      const phase = sweepDayPhase(t, 0.5);
+      const step = phase - previous;
+      expect(step).toBeGreaterThanOrEqual(0);
+      expect(step).toBeLessThanOrEqual(0.05 / SWEEP_DEFAULTS.dayPeriodSeconds + 1e-12);
+      previous = phase;
+    }
+    const later = sweepDayPhase(SWEEP_DEFAULTS.easeInSeconds + 10, 0.5);
+    expect(sweepDayPhase(SWEEP_DEFAULTS.easeInSeconds + 10 + SWEEP_DEFAULTS.dayPeriodSeconds, 0.5)).toBeCloseTo(later, 9);
+    for (let t = 0; t < 400; t += 7) {
+      const phase = sweepDayPhase(t, 0.9);
+      expect(phase).toBeGreaterThanOrEqual(0);
+      expect(phase).toBeLessThan(1);
+    }
   });
 });

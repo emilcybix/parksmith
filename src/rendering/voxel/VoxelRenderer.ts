@@ -933,6 +933,16 @@ export class VoxelRenderer implements RendererPort {
     this.camera.focusCellXY(view.x, view.y);
   }
 
+  get cameraZoom(): number {
+    return this.camera.zoom;
+  }
+
+  /** A whole zoom level (clamped), keeping the middle of the viewport where it is. */
+  setCameraZoom(zoom: number): void {
+    const size = this.camera.cssSize();
+    this.camera.setZoomAtCss(zoom, size.width / 2, size.height / 2);
+  }
+
   /** Whether the tile grid is on; the world pass reads it as its grid uniform. */
   get gridVisible(): boolean {
     return this.showGrid;

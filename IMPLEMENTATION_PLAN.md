@@ -2681,6 +2681,53 @@ Every fix is in UI, layout or renderer code. Version unchanged (0.3.2).
 - **A clear that will happen is filled at 6/8** in the voxel overlay. The classic renderer keeps 50 %, because it does
   not dither.
 
+## Start Screen Backdrop (2026-10-16, outside the phase order)
+
+Asked for directly; no save field, schema or determinism pin changed. Code: `src/ui/menuModel.ts` (`bootMenuDecision`),
+`src/app/cameraSweep.ts` (`sweepZoomStep`, `sweepDayPhase`), `GameApp` (`starterPark`, the sweep), `RendererPort`
+(`cameraZoom`, `setCameraZoom`, voxel only), `src/game/session/devPark.ts` (`DEV_PARK_CENTRE`).
+
+- [x] **Every boot opens on the start screen**, a first run included. This replaces the Phase 23 decision that dropped a
+  new player straight into the Sandbox First Day park. New park from the menu still gives the First Day hints; `&menu=0`
+  still skips the menu.
+- [x] **With nothing to continue, the backdrop is the developer park** (paused, First Day hints dismissed, the drift
+  centred on the built park). It is only a backdrop: New park starts a fresh, empty session. Stamping it takes about
+  1–6 ms. If the layout cannot be stamped, the empty starter map is shown as before.
+- [x] **The sweep does more than drift.** The zoom steps through whole levels above the starting one (0, +1, +2, +1,
+  16 s each; a step is a cut, so the pixel art stays crisp), and the light runs through a full day in 150 s from the
+  park's own time, easing in like the drift. The zoom the park had is put back when the sweep stops. Reduced motion
+  keeps the still frame (no zoom steps, the park's own light); `&time=` still pins the light.
+
+## Phase 37 — Path Drag Re-route (planned, not started)
+
+**Problem.** If a path drag runs into something it cannot cross (a building, a prop, water), the whole draft turns red
+and stays red: the draft only grows (`handleMove` appends `lineCells` and never removes a cell), so moving the pointer
+back does not take the bad cells out. The only fix is to release (refused, with a toast) and start the drag again.
+
+**Goal.** Moving the pointer back along the draft takes the path back with it ("snake" backtracking), so the player can
+steer around the obstacle without letting go.
+
+- [ ] **Backtrack.** In `handleMove`, a cell of the line that is already in the draft cuts the draft back to that cell:
+  every cell after it is dropped, and `lastDraftCell` becomes that cell. The line is walked cell by cell as today, so a
+  fast pointer move that crosses the trail cuts at the first trail cell it meets. The preview and the hover card (cost,
+  message) redraw at once.
+- [ ] **Decide: a drag that crosses its own trail.** With the rule above, the drag cannot cross itself in one gesture
+  (crossing cuts back). Alternative: cut only when the pointer re-enters one of the last few cells (stepwise
+  backtracking), which keeps self-crossing but makes a fast pull-back less reliable. Recommended: cut on any trail cell;
+  existing paths are world paths, not draft cells, so crossing them is unaffected.
+- [ ] **Show which cells are the problem.** `previewDraftPath` draws the whole draft with one `valid` flag. Draw the
+  cells that cannot take a path red and the rest in the normal colour, so the player can see what to steer around (a
+  per-cell flag to `drawPreview`, or a second `drawPreview` call for the blocked cells; both renderers). Not affording
+  the draft still turns all of it red, as today.
+- [ ] **Step back from the keyboard too (optional).** Backspace or right-click while the button is held removes the last
+  draft cell, like Esc / right-click on the coaster draft. Check it against the existing mid-drag Ctrl+Z, which empties
+  the draft.
+- [ ] Unchanged: the release still builds only an all-valid, affordable draft, as one undo entry; the refusal toast
+  still names the first blocked cell.
+- [ ] Tests: a drag into a building, pulled back and steered round it, builds exactly the final route; a pull-back all
+  the way to the first cell leaves a one-cell draft; the hover cost follows the cut; blocked cells are drawn apart from
+  the valid ones in both renderers; a mid-drag Ctrl+Z still empties the draft.
+
 ## Voxel Renderer (main renderer)
 
 The main renderer since 2026-10-06. The classic renderer stays the automatic fallback and is reachable with `?renderer=classic`. Architecture is under Renderers in ARCHITECTURE.md. It is a visual change on the fixed camera, not the "Full 3D" listed under not-now.

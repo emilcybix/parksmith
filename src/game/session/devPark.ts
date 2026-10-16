@@ -17,6 +17,9 @@ import type { ParkSession } from './ParkSession';
 
 export const DEV_PARK_CASH = 250_000;
 
+/** The middle of the built park (the street grid and the coaster plot), in cells. */
+export const DEV_PARK_CENTRE: Readonly<Cell> = { x: 15, y: 18 };
+
 interface DevPlot {
   definitionId: string;
   anchor: Cell;

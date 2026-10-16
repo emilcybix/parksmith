@@ -67,7 +67,7 @@ import type { VolumeLevel } from '../settings/schema';
 import { shouldShowNotification, type NotificationClass } from '../settings/notify';
 import { RENDERER_KIND } from './rendererFlag';
 import { ParkSession, type PlayCardResult } from '../game/session/ParkSession';
-import { DEV_PARK_CASH, seedDevPark } from '../game/session/devPark';
+import { DEV_PARK_CASH, DEV_PARK_CENTRE, seedDevPark } from '../game/session/devPark';
 import type { ShopSimulation } from '../game/shops/ShopSimulation';
 import { SimulationClock } from '../game/SimulationClock';
 import { SOUVENIR_KINDS, footprintSize } from '../game/types';
@@ -113,7 +113,7 @@ import type { RunView } from '../ui/runViewModel';
 import { autosavedRunAtStake, latestRunSlot } from './runSlots';
 import { slotDisplayName } from './saves/autosaveGenerations';
 import { pickGuest } from './guestPick';
-import { createCameraSweep, type SweepPoint } from './cameraSweep';
+import { createCameraSweep, sweepDayPhase, sweepZoomStep, type SweepPoint } from './cameraSweep';
 import { START_MENU_DEFAULT } from './menuFlag';
 import { onReducedMotionChange, reducedMotion } from '../settings/motion';
 import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type LandUi, type LeaveRunPrompt, type ToolMode, type UiState } from '../ui/store';
@@ -357,8 +357,10 @@ export class GameApp implements GameCommands, RunCommands {
   private preview: ParkPreview | null = null;
   /** Bumped to cancel a preview read that is still in flight (Continue, New park, a load, quit). */
   private previewToken = 0;
-  /** The session on screen is the empty starter map nobody has touched (boot, or nothing to continue). */
+  /** The session on screen is a starter nobody has touched: the empty boot park, or the backdrop for nothing to continue. */
   private starterShown = true;
+  /** Whether the starter backdrop is the developer park (false only if its layout could not be stamped). */
+  private starterIsDevPark = false;
   /** The preview is parked on the starter map until an open recovery offer is answered. */
   private previewWaitsForRecovery = false;
   // The centre of the current world (set on every session swap; the first session is built before this field).
@@ -368,6 +370,11 @@ export class GameApp implements GameCommands, RunCommands {
   private sweepStill = false;
   private sweepLastX = Number.NaN;
   private sweepLastY = Number.NaN;
+  /** The zoom the sweep started from (its steps are added to it, and it is put back when the sweep stops); null: none. */
+  private sweepBaseZoom: number | null = null;
+  private sweepLastZoom = Number.NaN;
+  /** The park's own time of day when the sweep started; the sweep's light runs on from it. */
+  private sweepStartPhase = 0.5;
   private stopWatchingMotion: (() => void) | null = null;
   private readonly pristineWorldVersion: number;
   /**
@@ -2193,8 +2200,9 @@ export class GameApp implements GameCommands, RunCommands {
   /** The empty starter map behind a menu with nothing to continue; swaps only if something else is showing. */
   private showStarterMap(): void {
     this.preview = null;
-    if (this.starterShown) return;
-    this.swapSession(new ParkSession(null), 'new-park', () => {
+    // The boot session is an empty starter too, but the backdrop is the developer park: it is built once.
+    if (this.starterShown && this.starterIsDevPark) return;
+    this.swapSession(this.starterPark(), 'new-park', () => {
       this.clock.restore({ speed: 0, simulationTimeMs: 0 });
       this.clock.resetAccumulator();
       this.setParkViewRotation(0);
@@ -2203,6 +2211,25 @@ export class GameApp implements GameCommands, RunCommands {
       this.syncUi();
     });
     this.starterShown = true;
+    // The drift circles the built park, not the empty middle of the map.
+    if (this.starterIsDevPark) this.sweep.setCentre(DEV_PARK_CENTRE.x, DEV_PARK_CENTRE.y);
+  }
+
+  /**
+   * The park behind a menu with nothing to continue (a first visit): the developer park, so there is something to look
+   * at. It is only a backdrop; New park starts a fresh session. An empty park if the layout cannot be stamped.
+   */
+  private starterPark(): ParkSession {
+    const session = new ParkSession(null);
+    try {
+      seedDevPark(session);
+      this.starterIsDevPark = true;
+      return session;
+    } catch (error) {
+      console.warn('The start screen could not build the developer park:', error);
+      this.starterIsDevPark = false;
+      return new ParkSession(null);
+    }
   }
 
   /**
@@ -2241,6 +2268,9 @@ export class GameApp implements GameCommands, RunCommands {
     this.sweepActive = true;
     this.sweepLastX = Number.NaN;
     this.sweepLastY = Number.NaN;
+    this.sweepLastZoom = Number.NaN;
+    this.sweepBaseZoom = this.renderer?.cameraZoom ?? null;
+    this.sweepStartPhase = this.session.calendar.viewInto(this.frameCalendar, this.world.tick + this.clock.stepFraction).effectiveFraction;
     this.driveSweep(0);
   }
 
@@ -2248,6 +2278,15 @@ export class GameApp implements GameCommands, RunCommands {
     this.sweepActive = false;
     this.stopWatchingMotion?.();
     this.stopWatchingMotion = null;
+    // The sweep's zoom steps were presentation for the menu: the park is handed back at the zoom it had.
+    if (this.sweepBaseZoom !== null && this.renderer?.cameraZoom !== this.sweepBaseZoom) this.renderer?.setCameraZoom?.(this.sweepBaseZoom);
+    this.sweepBaseZoom = null;
+  }
+
+  /** The time of day the sweep shows, or null when the park's own clock decides (no sweep, or a still one). */
+  private sweepTimeOfDay(): number | null {
+    if (!this.sweepActive || this.sweepStill) return null;
+    return sweepDayPhase(this.sweep.elapsedSeconds, this.sweepStartPhase);
   }
 
   /** One frame of the drift. Allocation-free; under reduced motion it holds the centre and writes nothing after the first frame. */
@@ -2255,6 +2294,15 @@ export class GameApp implements GameCommands, RunCommands {
     const renderer = this.renderer;
     if (!renderer?.setCameraCentre) return;
     const point = this.sweepStill ? this.sweep.current(this.sweepPoint) : this.sweep.advance(deltaMs, this.sweepPoint);
+    if (this.sweepBaseZoom !== null && renderer.setCameraZoom) {
+      const zoom = this.sweepBaseZoom + (this.sweepStill ? 0 : sweepZoomStep(this.sweep.elapsedSeconds));
+      if (zoom !== this.sweepLastZoom) {
+        this.sweepLastZoom = zoom;
+        renderer.setCameraZoom(zoom);
+        // A new zoom moves the view about the old centre; the centre below must be written again.
+        this.sweepLastX = Number.NaN;
+      }
+    }
     if (point.x === this.sweepLastX && point.y === this.sweepLastY) return;
     this.sweepLastX = point.x;
     this.sweepLastY = point.y;
@@ -2560,7 +2608,7 @@ export class GameApp implements GameCommands, RunCommands {
     // (stepFraction is). Read-only; nothing here can reach the simulation.
     const stepFraction = this.clock.stepFraction;
     renderer.setTimeOfDay(
-      TIME_OVERRIDE ?? this.session.calendar.viewInto(this.frameCalendar, this.world.tick + stepFraction).effectiveFraction,
+      TIME_OVERRIDE ?? this.sweepTimeOfDay() ?? this.session.calendar.viewInto(this.frameCalendar, this.world.tick + stepFraction).effectiveFraction,
     );
     renderer.setMachineryPaused?.(this.clock.speed === 0);
     renderer.setWeather?.(this.session.weatherViewInto(this.frameWeather, this.world.tick + stepFraction));

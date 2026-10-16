@@ -15,6 +15,9 @@ let inputHandlers: {
   hover(cell: unknown): void; start(cell: unknown): void; move(cell: unknown): void; end(cell: unknown): void; cancel(): void;
 } | null = null;
 const centres: Array<[number, number]> = [];
+const zooms: number[] = [];
+const phases: number[] = [];
+let zoomNow = 2;
 let focusEntranceCalls = 0;
 const viewEnabled: boolean[] = [];
 
@@ -27,7 +30,9 @@ class FakeRenderer {
   syncWorld(): void {}
   update(): void {}
   getPerformance() { return { fps: 60, renderMs: 16, entities: 0 }; }
-  setTimeOfDay(): void {}
+  setTimeOfDay(phase: number): void { phases.push(phase); }
+  get cameraZoom(): number { return zoomNow; }
+  setCameraZoom(zoom: number): void { zoomNow = zoom; zooms.push(zoom); }
   setInputHandlers(handlers: typeof inputHandlers): void { inputHandlers = handlers; }
   setViewInputEnabled(enabled: boolean): void { viewEnabled.push(enabled); }
   setToolCursor(): void {}
@@ -167,6 +172,9 @@ beforeEach(() => {
   frameCallback = null;
   inputHandlers = null;
   centres.length = 0;
+  zooms.length = 0;
+  phases.length = 0;
+  zoomNow = 2;
   focusEntranceCalls = 0;
   viewEnabled.length = 0;
   handlers = new Map();
@@ -203,6 +211,25 @@ describe('boot to the start screen', () => {
     expect(context()).toBe('menu');
     expect(centres.length, 'the starter map drifts too').toBeGreaterThan(0);
     expect(monitor.started, 'no recovery marker or lock while only the menu is up').toEqual([]);
+    game.destroy();
+  });
+
+  it('with no save the backdrop is the developer park; the sweep steps the zoom and runs the day, and New park is empty', async () => {
+    const { game } = await makeGame(new MemorySaveStore());
+    const backdrop = internals(game).session;
+    expect(backdrop.world.coasters.size, 'the developer park stands behind the menu').toBeGreaterThan(0);
+    expect(backdrop.onboarding?.snapshot().dismissed ?? true, 'no First Day hints over the backdrop').toBe(true);
+    phases.length = 0;
+    runFrames(60 * 40, 16);
+    expect(new Set(zooms), 'the zoom steps up from where it started and back').toEqual(new Set([2, 3, 4]));
+    expect(zooms.every((zoom) => zoom >= 2)).toBe(true);
+    const spread = Math.max(...phases) - Math.min(...phases);
+    expect(spread, 'the light moves through the day').toBeGreaterThan(0.1);
+    game.menuNewPark();
+    expect(zoomNow, 'the park is handed back at its own zoom').toBe(2);
+    expect(internals(game).session).not.toBe(backdrop);
+    expect(internals(game).session.world.coasters.size, 'a new park starts empty').toBe(0);
+    expect(ui().onboarding, 'and with the First Day hints').not.toBeNull();
     game.destroy();
   });
 

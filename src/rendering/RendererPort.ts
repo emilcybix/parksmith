@@ -189,6 +189,10 @@ export interface RendererPort {
    * every frame without allocating. Optional: a renderer without it simply shows a still park.
    */
   setCameraCentre?(cellX: number, cellY: number): void;
+  /** The camera's current whole zoom level (the start-screen sweep steps it). Optional, with `setCameraZoom`. */
+  readonly cameraZoom?: number;
+  /** Presentation only: sets the whole zoom level, clamped into the renderer's levels, keeping the viewport's centre. */
+  setCameraZoom?(zoom: number): void;
 
   setGridVisible(visible: boolean): void;
   setSceneryInfluenceVisible(visible: boolean): void;
