@@ -3020,8 +3020,8 @@ with the window prefs); four new keybindings; `layoutModel.ts` anchors.
   wrapping. The clean view hides it with the rest of the HUD.
 - [x] Layout: the anchor model includes the bar and caps Park Pulse above the dock reserve (it scrolls past it, with
   the Phase 35 cue). Checked in headless Chromium at 1280×800 and 1100×690 (Phase 42 windows and the bar together).
-- [ ] Not built: the camera's bottom inset does not shrink when the build menu is closed; the First Day hint texts were
-  not reworded (they name tabs, which open from Build).
+- [x] The camera's bottom inset shrinks to the menu bar when the build menu is closed (`hudInsets(…, dockOpen)`).
+- [ ] Not built: the First Day hint texts were not reworded (they name tabs, which open from Build).
 
 **Tests.** `ui/menuBar.test.tsx` (order, Parks/Run map, pressed states, badges appear and clear, the live line, the
 First Day outline, Land off an estate, the markup with key hints), `layoutModel.test.ts` (the bar in the anchor model,

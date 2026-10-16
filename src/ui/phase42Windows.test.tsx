@@ -175,6 +175,9 @@ describe('Phase 42: the windows on screen', () => {
   it('an open window widens the camera inset on the left', () => {
     expect(hudInsets(1, false, true).left).toBe(ANCHORS.windowLeft + ANCHORS.windowWidth);
     expect(hudInsets(1, false).left).toBe(ANCHORS.railLeft + ANCHORS.railWidth);
+    // Phase 43: a closed build menu leaves only the menu bar at the bottom.
+    expect(hudInsets(1, false, false, false).bottom).toBe(ANCHORS.dockBottom);
+    expect(hudInsets(1, false).bottom).toBe(ANCHORS.dockReserve);
   });
 
   it('a dragged window keeps its title bar on screen', () => {

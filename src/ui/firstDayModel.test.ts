@@ -177,3 +177,13 @@ describe('Phase 33: the Shops tab in the First Day hints', () => {
     expect(dockTabWording('cold treats sell')).toBe('cold treats sell');
   });
 });
+
+describe('Phase 40: the First Day stall steps name the front', () => {
+  it('says front instead of side for the food and drink steps', () => {
+    expect(dockTabWording('From Treats, place a Picnic Pocket or Glacier Scoop (food) with a side on the path.'))
+      .toBe('From Shops, place a Picnic Pocket or Glacier Scoop (food) with its front on the path.');
+    expect(dockTabWording('Place a Fizz Foundry or Lemon Light (drinks) beside the path, from Treats.'))
+      .toBe('Place a Fizz Foundry or Lemon Light (drinks) facing the path, from Shops.');
+    expect(dockTabWording('Pick Rides and place one so a side touches your path.')).toBe('Pick Rides and place one so a side touches your path.');
+  });
+});

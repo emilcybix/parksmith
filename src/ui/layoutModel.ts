@@ -283,13 +283,14 @@ export interface HudInsets {
  * a focus (a complaint link, a Buildings row) puts the building in the middle of what is left instead of under a panel.
  * A rectangle per side, so it is generous where the dock is narrower than the screen.
  */
-export const hudInsets = (zoom: number, inspector: boolean, windowOpen = false): HudInsets => {
+export const hudInsets = (zoom: number, inspector: boolean, windowOpen = false, dockOpen = true): HudInsets => {
   const a = ANCHORS;
   return {
     // Phase 42: an open window docked beside the rail covers that strip too.
     left: (windowOpen ? a.windowLeft + a.windowWidth : a.railLeft + a.railWidth) * zoom,
     top: a.pulseTop * zoom,
     right: (inspector ? a.inspectorRight + a.inspectorWidth : a.sideGutter + a.pulseWidth) * zoom,
-    bottom: a.dockReserve * zoom,
+    // Phase 43: with the build menu closed only the menu bar (and its gap) covers the bottom.
+    bottom: (dockOpen ? a.dockReserve : a.dockBottom) * zoom,
   };
 };

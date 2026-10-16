@@ -984,7 +984,8 @@ export class GameApp implements GameCommands, RunCommands {
   private viewInsets(inspector: boolean): ReturnType<typeof hudInsets> {
     const width = typeof window === 'undefined' ? 0 : window.innerWidth;
     const height = typeof window === 'undefined' ? 0 : window.innerHeight;
-    return hudInsets(effectiveUiScale(getSettings().uiScale, width, height), inspector, useUiStore.getState().openWindows.length > 0);
+    const ui = useUiStore.getState();
+    return hudInsets(effectiveUiScale(getSettings().uiScale, width, height), inspector, ui.openWindows.length > 0, ui.dockOpen);
   }
 
   /** Phase 36: hands the camera clamp the HUD's cover (on mount, a resize or a UI scale change). */
@@ -4473,6 +4474,7 @@ export class GameApp implements GameCommands, RunCommands {
 
   /** Camera keys follow the same rule as every other shortcut: only the top context gets them. */
   private lastOpenWindows: readonly string[] | null = null;
+  private lastDockOpen: boolean | null = null;
 
   private readonly syncInputContext = (): void => {
     const enabled = INPUT_CONTEXT_CAPABILITIES[this.inputContext()].view;
@@ -4485,8 +4487,9 @@ export class GameApp implements GameCommands, RunCommands {
     this.syncPaintState();
     const state = useUiStore.getState();
     // Phase 42: an open window covers the strip beside the rail, so the camera clamp follows it.
-    if (state.openWindows !== this.lastOpenWindows) {
+    if (state.openWindows !== this.lastOpenWindows || state.dockOpen !== this.lastDockOpen) {
       this.lastOpenWindows = state.openWindows;
+      this.lastDockOpen = state.dockOpen;
       this.pushViewInsets();
     }
     // Phase 11: putting the bulldozer down (any tool change) disarms an armed coaster.

@@ -55,9 +55,14 @@ export const gateInwardOnScreen = (facing: Facing, rotation: ViewRotation): Gate
 
 /**
  * Phase 33: the build tab once called Treats is Shops. The First Day hints are game content whose text is part of the
- * determinism observables, so the step text stays as shipped and the card names the tab as the dock does now.
+ * determinism observables, so the step text stays as shipped and the card names the tab as the dock does now, and
+ * (Phase 40) says a stall goes with its front to the path.
  */
-export const dockTabWording = (hint: string): string => hint.replace(/\bTreats\b/g, 'Shops');
+export const dockTabWording = (hint: string): string => hint
+  .replace(/\bTreats\b/g, 'Shops')
+  // Phase 40: a stall is used from its front, so the card says so (the ghost turns it toward the path by itself).
+  .replace(/with a side on the path/g, 'with its front on the path')
+  .replace(/\(drinks\) beside the path/g, '(drinks) facing the path');
 
 export const describeFirstDay = (snapshot: OnboardingSnapshot | null, inward: GateInward = 'up'): FirstDayView => {
   if (snapshot === null || snapshot.dismissed) return { mode: 'hidden' };
