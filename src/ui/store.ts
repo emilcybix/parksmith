@@ -94,6 +94,8 @@ export interface CoasterDraftSnapshot {
   buildable: boolean;
   affordable: boolean;
   lastPieceSpecial: string | null;
+  /** Phase 46: whether the type takes the helix tool. */
+  helix: boolean;
   /** One entry per lift (a maximal run of climbing pieces), in track order. */
   liftRuns: DraftLiftRun[];
   /** A free climb that crawls but is still allowed; null when there is nothing to warn about. */

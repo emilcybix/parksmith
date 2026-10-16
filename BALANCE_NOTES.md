@@ -899,6 +899,22 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 46: coaster elements · **PROVISIONAL**
+
+Not played. `coaster.specials` / `coaster.elements` / `coaster.helix`:
+
+| element | cost | excitement | intensity | circuit drag (cells/s) | shuttle energy (cells²/s²) |
+| --- | --- | --- | --- | --- | --- |
+| airtime hill | $160 | 5 | 4 | 0.1 | 1 |
+| corkscrew | $380 | 8 | 9 | 0.4 | 3 |
+| zero-g roll | $420 | 9 | 8 | 0.3 | 3 |
+| cobra roll | $520 | 11 | 12 | 0.6 | 6 |
+| helix (each, up to 2) | — | 4 | 3 | — | — |
+
+A loop is $260 for 9 / 12, so a roll is a little dearer for a little more excitement per intensity; the cobra is the
+big one. A shuttle counts each element twice (out and back). What would change these numbers: elements stacked into
+every layout because they are cheap excitement (raise costs first), or guests refusing element coasters as too intense.
+
 ## Phase 44: the shuttle launch coaster · **PROVISIONAL**
 
 Not played; measured on fixture layouts (`shuttle.test.ts`). Numbers in `GAME_CONFIG.coaster.shuttle`.

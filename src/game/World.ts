@@ -1,4 +1,4 @@
-import { COASTER_TYPES, coasterHangs } from './coaster/content';
+import { COASTER_SPECIALS, COASTER_TYPES, coasterHangs } from './coaster/content';
 import {
   deriveCoasterStats, isExclusiveCoasterPiece, trackPiecesMayCross, validateCoasterLayout, type CoasterDerivedStats, type CoasterPiece,
 } from './coaster/design';
@@ -1376,8 +1376,8 @@ export class GameWorld implements Serializable<GameWorldState> {
         if (!isInteger(piece.height) || piece.height < 0 || piece.height > coasterConfig.absoluteMaximumHeight) {
           fail(`${piecePath}.height`, `must be an integer 0..${coasterConfig.absoluteMaximumHeight}`);
         }
-        if (piece.special !== undefined && piece.special !== 'loop' && piece.special !== 'boost' && piece.special !== 'launch') {
-          fail(`${piecePath}.special`, 'is not loop, boost or launch');
+        if (piece.special !== undefined && !COASTER_SPECIALS.includes(piece.special)) {
+          fail(`${piecePath}.special`, `is not one of ${COASTER_SPECIALS.join(', ')}`);
         }
         if (piece.freeClimb !== undefined && piece.freeClimb !== true) fail(`${piecePath}.freeClimb`, 'is not true');
         // Phase 44: a shuttle's launch speed (the layout rules check where it sits and its range).

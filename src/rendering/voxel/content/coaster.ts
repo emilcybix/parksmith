@@ -10,6 +10,7 @@ import {
   createTileProjection,
   projectOntoTile,
   sampleCentreLineFrame,
+  ELEMENT_NONE,
 } from '../../../game/coaster/centreLine';
 import type { CentreLine } from '../../../game/coaster/centreLine';
 import type { CoasterPiece } from '../../../game/coaster/design';
@@ -245,6 +246,8 @@ export const COASTER_PIECE_BOX_ALLOWANCE = {
   loop: BOX_BUDGET.coasterLoopRing,
   chain: 10,
   brake: 6,
+  /** Phase 46: an element piece's swept track (rails, ties and spine rolled and voxelised), measured with headroom. */
+  element: 420,
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -1150,6 +1153,111 @@ const emitBrakeFin = (pieces: readonly CoasterPiece[], frame: PieceFrame, out: B
 };
 
 // ---------------------------------------------------------------------------------------------
+// Elements (Phase 46): a swept cross-section
+
+/** Element voxel classes, in priority order (a rail voxel wins over a tie, a tie over the spine). */
+const SWEPT_SPINE = 1;
+const SWEPT_TIE = 2;
+const SWEPT_RAIL = 3;
+/** Arc between cross-sections and between points of a cross-section, voxels. */
+const SWEPT_STEP = 0.5;
+let SWEPT_GRID = new Uint8Array(TILE * TILE * 64);
+const SWEPT_FRAME = createCentreLineFrame();
+
+/**
+ * Phase 46: an element piece's track (an airtime hill, a corkscrew, a zero-g roll, a cobra roll), swept along its
+ * centre line: every half voxel of arc, the cross-section of the ordinary track (rails |across| ∈ [2, 4) under the
+ * rail top, ties |across| < 3 one voxel lower every 4 voxels of arc, the spine |across| < 1 below them) is laid out
+ * along the frame's rolled normal and up and voxelised into a grid over the tile, then merged into boxes (rectangles
+ * per layer, stacked while the same rectangle continues up). Nothing leaves the tile. Also fills the column layout
+ * (`COLUMN_FLAGS` / `COLUMN_TOP`) with the lowest track voxel per column, so a support bent meets it from below.
+ */
+const emitSweptPiece = (frame: PieceFrame, look: CoasterLook, out: BoxWriter): void => {
+  const line = frame.line;
+  const index = frame.index;
+  const start = line.tileStart[index];
+  const length = line.tileLength[index];
+  const originX = frame.cellX * TILE;
+  const originY = frame.cellY * TILE;
+  const steps = Math.max(1, Math.ceil((length * TILE) / SWEPT_STEP));
+  // The grid's height: every sample's rail top, with the cross-section's reach either way.
+  let low = Number.POSITIVE_INFINITY;
+  let high = Number.NEGATIVE_INFINITY;
+  for (let step = 0; step <= steps; step += 1) {
+    sampleCentreLineFrame(line, start + (length * step) / steps, SWEPT_FRAME);
+    const top = coasterRailTopZ(SWEPT_FRAME.z);
+    low = Math.min(low, top);
+    high = Math.max(high, top);
+  }
+  const zFrom = Math.max(PATH_TOP_Z, Math.floor(low) - TRACK_HALF_WIDTH - TRACK_DEPTH - 1);
+  const layers = Math.ceil(high) + TRACK_HALF_WIDTH + TRACK_DEPTH + 2 - zFrom;
+  const size = TILE * TILE * layers;
+  if (SWEPT_GRID.length < size) SWEPT_GRID = new Uint8Array(size);
+  const grid = SWEPT_GRID;
+  grid.fill(0, 0, size);
+  for (let step = 0; step <= steps; step += 1) {
+    const arc = (length * step) / steps;
+    sampleCentreLineFrame(line, start + arc, SWEPT_FRAME);
+    const baseX = SWEPT_FRAME.x * TILE - originX;
+    const baseY = SWEPT_FRAME.y * TILE - originY;
+    const baseZ = coasterRailTopZ(SWEPT_FRAME.z);
+    const tie = Math.floor(arc * TILE) % TIE_PERIOD < TIE_LENGTH;
+    for (let across = -TRACK_HALF_WIDTH + SWEPT_STEP / 2; across < TRACK_HALF_WIDTH; across += SWEPT_STEP) {
+      const width = Math.abs(across);
+      for (let depth = -TRACK_DEPTH + SWEPT_STEP / 2; depth < 0; depth += SWEPT_STEP) {
+        let kind = 0;
+        if (width >= TRACK_HALF_WIDTH - RAIL_WIDTH && depth >= -RAIL_HEIGHT) kind = SWEPT_RAIL;
+        else if (tie && width < TIE_HALF_WIDTH && depth >= -RAIL_HEIGHT - TIE_THICKNESS && depth < -RAIL_HEIGHT) kind = SWEPT_TIE;
+        else if (width < SPINE_HALF_WIDTH && depth < -RAIL_HEIGHT - TIE_THICKNESS) kind = SWEPT_SPINE;
+        if (kind === 0) continue;
+        const x = Math.floor(baseX + across * SWEPT_FRAME.normalX + depth * SWEPT_FRAME.upX);
+        const y = Math.floor(baseY + across * SWEPT_FRAME.normalY + depth * SWEPT_FRAME.upY);
+        const z = Math.floor(baseZ + across * SWEPT_FRAME.normalZ + depth * SWEPT_FRAME.upZ) - zFrom;
+        if (x < 0 || y < 0 || x >= TILE || y >= TILE || z < 0 || z >= layers) continue;
+        const cell = (z * TILE + y) * TILE + x;
+        if (grid[cell] < kind) grid[cell] = kind;
+      }
+    }
+  }
+  // The column layout a bent reads: the lowest track voxel of each column.
+  COLUMN_FLAGS.fill(0);
+  COLUMN_TOP_KIND.fill(TOP_NONE);
+  for (let column = 0; column < TILE * TILE; column += 1) {
+    for (let z = 0; z < layers; z += 1) {
+      if (grid[z * TILE * TILE + column] === 0) continue;
+      COLUMN_FLAGS[column] = FLAG_BAND | FLAG_SPINE;
+      COLUMN_TOP[column] = zFrom + z + TRACK_DEPTH;
+      break;
+    }
+  }
+  // Rectangles per layer, stacked: a rectangle open since `z0` grows while the next layer has the same one.
+  const words = [0, packBoxWord(look.spine, frame.outlineGroup, PATTERN.PLAIN, 0), packBoxWord(look.tie, frame.outlineGroup, PATTERN.PLAIN, 0), packBoxWord(look.rail, frame.outlineGroup, PATTERN.PLAIN, 0)];
+  let open = new Map<number, number>();
+  const flush = (key: number, z0: number, z1: number): void => {
+    const x0 = key & 63;
+    const x1 = (key >> 6) & 127;
+    const y0 = (key >> 13) & 63;
+    const y1 = (key >> 19) & 127;
+    out.push(originX + x0, originY + y0, zFrom + z0, x1 - x0, y1 - y0, z1 - z0, words[key >>> 26]);
+  };
+  for (let z = 0; z <= layers; z += 1) {
+    const next = new Map<number, number>();
+    if (z < layers) {
+      const base = z * TILE * TILE;
+      for (let cell = 0; cell < TILE * TILE; cell += 1) GRID_KEYS[cell] = grid[base + cell] === 0 ? EMPTY : grid[base + cell];
+      const count = mergeRectangles(TILE, TILE);
+      for (let rectangle = 0; rectangle < count; rectangle += 1) {
+        const at = rectangle * RECT_STRIDE;
+        const key = RECTS[at] | (RECTS[at + 1] << 6) | (RECTS[at + 2] << 13) | (RECTS[at + 3] << 19) | (RECTS[at + 4] << 26);
+        next.set(key, open.get(key) ?? z);
+      }
+    }
+    for (const [key, z0] of open) if (!next.has(key)) flush(key, z0, z);
+    open = next;
+  }
+};
+
+// ---------------------------------------------------------------------------------------------
 // Pieces
 
 /** Phase 39 step 3: how far an inverted coaster's track is drawn above its piece level (one level), voxels. */
@@ -1215,6 +1323,15 @@ const pieceBoxes = (
   frame.outlineGroup = outlineGroup;
   const look = coasterLook(definition, palette, LOOK, paint);
   const special = frame.straight ? piece.special : undefined;
+  // Phase 46: an element piece is swept (its track rolls and humps); a bent carries it like any other.
+  if (frame.line.elementKind[frame.index] !== ELEMENT_NONE && frame.index < frame.line.realPieceCount) {
+    const look = coasterLook(definition, palette, LOOK, paint);
+    emitSweptPiece(frame, look, out);
+    if (supports && !hasLowerPieceInCell(pieces, index)) {
+      emitSupports(frame, look, out, COASTER_TYPE_BY_ID.get(definition.id)?.family === 'wooden');
+    }
+    return;
+  }
   layoutColumns(frame, pieces, special);
   const station = isStationPiece(pieces, index);
   // Phase 39 step 3: an inverted coaster's track is drawn one level up and its train hangs beneath it (scene/

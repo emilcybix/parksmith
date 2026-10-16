@@ -1,4 +1,4 @@
-import { COASTER_TYPE_BY_ID } from '../../../game/coaster/content';
+import { COASTER_TYPE_BY_ID, isCoasterElement } from '../../../game/coaster/content';
 import type { CoasterPiece } from '../../../game/coaster/design';
 import { BUILD_BY_ID, BUILD_CATALOG } from '../../../game/content/catalog';
 import { COLOUR_SWATCHES, colourSlotsFor, ENTRANCE_COLOUR_ID, sameObjectColours, SWATCH_COUNT } from '../../../game/content/colours';
@@ -102,6 +102,8 @@ const FENCE_RAIL_Z: readonly number[] = [5, 9];
 const PIVOT_FLOATS = TRANSFORM_FLOATS;
 /** Voxels above the highest rail a coaster's train can reach: a loop's diameter plus a car. */
 const COASTER_TRAIN_HEADROOM = 2 * COASTER_LOOP_RADIUS_VOXELS + 12;
+/** Phase 46: how far an element can lift its track over the piece level: a cobra's 2.5-level hump plus twice its heartline (16). */
+const ELEMENT_RISE_VOXELS = 50;
 /** Horizontal slack around a track for cars overhanging their centreline and loop rings. */
 const COASTER_TRACK_MARGIN = 2 * COASTER_LOOP_RADIUS_VOXELS;
 /** Catalog duration of a ride without one (World.rideProfile's default). */
@@ -1584,6 +1586,7 @@ export class StaticWorld {
     let maxY = Number.NEGATIVE_INFINITY;
     let highest = 0;
     let loops = false;
+    let elementRise = 0;
     for (const piece of pieces) {
       minX = Math.min(minX, piece.cell.x);
       minY = Math.min(minY, piece.cell.y);
@@ -1591,8 +1594,10 @@ export class StaticWorld {
       maxY = Math.max(maxY, piece.cell.y);
       highest = Math.max(highest, piece.height);
       if (piece.special === 'loop') loops = true;
+      // Phase 46: an element humps and rolls the train up to a cobra's 2.5 levels plus its heartline swing.
+      if (isCoasterElement(piece.special)) elementRise = Math.max(elementRise, ELEMENT_RISE_VOXELS);
     }
-    const top = coasterRailTopZ(highest) + (loops ? 2 * COASTER_LOOP_RADIUS_VOXELS : 0) + 8;
+    const top = coasterRailTopZ(highest) + Math.max(loops ? 2 * COASTER_LOOP_RADIUS_VOXELS : 0, elementRise) + 8;
     addSweep(
       bounds,
       minX * TILE - COASTER_TRACK_MARGIN,
@@ -1600,7 +1605,7 @@ export class StaticWorld {
       GROUND_TOP_Z,
       (maxX + 1) * TILE + COASTER_TRACK_MARGIN,
       (maxY + 1) * TILE + COASTER_TRACK_MARGIN,
-      coasterRailTopZ(highest) + COASTER_TRAIN_HEADROOM,
+      coasterRailTopZ(highest) + COASTER_TRAIN_HEADROOM + elementRise,
     );
     this.trainMap.set(record.objectId, {
       objectId: record.objectId,

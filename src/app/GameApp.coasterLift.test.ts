@@ -345,3 +345,37 @@ describe('Phase 44: the shuttle designer', () => {
     game.destroy();
   });
 });
+
+describe('Phase 46: elements and the helix tool in the designer', () => {
+  it('a two-piece element goes on the piece before the last; the helix lays four turns round a block and out', async () => {
+    const game = await makeGame();
+    game.world.addMoney(1_000_000);
+    game.world.setBuildAccessPolicy(null);
+    useUiStore.getState().selectBuild('titan-hyper');
+    inputHandlers!.hover({ x: 4, y: 4 });
+    expect(draft().helix).toBe(true);
+    // Station and a run up to level 5 eastward from (4, 4).
+    inputHandlers!.start({ x: 4, y: 4 });
+    inputHandlers!.move({ x: 6, y: 4 });
+    for (let level = 0; level < 5; level += 1) gameBridge.coasterAdjustHeight(1);
+    inputHandlers!.move({ x: 13, y: 4 });
+    inputHandlers!.end({ x: 13, y: 4 });
+    const pieces = internals(game).coasterDraft;
+    expect(pieces.at(-1)!.height).toBe(5);
+    gameBridge.coasterToggleSpecial('corkscrew');
+    expect(pieces.at(-2)!.special).toBe('corkscrew');
+    expect(draft().lastPieceSpecial).toBe('corkscrew');
+    gameBridge.coasterToggleSpecial('corkscrew');
+    expect(pieces.some((piece) => piece.special !== undefined)).toBe(false);
+    // Height setting below the track: the helix falls a level a piece.
+    for (let level = 0; level < 5; level += 1) gameBridge.coasterAdjustHeight(-1);
+    const before = pieces.length;
+    gameBridge.coasterHelix(1);
+    expect(pieces).toHaveLength(before + 5);
+    expect(pieces.slice(before).map((piece) => piece.height)).toEqual([4, 3, 2, 1, 0]);
+    // The fourth piece is back over the last one; the fifth over the first turn.
+    expect(pieces[before + 3].cell).toEqual(pieces[before - 1].cell);
+    expect(pieces[before + 4].cell).toEqual(pieces[before].cell);
+    game.destroy();
+  });
+});

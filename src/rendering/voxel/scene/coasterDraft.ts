@@ -78,9 +78,12 @@ const trainRing = (layout: readonly CoasterPiece[]): CoasterPiece[] => {
 export const DRAFT_COVERAGE_PARKED = 0.3;
 export const DRAFT_COVERAGE_ARMED = GHOST_COVERAGE_VALID;
 
-const SPECIAL_CODE: Readonly<Record<string, number>> = { loop: 1, boost: 2 };
+const SPECIAL_CODE: Readonly<Record<string, number>> = {
+  loop: 1, boost: 2, launch: 3, 'airtime-hill': 4, corkscrew: 5, 'zero-g-roll': 6, 'cobra-roll': 7,
+};
 /** The special plus the lift flag (bit 8): a toggled lift must rebuild the draft's chain strips. */
-const pieceCode = (piece: CoasterPiece): number => (piece.special ? SPECIAL_CODE[piece.special] ?? 3 : 0) | (piece.freeClimb === true ? 256 : 0);
+const pieceCode = (piece: CoasterPiece): number => (piece.special ? SPECIAL_CODE[piece.special] ?? 3 : 0) | (piece.freeClimb === true ? 256 : 0)
+  | (piece.launchSpeed !== undefined ? 512 : 0);
 
 export class CoasterDraft {
   /** The state handed to the sink; reused, `boxes` changes identity on every rebuild. */

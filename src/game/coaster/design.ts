@@ -1,6 +1,6 @@
 import { GAME_CONFIG } from '../config';
 import type { Cell } from '../types';
-import type { CoasterSpecial, CoasterTypeDefinition } from './content';
+import { coasterSpecialSpan, isCoasterElement, type CoasterSpecial, type CoasterTypeDefinition } from './content';
 import { analyseLiftRuns, isClimbingSegment, liftCounts, liftRuns, type LiftRunAnalysis } from './lift';
 import { isShuttleLayout, isValidLaunchSpeed, shuttleProfile, shuttleTravelSeconds, type ShuttleProfile } from './shuttle';
 import { coasterSpeedProfile } from './speedModel';
@@ -56,6 +56,8 @@ export type CoasterValidationFailure =
   | 'shuttle-special-at-end'
   /** Phase 44: a shuttle layout for a type that is not a shuttle type. */
   | 'shuttle-not-allowed'
+  /** Phase 46: a cobra roll sits on two turns the same way in a row (a U-turn). */
+  | 'cobra-needs-u-turn'
   /** Designer only (checkCoasterDesign): never raised when a save loads. */
   | 'free-climb-stalls'
   /** Phase 44, designer only: the shuttle reaches the end of its track with speed to spare. */
@@ -123,7 +125,8 @@ export const isExclusiveCoasterPiece = (pieces: readonly CoasterPiece[], index: 
   if (index < GAME_CONFIG.coaster.stationLength) return true;
   if (pieces[index].special !== undefined) return true;
   const previous = pieces[(index - 1 + pieces.length) % pieces.length];
-  return previous?.special === 'loop';
+  // Phase 46: the second piece of a two-piece element is the element's too.
+  return previous?.special === 'loop' || coasterSpecialSpan(previous?.special) === 2;
 };
 
 /** Phase 38: whether two track pieces may share a cell: far enough apart in height, neither exclusive. */
@@ -170,18 +173,19 @@ export const validateCoasterLayout = (
   for (const [index, piece] of pieces.entries()) {
     if (!piece.special) continue;
     if (!type.allowedSpecials.includes(piece.special)) return failure('special-not-allowed', index);
-    if (index < config.stationLength) return failure('special-on-station', index);
-    if (!isStraightAt(pieces, index)) return failure('special-not-straight', index);
+    const placement = checkSpecialPlacement(pieces, index, true);
+    if (placement) return placement;
     specialIndices.push(index);
   }
-  // Loops and boosts need breathing room, or their silhouettes overlap on screen.
+  // Loops and boosts need breathing room, or their silhouettes overlap on screen (Phase 46: counted from the end of a
+  // two-piece element).
   for (let index = 1; index <= specialIndices.length; index += 1) {
     const previous = specialIndices[index - 1];
     const current = specialIndices[index % specialIndices.length];
     const gap = index === specialIndices.length
       ? pieces.length - previous + current
       : current - previous;
-    if (specialIndices.length > 1 && gap < 2) return failure('specials-too-close', current);
+    if (specialIndices.length > 1 && gap < coasterSpecialSpan(pieces[previous].special) + 1) return failure('specials-too-close', current);
   }
 
   const highest = Math.max(...pieces.map((piece) => piece.height));
@@ -232,6 +236,44 @@ const validateStation = (pieces: readonly CoasterPiece[]): CoasterValidation | n
   return null;
 };
 
+/** The plan turn at piece `index` of a closed ring: 0 straight, ±1 the sign of in × out. */
+const turnSignAt = (pieces: readonly CoasterPiece[], index: number): number => {
+  const count = pieces.length;
+  const previous = pieces[(index - 1 + count) % count].cell;
+  const current = pieces[index].cell;
+  const next = pieces[(index + 1) % count].cell;
+  return Math.sign((current.x - previous.x) * (next.y - current.y) - (current.y - previous.y) * (next.x - current.x));
+};
+
+/**
+ * Where a special may sit (`closed`: a circuit, read as a ring; else a shuttle, read open): never on the station,
+ * never on a shuttle's last piece; a loop, boost, launch or airtime hill on a straight piece; a corkscrew or zero-g
+ * roll on a straight piece followed by another (Phase 46); a cobra roll on two turns the same way in a row (a U-turn).
+ * A two-piece element's second piece is not on the station or past a shuttle's end either.
+ */
+const checkSpecialPlacement = (pieces: readonly CoasterPiece[], index: number, closed: boolean): CoasterValidation | null => {
+  const station = GAME_CONFIG.coaster.stationLength;
+  const count = pieces.length;
+  const special = pieces[index].special;
+  if (index < station) return failure('special-on-station', index);
+  if (!closed && index >= count - 1) return failure('shuttle-special-at-end', index);
+  if (coasterSpecialSpan(special) === 2) {
+    const second = index + 1;
+    if (!closed && second >= count - 1) return failure('shuttle-special-at-end', second);
+    if (second % count < station) return failure('special-on-station', second % count);
+    if (special === 'cobra-roll') {
+      const turn = turnSignAt(pieces, index);
+      if (turn === 0 || turnSignAt(pieces, second % count) !== turn) return failure('cobra-needs-u-turn', index);
+      return null;
+    }
+    if (!isStraightAt(pieces, index)) return failure('special-not-straight', index);
+    if (!isStraightAt(pieces, second % count)) return failure('special-not-straight', second % count);
+    return null;
+  }
+  if (!isStraightAt(pieces, index)) return failure('special-not-straight', index);
+  return null;
+};
+
 /**
  * Phase 44: the rules of a shuttle layout (open, out and back): a shuttle type, the station as on a circuit, the
  * launch speed on the first piece only and on the designer's grid, no lift flags (nothing is chained), no launch
@@ -246,17 +288,15 @@ const validateShuttleLayout = (pieces: readonly CoasterPiece[], type: CoasterTyp
   if (run) return run;
   const station = validateStation(pieces);
   if (station) return station;
-  const count = pieces.length;
-  let previousSpecial = -10;
+  let previousSpecial = -1;
   for (const [index, piece] of pieces.entries()) {
     if (index === 0 ? !isValidLaunchSpeed(piece.launchSpeed) : piece.launchSpeed !== undefined) return failure('launch-speed-range', index);
     if (piece.freeClimb !== undefined) return failure('lift-flag-not-climbing', index);
     if (!piece.special) continue;
     if (piece.special === 'launch' || !type.allowedSpecials.includes(piece.special)) return failure('special-not-allowed', index);
-    if (index < config.stationLength) return failure('special-on-station', index);
-    if (index === count - 1) return failure('shuttle-special-at-end', index);
-    if (!isStraightAt(pieces, index)) return failure('special-not-straight', index);
-    if (index - previousSpecial < 2) return failure('specials-too-close', index);
+    const placement = checkSpecialPlacement(pieces, index, false);
+    if (placement) return placement;
+    if (previousSpecial >= 0 && index - previousSpecial < coasterSpecialSpan(pieces[previousSpecial].special) + 1) return failure('specials-too-close', index);
     previousSpecial = index;
   }
   if (Math.max(...pieces.map((piece) => piece.height)) < 2) return failure('shuttle-no-climb');
@@ -294,6 +334,60 @@ const validatePieceRun = (pieces: readonly CoasterPiece[], type: CoasterTypeDefi
     }
   }
   return null;
+};
+
+/**
+ * Phase 46: what the elements and helices add (0 and 0 on any layout without one, so older layouts derive exactly as
+ * before). A shuttle rides each element twice (out and back); a helix is recognised by `coasterHelixRuns`.
+ */
+export const elementScore = (pieces: readonly CoasterPiece[], closed: boolean): { excitement: number; intensity: number } => {
+  const config = GAME_CONFIG.coaster;
+  let excitement = 0;
+  let intensity = 0;
+  const rides = closed ? 1 : 2;
+  for (const piece of pieces) {
+    if (!isCoasterElement(piece.special)) continue;
+    excitement += config.specials[piece.special].excitement * rides;
+    intensity += config.specials[piece.special].intensity * rides;
+  }
+  const helices = Math.min(config.helix.maximumCounted, coasterHelixRuns(pieces, closed).length);
+  excitement += helices * config.helix.excitement;
+  intensity += helices * config.helix.intensity;
+  return { excitement, intensity };
+};
+
+/**
+ * Phase 46: the helices of a layout: runs of at least `helix.minimumTurns` consecutive pieces that all turn the same
+ * way, climbing or falling at least `helix.minimumRise` levels over the run (a flat ring of turns is not a helix).
+ * Each run as [first piece, piece count]. A circuit is read as a ring (a run may wrap); a shuttle open.
+ */
+export const coasterHelixRuns = (pieces: readonly CoasterPiece[], closed: boolean): Array<[number, number]> => {
+  const config = GAME_CONFIG.coaster.helix;
+  const count = pieces.length;
+  if (count < 3) return [];
+  const turns = pieces.map((_piece, index) => (closed || (index > 0 && index < count - 1) ? turnSignAt(pieces, index) : 0));
+  if (closed && turns.every((turn) => turn !== 0 && turn === turns[0])) return [];
+  // Start after a break so a wrapping run stays whole.
+  let origin = 0;
+  if (closed) {
+    origin = turns.findIndex((turn, index) => turn === 0 || turn !== turns[(index - 1 + count) % count]);
+    if (origin < 0) origin = 0;
+  }
+  const runs: Array<[number, number]> = [];
+  let step = 0;
+  while (step < count) {
+    const start = (origin + step) % count;
+    const sign = turns[start];
+    let length = 1;
+    while (step + length < count && sign !== 0 && turns[(start + length) % count] === sign) length += 1;
+    if (sign !== 0 && length >= config.minimumTurns) {
+      const first = pieces[start].height;
+      const last = pieces[(start + length - 1) % count].height;
+      if (Math.abs(last - first) >= config.minimumRise) runs.push([start, length]);
+    }
+    step += length;
+  }
+  return runs.sort((a, b) => a[0] - b[0]);
 };
 
 /** The levels of a drop as intensity reads them: in full up to `tall.fullIntensityLevels`, a share past it (the identity on any drop of 4 or less). */
@@ -363,11 +457,13 @@ export const deriveCoasterStats = (
     + loops * specials.loop.excitement + boosts * specials.boost.excitement
     + (speed.topSpeed - GAME_CONFIG.coaster.speed.cruise) * 2.5
     + airtime
-    + launches * specials.launch.excitement;
+    + launches * specials.launch.excitement
+    + elementScore(pieces, true).excitement;
   const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + intensityDescent * 2.5 + steepTurnPairs * family.steepTurns
     + loops * specials.loop.intensity + boosts * specials.boost.intensity
     + speed.topSpeed * 1.2
-    + launches * specials.launch.intensity;
+    + launches * specials.launch.intensity
+    + elementScore(pieces, true).intensity;
   // Phase 38: each crossing is a near miss (capped); a layout without one takes the exact expressions it always did.
   const crossings = coasterCrossings(pieces);
   const crossing = GAME_CONFIG.coaster.crossing;
@@ -473,11 +569,13 @@ const deriveShuttleStats = (
   const rawExcitement = 16 + count * 0.5 + turns * family.turn + totalDescent * family.descent + highestHeight * 3
     + loops * specials.loop.excitement * 2 + boosts * specials.boost.excitement
     + (profile.topSpeed - config.speed.cruise) * 2.5
-    + specials.launch.excitement + shuttle.backwardExcitement;
+    + specials.launch.excitement + shuttle.backwardExcitement
+    + elementScore(pieces, false).excitement;
   const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + intensityDescent * 2.5 + steepTurnPairs * family.steepTurns
     + loops * specials.loop.intensity * 2 + boosts * specials.boost.intensity
     + profile.topSpeed * 1.2
-    + specials.launch.intensity + shuttle.backwardIntensity;
+    + specials.launch.intensity + shuttle.backwardIntensity
+    + elementScore(pieces, false).intensity;
   const crossings = coasterCrossings(pieces);
   const excitement = round(clamp(rawExcitement + Math.min(config.crossing.maximumCounted, crossings) * config.crossing.excitement, 0, 100));
   const intensity = round(clamp(rawIntensity, 0, 100));
@@ -606,9 +704,9 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'height-range': 'The track is higher than this coaster type allows.',
   'no-drop': 'Add a hill of height 2+ and a drop so the train can run.',
   'special-not-allowed': 'This coaster type cannot fit that special piece.',
-  'special-not-straight': 'Special pieces need a straight stretch of track.',
+  'special-not-straight': 'Special pieces need a straight stretch of track (rolls need two straight pieces).',
   'special-on-station': 'Special pieces cannot sit on the station.',
-  'specials-too-close': 'Leave at least one plain piece between special pieces.',
+  'specials-too-close': 'Leave at least one plain piece after a special piece or element.',
   'lift-flag-not-climbing': 'Only climbing track can be chain-free.',
   'lift-run-mixed': 'A hill is either all chain or all free.',
   'mouse-turn-not-flat': 'Wild mouse turns must be flat: climb and drop on the straights.',
@@ -618,8 +716,9 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'shuttle-no-climb': 'Build a climb of height 2+ for the train to turn on.',
   'shuttle-special-at-end': 'The end of the track cannot carry a special piece.',
   'shuttle-not-allowed': 'This coaster type runs on a closed circuit.',
+  'cobra-needs-u-turn': 'A cobra roll needs a U-turn: two turns the same way in a row.',
   'shuttle-overshoots': 'Too fast: the train would run off the end. Lower the launch or build the climb higher.',
   'shuttle-stops-flat': 'Too slow: the train stops on level track. Raise the launch or end on a climb.',
-  'shuttle-loop-slow': 'Too slow for the loop. Raise the launch speed.',
+  'shuttle-loop-slow': 'Too slow for an inversion (loop or roll). Raise the launch speed.',
   'shuttle-stalls-back': 'Rolling back, the train crawls over a hill. Lower that hill or raise the launch.',
 };

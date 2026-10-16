@@ -759,6 +759,14 @@ the out-and-back head index (`shuttleHeadIndex`, stretched over the saved durati
 shuttle on its own open ring (two scratch pieces after the real ones, `realPieceCount`), so every renderer draws it
 with the same piece indices and nothing chained. Schema 17 (`launchSpeed` on a piece).
 
+**Elements (Phase 46).** `CoasterElement` specials (`airtime-hill`, `corkscrew`, `zero-g-roll`, `cobra-roll`;
+`coasterSpecialSpan` 1 or 2 pieces) are placed by `checkSpecialPlacement` and scored by `elementScore` (with helices,
+`coasterHelixRuns`); a layout without one derives exactly as before. Their shapes live only in the centre line (per
+piece `elementKind`, the element's phase range and roll sign; the sampler adds the hump and the heartline swing, the
+frame takes the roll), and the voxel track sweeps the cross-section along that frame (`emitSweptPiece`), so every
+consumer of the line agrees. Tall coasters (Phase 45): `coaster.absoluteMaximumHeight` 10 is the save cap; the
+type's own `maximumHeight` is the designer's (`coasterMaximumHeight`).
+
 ## Coaster centre line
 
 Phase 27 step 1. A coaster's look comes from one pure curve, `src/game/coaster/centreLine.ts` (no Pixi, DOM, world or gameplay imports; `centreLine.test.ts` has its tests). `createCentreLine(pieces)` turns a layout into position and tangent per arc length (`sampleCentreLine`, allocation-free; `resampleCentreLine` for hot loops), and the voxel track, both trains, the designer ghost and the draft preview all read it, so the train rides exactly the rail that is drawn. **It is visual only**: ride stats, cycle time, cost, ratings, queue and dispatch, breakdowns and saves come from `design.ts` and `RideSimulation` and never see it (`gameplayInvariance.test.ts` pins them to golden values captured before the curve existed).

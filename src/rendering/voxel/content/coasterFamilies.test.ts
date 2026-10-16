@@ -7,7 +7,7 @@ import { compileBlueprint } from '../blueprint/compile';
 import { BOX_FLOATS, BoxWriter, unpackBoxWord } from '../contracts/boxes';
 import { MAT } from '../contracts/palette';
 import { buildPalette } from '../palette';
-import { GANTRY_LEG_ACROSS, INVERTED_TRACK_LIFT, TRACK_DEPTH, coasterContent } from './coaster';
+import { COASTER_PIECE_BOX_ALLOWANCE, GANTRY_LEG_ACROSS, INVERTED_TRACK_LIFT, TRACK_DEPTH, coasterContent } from './coaster';
 
 /** Phase 39 art: the wooden family's lattice bents and timber look, and the wild mouse's single car. */
 const palette = buildPalette(BUILD_CATALOG, GUEST_COLORS, GUEST_ACCENTS);
@@ -128,6 +128,36 @@ describe('Phase 45: tall track art', () => {
     expect(Math.min(...list.map((box) => box[2]))).toBeLessThanOrEqual(1);
     for (let a = 0; a < list.length; a += 1) {
       for (let b = a + 1; b < list.length; b += 1) expect(overlaps(list[a], list[b]), `boxes ${a} and ${b}`).toBe(false);
+    }
+  });
+});
+
+describe('Phase 46: element art', () => {
+  const OVAL_MOVES = `${'E'.repeat(10)}${'S'.repeat(4)}${'W'.repeat(10)}${'N'.repeat(4)}`;
+  const OVAL_HEIGHTS = [0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 2, 1, 0];
+  const cases: Array<[string, ReturnType<typeof layoutFromMoves>, number[]]> = [
+    ['corkscrew', layoutFromMoves({ x: 2, y: 2 }, OVAL_MOVES, OVAL_HEIGHTS, { 5: 'corkscrew' as never }), [5, 6]],
+    ['zero-g-roll', layoutFromMoves({ x: 2, y: 2 }, OVAL_MOVES, OVAL_HEIGHTS, { 5: 'zero-g-roll' as never }), [5, 6]],
+    ['airtime-hill', layoutFromMoves({ x: 2, y: 2 }, OVAL_MOVES, OVAL_HEIGHTS, { 5: 'airtime-hill' as never }), [5]],
+    ['cobra-roll', layoutFromMoves({ x: 2, y: 2 }, 'EEEEEESWWWWWWN', [0, 0, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0], { 6: 'cobra-roll' as never }), [6, 7]],
+  ];
+  it.each(cases)('%s: swept track inside its tiles, no two boxes overlapping, within budget', (_kind, layout, indices) => {
+    for (const index of indices) {
+      const writer = new BoxWriter(64);
+      coasterContent.pieceBoxes(layout, index, BUILD_BY_ID.get('titan-hyper')!, palette, 1, writer);
+      const list = Array.from({ length: writer.count }, (_unused, box) => writer.data.slice(box * BOX_FLOATS, box * BOX_FLOATS + 8));
+      expect(list.length).toBeGreaterThan(20);
+      expect(list.length, 'box allowance').toBeLessThanOrEqual(COASTER_PIECE_BOX_ALLOWANCE.element + 12 * COASTER_PIECE_BOX_ALLOWANCE.bentPerLevel);
+      const cell = layout[index].cell;
+      for (const box of list) {
+        expect(box[0]).toBeGreaterThanOrEqual(cell.x * 32);
+        expect(box[0] + box[4]).toBeLessThanOrEqual(cell.x * 32 + 32);
+        expect(box[1]).toBeGreaterThanOrEqual(cell.y * 32);
+        expect(box[1] + box[5]).toBeLessThanOrEqual(cell.y * 32 + 32);
+      }
+      for (let a = 0; a < list.length; a += 1) {
+        for (let b = a + 1; b < list.length; b += 1) expect(overlaps(list[a], list[b]), `piece ${index}: boxes ${a} and ${b}`).toBe(false);
+      }
     }
   });
 });

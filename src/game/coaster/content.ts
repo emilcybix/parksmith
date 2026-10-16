@@ -1,5 +1,27 @@
-/** Phase 39 step 2: `launch` is the launch family's special: a launch track that fires the train out at speed. */
-export type CoasterSpecial = 'loop' | 'boost' | 'launch';
+/**
+ * Phase 39 step 2: `launch` is the launch family's special: a launch track that fires the train out at speed.
+ * Phase 46: the elements. `airtime-hill` (one straight piece: a hump over it), `corkscrew` and `zero-g-roll` (the
+ * special piece and the straight piece after it: a 360° roll), `cobra-roll` (the special piece and the next, two
+ * turns the same way: a rolling U-turn that inverts twice). The centre line owns their shapes (centreLine.ts).
+ */
+export type CoasterSpecial = 'loop' | 'boost' | 'launch' | CoasterElement;
+
+/** Phase 46: the elements (specials with a shape of their own). */
+export type CoasterElement = 'airtime-hill' | 'corkscrew' | 'zero-g-roll' | 'cobra-roll';
+
+export const COASTER_SPECIALS: readonly CoasterSpecial[] = ['loop', 'boost', 'launch', 'airtime-hill', 'corkscrew', 'zero-g-roll', 'cobra-roll'];
+
+/** Phase 46: whether a special is an element. */
+export const isCoasterElement = (special: CoasterSpecial | undefined): special is CoasterElement =>
+  special === 'airtime-hill' || special === 'corkscrew' || special === 'zero-g-roll' || special === 'cobra-roll';
+
+/** Phase 46: how many pieces a special spans (the special's own piece and those after it). */
+export const coasterSpecialSpan = (special: CoasterSpecial | undefined): number =>
+  special === 'corkscrew' || special === 'zero-g-roll' || special === 'cobra-roll' ? 2 : 1;
+
+/** Phase 46: whether a special turns the riders upside down (a loop or a rolling element). */
+export const isCoasterInversion = (special: CoasterSpecial | undefined): boolean =>
+  special === 'loop' || special === 'corkscrew' || special === 'zero-g-roll' || special === 'cobra-roll';
 
 /**
  * Phase 39: what a coaster is built like. `steel` is the original three types; a family has its own build rules
@@ -62,7 +84,7 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     stationCost: 550,
     pieceCost: 55,
     heightCostPerLevel: 40,
-    allowedSpecials: ['loop'],
+    allowedSpecials: ['loop', 'airtime-hill'],
   },
   {
     definitionId: 'skyline-serpent',
@@ -74,7 +96,7 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     stationCost: 750,
     pieceCost: 65,
     heightCostPerLevel: 45,
-    allowedSpecials: ['loop', 'boost'],
+    allowedSpecials: ['loop', 'boost', 'airtime-hill', 'corkscrew', 'zero-g-roll', 'cobra-roll'],
   },
   {
     definitionId: 'whisker-mouse',
@@ -98,7 +120,8 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     stationCost: 450,
     pieceCost: 42,
     heightCostPerLevel: 30,
-    allowedSpecials: [],
+    // Phase 46: a wooden coaster's camelbacks.
+    allowedSpecials: ['airtime-hill'],
   },
   {
     definitionId: 'thunder-launch',
@@ -112,7 +135,7 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     pieceCost: 70,
     heightCostPerLevel: 50,
     // `launch` stays for the closed circuits saved before Phase 44; a shuttle refuses launch pieces (its station launches).
-    allowedSpecials: ['launch', 'boost', 'loop'],
+    allowedSpecials: ['launch', 'boost', 'loop', 'airtime-hill', 'corkscrew', 'zero-g-roll'],
     layout: 'shuttle',
   },
   {
@@ -138,7 +161,7 @@ export const COASTER_TYPES: readonly CoasterTypeDefinition[] = [
     stationCost: 1_200,
     pieceCost: 80,
     heightCostPerLevel: 55,
-    allowedSpecials: ['loop', 'boost'],
+    allowedSpecials: ['loop', 'boost', 'airtime-hill', 'corkscrew', 'zero-g-roll', 'cobra-roll'],
   },
 ] as const;
 

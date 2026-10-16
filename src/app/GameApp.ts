@@ -1,5 +1,5 @@
 import { CARD_BY_ID } from '../game/cards/content';
-import { COASTER_TYPE_BY_ID, coasterHangs, type CoasterSpecial, type CoasterTypeDefinition } from '../game/coaster/content';
+import { COASTER_TYPE_BY_ID, coasterHangs, coasterSpecialSpan, type CoasterSpecial, type CoasterTypeDefinition } from '../game/coaster/content';
 import {
   COASTER_VALIDATION_TEXT,
   checkCoasterDesign,
@@ -3463,6 +3463,81 @@ export class GameApp implements GameCommands, RunCommands {
     else delete first.launchSpeed;
   }
 
+  /** Phase 46: the special the designer's buttons show as on: the last piece's, or a two-piece element ending on it. */
+  private draftTailSpecial(): string | null {
+    const last = this.coasterDraft[this.coasterDraft.length - 1];
+    const before = this.coasterDraft[this.coasterDraft.length - 2];
+    if (last?.special) return last.special;
+    return before?.special && coasterSpecialSpan(before.special) === 2 ? before.special : null;
+  }
+
+  /** Phase 46: whether a type can take the helix tool (it climbs or falls five levels through its turns). */
+  private helixAllowed(type: CoasterTypeDefinition): boolean {
+    return type.maximumHeight >= 5 && type.family !== 'wild-mouse' && type.family !== 'inverted';
+  }
+
+  /**
+   * Phase 46: lays a helix from the last piece: four turns the same way (`side` +1 or -1) round a 2 x 2 block, a level a
+   * piece toward the track height setting (down when it is level with the last piece and that is high enough), the
+   * fourth over or under the last piece, and a fifth straight out over or under the first turn.
+   */
+  coasterHelix(side: number): void {
+    const type = this.currentCoasterType();
+    const draft = this.coasterDraft;
+    if (!type || !this.helixAllowed(type)) return;
+    if (draft.length < GAME_CONFIG.coaster.stationLength) {
+      this.toast('Lay the station first, then a helix.');
+      return;
+    }
+    const last = draft[draft.length - 1];
+    const previous = draft[draft.length - 2];
+    const dx = Math.sign(last.cell.x - previous.cell.x);
+    const dy = Math.sign(last.cell.y - previous.cell.y);
+    const turn = side >= 0 ? 1 : -1;
+    // The turn: in × out = turn, so out = turn · (−dy, dx).
+    const lx = -dy * turn;
+    const ly = dx * turn;
+    const maximum = Math.min(type.maximumHeight, GAME_CONFIG.coaster.absoluteMaximumHeight);
+    const toward = Math.sign(this.coasterHeight - last.height);
+    const step = toward !== 0 ? toward : last.height >= 5 ? -1 : 1;
+    const cells = [
+      { x: last.cell.x + dx, y: last.cell.y + dy },
+      { x: last.cell.x + dx + lx, y: last.cell.y + dy + ly },
+      { x: last.cell.x + lx, y: last.cell.y + ly },
+      { x: last.cell.x, y: last.cell.y },
+      { x: last.cell.x + dx, y: last.cell.y + dy },
+    ];
+    const added: CoasterPiece[] = cells.map((cell, index) => ({ cell, height: last.height + step * (index + 1) }));
+    const refuse = (message: string): void => this.toast(message);
+    if (added.some((piece) => piece.height < 0 || piece.height > maximum)) {
+      refuse(`A helix climbs or falls 5 levels: this one would leave 0–${maximum}. Set the track height to climb or fall.`);
+      return;
+    }
+    if (added.some((piece) => !this.world.isInside(piece.cell))) {
+      refuse('No room on the map for a helix here.');
+      return;
+    }
+    const layout = [...draft];
+    for (const piece of added) {
+      for (let other = 0; other < layout.length; other += 1) {
+        if (!sameCell(layout[other].cell, piece.cell)) continue;
+        if (!trackPiecesMayCross(layout[other].height, piece.height) || isExclusiveCoasterPiece([...layout, piece], other)) {
+          refuse('A helix crosses its own entry: start it from plain track, away from the station and specials.');
+          return;
+        }
+      }
+      layout.push(piece);
+    }
+    if (layout.length > GAME_CONFIG.coaster.maximumPieces) {
+      refuse(COASTER_VALIDATION_TEXT['too-long']);
+      return;
+    }
+    for (const piece of added) draft.push(piece);
+    normaliseLiftFlags(draft);
+    this.coasterLastCell = null;
+    this.refreshCoasterPreview();
+  }
+
   /** The specials the designer offers for a type: a shuttle's station is its launch, so it takes no launch pieces. */
   private designerSpecials(type: CoasterTypeDefinition): CoasterSpecial[] {
     return type.allowedSpecials.filter((special) => type.layout !== 'shuttle' || special !== 'launch');
@@ -3476,7 +3551,13 @@ export class GameApp implements GameCommands, RunCommands {
       this.toast(COASTER_VALIDATION_TEXT['special-not-allowed']);
       return;
     }
-    last.special = last.special === kind ? undefined : kind;
+    // Phase 46: a two-piece element goes on the piece before the last (lay both pieces, then add it).
+    const target = coasterSpecialSpan(kind) === 2 ? this.coasterDraft[this.coasterDraft.length - 2] : last;
+    if (!target) {
+      this.toast('Lay two pieces for this element first.');
+      return;
+    }
+    target.special = target.special === kind ? undefined : kind;
     normaliseLiftFlags(this.coasterDraft);
     this.refreshCoasterPreview();
   }
@@ -3691,7 +3772,7 @@ export class GameApp implements GameCommands, RunCommands {
           validationMessage: type.layout === 'shuttle'
             ? 'Drag on the grass to lay track. First 3 pieces become the launch station; end on a climb.'
             : 'Drag on the grass to lay track. First 3 pieces become the station.',
-          buildable: false, affordable: true, lastPieceSpecial: null,
+          buildable: false, affordable: true, lastPieceSpecial: null, helix: this.helixAllowed(type),
           liftRuns: [], warning: null, chainSavings: 0,
           launchSpeed: type.layout === 'shuttle' ? this.coasterLaunchSpeed : null,
         },
@@ -3744,7 +3825,8 @@ export class GameApp implements GameCommands, RunCommands {
           : COASTER_VALIDATION_TEXT[validation.reason],
         buildable: validation.ok && !blocked && affordable,
         affordable,
-        lastPieceSpecial: this.coasterDraft[this.coasterDraft.length - 1]?.special ?? null,
+        lastPieceSpecial: this.draftTailSpecial(),
+        helix: this.helixAllowed(type),
         liftRuns: check.runs.length > 0 ? check.runs.map((run) => ({
           start: run.start, length: run.length, chained: run.chained, verdict: run.verdict,
         })) : liftRuns(this.coasterDraft).map((run) => ({

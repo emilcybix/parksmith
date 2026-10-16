@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from '../config';
+import { isCoasterElement } from './content';
 import type { CoasterPiece } from './design';
 
 /**
@@ -70,6 +71,8 @@ const sweep = (pieces: readonly CoasterPiece[]): Sweep => {
     if (current.special === 'boost') speed = Math.max(speed, speedConfig.boost);
     if (current.special === 'launch') speed = Math.max(speed, speedConfig.launch);
     if (current.special === 'loop') speed = Math.max(speedConfig.minimum, speed - speedConfig.loopDrag);
+    // Phase 46: an element scrubs a little speed (never on an older layout: none has one).
+    if (isCoasterElement(current.special)) speed = Math.max(speedConfig.minimum, speed - GAME_CONFIG.coaster.elements[current.special].drag);
     const heightChange = next.height - current.height;
     let segmentSpeed: number;
     let hit = false;

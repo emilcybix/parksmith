@@ -1,3 +1,4 @@
+import type { CoasterSpecial } from '../game/coaster/content';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { BUILD_CATALOG, BUILD_BY_ID } from '../game/content/catalog';
 import { PROJECT_BY_BUILD_ID } from '../game/progression/content';
@@ -1485,6 +1486,17 @@ export const GuestInspector = (): React.JSX.Element | null => {
   );
 };
 
+/** The designer's special-piece buttons, in order (Phase 46 adds the elements). Two-piece elements go on the piece before the last. */
+const COASTER_SPECIAL_BUTTONS: ReadonlyArray<{ kind: CoasterSpecial; icon: string; label: string; title: string }> = [
+  { kind: 'loop', icon: '◎', label: 'Loop', title: 'Toggle a vertical loop on the last placed piece (straight track only)' },
+  { kind: 'boost', icon: '»', label: 'Boost', title: 'Toggle a launch boost on the last placed piece (straight track only)' },
+  { kind: 'launch', icon: '⚡', label: 'Launch', title: 'Toggle a launch on the last placed piece (straight track only): it fires the train out at full speed' },
+  { kind: 'airtime-hill', icon: '◠', label: 'Airtime hill', title: 'Toggle an airtime hill on the last placed piece (straight track): a hump that floats the riders' },
+  { kind: 'corkscrew', icon: '⥁', label: 'Corkscrew', title: 'Toggle a corkscrew over the last two pieces (both straight): a full roll round the riders' },
+  { kind: 'zero-g-roll', icon: '∞', label: 'Zero-g roll', title: 'Toggle a zero-g roll over the last two pieces (both straight): a weightless roll over a hump' },
+  { kind: 'cobra-roll', icon: '⤾', label: 'Cobra roll', title: 'Toggle a cobra roll over the last two pieces (a U-turn: two turns the same way): it inverts twice' },
+];
+
 /** Above this, discarding a whole layout asks first — it is too much work to lose to one click. */
 const CLEAR_CONFIRM_PIECES = 4;
 
@@ -1546,34 +1558,29 @@ export const CoasterPanel = (): React.JSX.Element | null => {
         <div className="coaster-specials-row">
           <small>SPECIAL PIECES · LAST PIECE</small>
           <div className="coaster-special-buttons">
-            {draft.allowedSpecials.includes('loop') && (
+            {COASTER_SPECIAL_BUTTONS.filter((button) => draft.allowedSpecials.includes(button.kind)).map((button) => (
               <button
-                className={draft.lastPieceSpecial === 'loop' ? 'active' : ''}
-                aria-pressed={draft.lastPieceSpecial === 'loop'}
-                onClick={() => gameBridge.coasterToggleSpecial('loop')}
+                key={button.kind}
+                className={draft.lastPieceSpecial === button.kind ? 'active' : ''}
+                aria-pressed={draft.lastPieceSpecial === button.kind}
+                onClick={() => gameBridge.coasterToggleSpecial(button.kind)}
                 disabled={draft.pieces === 0}
-                title="Toggle a vertical loop on the last placed piece (straight track only)"
-              ><span aria-hidden="true">◎</span> Loop</button>
-            )}
-            {draft.allowedSpecials.includes('boost') && (
-              <button
-                className={draft.lastPieceSpecial === 'boost' ? 'active' : ''}
-                aria-pressed={draft.lastPieceSpecial === 'boost'}
-                onClick={() => gameBridge.coasterToggleSpecial('boost')}
-                disabled={draft.pieces === 0}
-                title="Toggle a launch boost on the last placed piece (straight track only)"
-              ><span aria-hidden="true">»</span> Boost</button>
-            )}
-            {/* Phase 39 step 2: the launch family's launch track. */}
-            {draft.allowedSpecials.includes('launch') && (
-              <button
-                className={draft.lastPieceSpecial === 'launch' ? 'active' : ''}
-                aria-pressed={draft.lastPieceSpecial === 'launch'}
-                onClick={() => gameBridge.coasterToggleSpecial('launch')}
-                disabled={draft.pieces === 0}
-                title="Toggle a launch on the last placed piece (straight track only): it fires the train out at full speed"
-              ><span aria-hidden="true">⚡</span> Launch</button>
-            )}
+                title={button.title}
+              ><span aria-hidden="true">{button.icon}</span> {button.label}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {draft.helix && (
+        <div className="coaster-specials-row">
+          <small>HELIX · FROM THE LAST PIECE</small>
+          <div className="coaster-special-buttons">
+            <button onClick={() => gameBridge.coasterHelix(1)} disabled={draft.pieces < 3} title="Lay a helix turning left: four turns round a 2 × 2 block, climbing or falling a level a piece toward the track height">
+              <span aria-hidden="true">↺</span> Helix left
+            </button>
+            <button onClick={() => gameBridge.coasterHelix(-1)} disabled={draft.pieces < 3} title="Lay a helix turning right: four turns round a 2 × 2 block, climbing or falling a level a piece toward the track height">
+              <span aria-hidden="true">↻</span> Helix right
+            </button>
           </div>
         </div>
       )}

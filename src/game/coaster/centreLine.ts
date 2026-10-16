@@ -130,7 +130,39 @@ export interface CentreLine {
   readonly chained: Uint8Array;
   /** Nose-up pitch of the track at each loop ring's base (radians, 0 without a ring): the ring is rotated by it. */
   readonly ringEntryPitch: Float64Array;
+  /**
+   * Phase 46: the element piece i belongs to (`ELEMENT_*`: 0 none), the share of the element its own tile covers
+   * (`elementFrom` … `elementTo`, 0 … 1 over the whole element) and the roll's direction (±1).
+   */
+  readonly elementKind: Uint8Array;
+  readonly elementFrom: Float64Array;
+  readonly elementTo: Float64Array;
+  readonly elementSign: Int8Array;
+  /** Phase 46: 1 on a piece of a helix (banked steeper, `CENTRE_LINE_HELIX_BANK`). */
+  readonly helix: Uint8Array;
 }
+
+/** Phase 46: element kinds on the line. */
+export const ELEMENT_NONE = 0;
+export const ELEMENT_AIRTIME = 1;
+export const ELEMENT_CORKSCREW = 2;
+export const ELEMENT_ZERO_G = 3;
+export const ELEMENT_COBRA = 4;
+const ELEMENT_OF: Readonly<Record<string, number>> = {
+  'airtime-hill': ELEMENT_AIRTIME, corkscrew: ELEMENT_CORKSCREW, 'zero-g-roll': ELEMENT_ZERO_G, 'cobra-roll': ELEMENT_COBRA,
+};
+/** Pieces an element spans, by kind. */
+const ELEMENT_SPAN = [0, 1, 2, 2, 2];
+/**
+ * Phase 46 shapes, by kind: the hump over the element (levels, a sin² over its length, so it starts and ends level
+ * with the track), the heartline the roll turns round (tiles above the rail top: the track swings round it, never
+ * past a tile's half width with the rails) and whether it rolls a full turn.
+ */
+export const ELEMENT_BUMP_LEVELS = [0, 0.8, 0.4, 1, 2.5];
+export const ELEMENT_HEARTLINE_TILES = [0, 0, 11 / 32, 6 / 32, 8 / 32];
+const ELEMENT_ROLLS = [false, false, true, true, true];
+/** Phase 46: the peak banking of a helix turn, radians (40 degrees). */
+export const CENTRE_LINE_HELIX_BANK = 0.7;
 
 /**
  * Which segments carry a lift chain (1 per piece i for the segment from its centre to piece
@@ -237,6 +269,25 @@ export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine =>
   if (count > 0) nodeSlope[count] = nodeSlope[0];
 
   const ringEntryPitch = new Float64Array(count);
+  const elementKind = new Uint8Array(count);
+  const elementFrom = new Float64Array(count);
+  const elementTo = new Float64Array(count);
+  const elementSign = new Int8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    const kind = ELEMENT_OF[pieces[index].special ?? ''] ?? ELEMENT_NONE;
+    if (kind === ELEMENT_NONE || count < 3) continue;
+    const span = ELEMENT_SPAN[kind];
+    // A cobra rolls toward the inside of its U-turn (the way a bank leans); the straight rolls one fixed way.
+    const sign = kind === ELEMENT_COBRA ? (turn[index] > 0 ? -1 : 1) : 1;
+    for (let part = 0; part < span; part += 1) {
+      const at = (index + part) % count;
+      elementKind[at] = kind;
+      elementFrom[at] = part / span;
+      elementTo[at] = (part + 1) / span;
+      elementSign[at] = sign;
+    }
+  }
+  const helix = helixPieces(turn, nodeHeight, count);
   const line: CentreLine = {
     pieceCount: count,
     realPieceCount: count,
@@ -259,6 +310,11 @@ export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine =>
     nodeSlope,
     chained: centreLineChainedSegments(pieces),
     ringEntryPitch,
+    elementKind,
+    elementFrom,
+    elementTo,
+    elementSign,
+    helix,
   };
   // A ring is rotated by the track's pitch at its base (the exit edge of its piece).
   for (let index = 0; index < count; index += 1) {
@@ -270,6 +326,71 @@ export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine =>
   return line;
 };
 
+/**
+ * Phase 46: the pieces of a helix: four or more consecutive turns the same way whose heights change by two levels or
+ * more over the run (the stats' `coasterHelixRuns` rule, read here as a ring; a visual flag only).
+ */
+const helixPieces = (turn: Int8Array, height: Float64Array, count: number): Uint8Array => {
+  const flags = new Uint8Array(count);
+  if (count < 4) return flags;
+  let origin = -1;
+  for (let index = 0; index < count; index += 1) {
+    if (turn[index] === 0 || turn[index] !== turn[(index - 1 + count) % count]) { origin = index; break; }
+  }
+  if (origin < 0) return flags;
+  let step = 0;
+  while (step < count) {
+    const start = (origin + step) % count;
+    const sign = turn[start];
+    let length = 1;
+    while (step + length < count && sign !== 0 && turn[(start + length) % count] === sign) length += 1;
+    if (sign !== 0 && length >= 4 && Math.abs(height[(start + length - 1) % count] - height[start]) >= 2) {
+      for (let part = 0; part < length; part += 1) flags[(start + part) % count] = 1;
+    }
+    step += length;
+  }
+  return flags;
+};
+
+/** Smootherstep: 0 → 1 with zero slope and curvature at both ends. */
+const smoother = (u: number): number => u * u * u * (u * (u * 6 - 15) + 10);
+
+/** Phase 46: the element's phase (0 … 1 over the whole element) at plan arc `along` of piece `index`. */
+const elementPhase = (line: CentreLine, index: number, along: number): number => {
+  const from = line.elementFrom[index];
+  return from + (line.elementTo[index] - from) * Math.min(1, Math.max(0, along / line.tileLength[index]));
+};
+
+/** Phase 46: the element's roll (radians) at plan arc `along` of piece `index`: a full turn, eased, or 0. */
+export const centreLineElementRoll = (line: CentreLine, index: number, along: number): number => {
+  const kind = line.elementKind[index];
+  if (kind === undefined || !ELEMENT_ROLLS[kind]) return 0;
+  return line.elementSign[index] * 2 * Math.PI * smoother(elementPhase(line, index, along));
+};
+
+/**
+ * Phase 46: moves a sample on an element piece onto the element: the hump raises it (and its slope), and a roll swings
+ * the track round its heartline, `hl · ((1 − cos φ) up + sin φ left)` (the cross-section turns about a point `hl` above
+ * the rail top). The plan direction is unchanged.
+ */
+const applyElement = (line: CentreLine, index: number, out: CentreLineSample): void => {
+  const kind = line.elementKind[index];
+  const u = elementPhase(line, index, out.along);
+  const bump = ELEMENT_BUMP_LEVELS[kind];
+  if (bump !== 0) {
+    const sine = Math.sin(Math.PI * u);
+    out.z += bump * sine * sine;
+    out.slope += bump * Math.PI * Math.sin(2 * Math.PI * u) * (line.elementTo[index] - line.elementFrom[index]) / line.tileLength[index];
+  }
+  if (!ELEMENT_ROLLS[kind]) return;
+  const roll = line.elementSign[index] * 2 * Math.PI * smoother(u);
+  const heartline = ELEMENT_HEARTLINE_TILES[kind];
+  const across = heartline * Math.sin(roll);
+  out.x += -out.dirY * across;
+  out.y += out.dirX * across;
+  out.z += (heartline * (1 - Math.cos(roll))) / COASTER_LEVEL_TILES;
+};
+
 // ---------------------------------------------------------------------------------------------
 // Cache
 
@@ -278,7 +399,9 @@ interface CacheEntry {
   line: CentreLine;
 }
 
-const SPECIAL_CODE: Readonly<Record<string, number>> = { loop: 1, boost: 2 };
+const SPECIAL_CODE: Readonly<Record<string, number>> = {
+  loop: 1, boost: 2, launch: 3, 'airtime-hill': 4, corkscrew: 5, 'zero-g-roll': 6, 'cobra-roll': 7,
+};
 /** Slot 3 of a piece's signature: its special, plus a bit for the lift flag (the line's `chained`) and one for a shuttle's launch. */
 const FREE_CLIMB_BIT = 8;
 const LAUNCH_SPEED_BIT = 16;
@@ -502,7 +625,8 @@ export const resampleCentreLine = (line: CentreLine, out: CentreLineSample): Cen
     evaluateHeight(line, HEIGHT);
     out.z = HEIGHT.z;
     out.slope = HEIGHT.slope;
-    out.pitch = Math.atan(HEIGHT.slope * COASTER_LEVEL_TILES);
+    if (line.elementKind[index] !== ELEMENT_NONE) applyElement(line, index, out);
+    out.pitch = Math.atan(out.slope * COASTER_LEVEL_TILES);
     out.ringAngle = 0;
     setTangent(out);
     return out;
@@ -556,11 +680,14 @@ export const sampleCentreLine = (line: CentreLine, distance: number, out: Centre
  * Rings are not pieces: use `centreLineRollAt` (0 on a ring). Pure, allocation-free.
  */
 export const centreLineRollInPiece = (line: CentreLine, index: number, along: number): number => {
+  // Phase 46: a rolling element's roll replaces any banking on its pieces.
+  const kind = line.elementKind[index];
+  if (kind !== undefined && ELEMENT_ROLLS[kind]) return centreLineElementRoll(line, index, along);
   const turn = line.turn[index];
   // `!turn` also covers an index off the end (an empty layout's frame): no piece, no banking.
   if (!turn) return 0;
   const sine = Math.sin((Math.PI * along) / line.tileLength[index]);
-  const bank = CENTRE_LINE_BANK_MAX * sine * sine;
+  const bank = (line.helix[index] === 1 ? CENTRE_LINE_HELIX_BANK : CENTRE_LINE_BANK_MAX) * sine * sine;
   // Written so a corner's edges give exactly +0, like the straights, rather than −0.
   return turn > 0 ? 0 - bank : bank;
 };

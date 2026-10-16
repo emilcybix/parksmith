@@ -3097,18 +3097,37 @@ uphill the train climbs and rolls backward to the station, so the track does not
 - [x] Tests: `families.test.ts` (caps, intensity, save at level 10), `coasterFamilies.test.ts` (a level-10 tower, no
   overlaps); enumeration tests name the new card and project.
 
-## Phase 46 — Coaster Elements (owner request 2026-10-16)
+## Phase 46 — Coaster Elements (built 2026-10-16; owner request 2026-10-16)
 
-- [ ] New specials, each with a speed effect, excitement and intensity (`coaster.specials`), cost, art and car poses
-  from the centre line:
-  - **Airtime hill** (`airtime-hill`, one straight piece): a hump of 0.8 levels over the piece, floating the riders.
-  - **Corkscrew** (`corkscrew`, two straight pieces): a 360° roll round a heartline 11 voxels above the track.
-  - **Zero-g roll** (`zero-g-roll`, two straight pieces): a 360° roll over a one-level hump, close to the heartline.
-  - **Cobra roll** (`cobra-roll`, a U-turn of two turn pieces the same way): a tall rolling U-turn that inverts twice.
-  - **Helix** (designer tool): lays four turn pieces round a 2 × 2 block, climbing or falling a level a piece and
-    crossing back under or over its own entry; recognised in the stats (four or more turns the same way), banked steeper.
-- [ ] The centre line owns the geometry (roll and offset per piece); the voxel track draws rolled pieces with a swept
-  cross-section (rails, ties, spine voxelised and merged into boxes), so track and train always agree.
+- [x] New specials (`CoasterElement`), each with cost, excitement and intensity (`coaster.specials`), a speed effect
+  (`coaster.elements`: drag on a circuit, energy on a shuttle, where an inversion also needs 4 cells/s to enter), art
+  and car poses from the centre line:
+  - **Airtime hill** (`airtime-hill`, one straight piece): a 0.8-level hump.
+  - **Corkscrew** (`corkscrew`, two straight pieces): a full roll round a heartline 11 voxels above the rail.
+  - **Zero-g roll** (`zero-g-roll`, two straight pieces): a full roll round a 6-voxel heartline over a one-level hump.
+  - **Cobra roll** (`cobra-roll`, two turns the same way, a U-turn): a 2.5-level hump rolling a full turn toward the
+    inside of the U, inverted at the top.
+  - **Helix** (designer tool, "Helix left / right"): four turns round a 2 × 2 block, a level a piece toward the track
+    height setting, over or under its own entry, and a fifth piece straight out. Recognised in the stats
+    (`coasterHelixRuns`: four or more turns the same way rising or falling two levels or more; up to two count) and
+    banked at 40° instead of 26°.
+- [x] Rules: a two-piece element's second piece is the element's (straight for the rolls, the second turn for a
+  cobra), exclusive like the piece after a loop, never on the station or a shuttle's end; the next special waits a
+  plain piece after the element (`specials-too-close`); `cobra-needs-u-turn`. The designer puts a two-piece element on
+  the piece before the last. Who takes what: Titan Hyper and Skyline Serpent all four; Thunder Launch airtime,
+  corkscrew and zero-g (ridden out and back, so they count twice); Star Chaser and Timber Twister airtime hills.
+- [x] The centre line owns the shapes (`elementKind` / `elementFrom` / `elementTo` / `elementSign` per piece, the hump
+  and the heartline swing in the sampler, the roll in `centreLineRollInPiece`), so track, train, classic view and ride
+  camera agree. The voxel track draws an element piece with `emitSweptPiece` (the cross-section voxelised along the
+  rolled frame, merged into boxes, inside the tile; about 130 boxes for a hill, 260–410 for a roll); a bent carries
+  it. The train's culling headroom grows by an element's rise.
+- [x] No saved layout changes: a layout without an element derives exactly as before (the golden invariance and
+  determinism pins did not move). Checked in headless Chromium: corkscrew, airtime hill, zero-g roll and cobra roll
+  on one Titan Hyper, the train rolling through, and the classic view.
+- [x] Tests: `game/coaster/elements.test.ts` (rules, stats, cost, shuttle energy, roll and hump on the line, helix,
+  save round trip), `coasterFamilies.test.ts` (swept pieces inside their tiles, no overlaps, within the allowance),
+  `GameApp.coasterLift.test.ts` (two-piece toggling, the helix tool).
+- [ ] Not built: a sound per element, element markers in the inspector's evidence line, inverted-family elements.
 
 ## Voxel Renderer (main renderer)
 

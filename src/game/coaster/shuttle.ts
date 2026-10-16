@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from '../config';
+import { isCoasterElement, isCoasterInversion } from './content';
 import type { CoasterPiece } from './design';
 import { creepSpeedMilli, integerSquareRoot } from './speedModel';
 
@@ -64,6 +65,13 @@ const round = (value: number, decimals = 1): number => {
   return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
 };
 
+/** Speed squared a piece's special costs a shuttle, either way: a loop's, an element's (Phase 46), else 0. */
+const specialEnergy = (piece: CoasterPiece): number => {
+  if (piece.special === 'loop') return GAME_CONFIG.coaster.shuttle.loopEnergy;
+  if (isCoasterElement(piece.special)) return GAME_CONFIG.coaster.elements[piece.special].energy;
+  return 0;
+};
+
 /** The out-and-back run of a shuttle layout (any layout: a closed one is read as open). Pure, deterministic. */
 export const shuttleProfile = (pieces: readonly CoasterPiece[]): ShuttleProfile => {
   const config = GAME_CONFIG.coaster;
@@ -92,15 +100,14 @@ export const shuttleProfile = (pieces: readonly CoasterPiece[]): ShuttleProfile 
     const current = pieces[segment];
     const rise = pieces[segment + 1].height - current.height;
     if (current.special === 'boost') energy = Math.max(energy, boostMilli * boostMilli);
-    const loop = current.special === 'loop';
-    if (loop && energy < shuttle.loopMinimumEnergy) {
+    if (isCoasterInversion(current.special) && energy < shuttle.loopMinimumEnergy) {
       outcome = 'loop-slow';
       turnSegment = segment;
       turnFraction = 0;
       turned = true;
       break;
     }
-    const cost = shuttle.energyPerLevel * rise + shuttle.frictionPerSegment + (loop ? shuttle.loopEnergy : 0);
+    const cost = shuttle.energyPerLevel * rise + shuttle.frictionPerSegment + specialEnergy(current);
     const exit = energy - cost;
     const entrySpeed = integerSquareRoot(energy);
     if (exit <= 0) {
@@ -139,9 +146,8 @@ export const shuttleProfile = (pieces: readonly CoasterPiece[]): ShuttleProfile 
   for (let segment = turnSegment - (turnFraction > 0 ? 1 : 0); segment >= parked; segment -= 1) {
     const current = pieces[segment];
     const rise = pieces[segment + 1].height - current.height;
-    const loop = current.special === 'loop';
-    if (loop && back < shuttle.loopMinimumEnergy && outcome === 'ok') outcome = 'loop-slow';
-    let exit = back + shuttle.energyPerLevel * rise - shuttle.frictionPerSegment - (loop ? shuttle.loopEnergy : 0);
+    if (isCoasterInversion(current.special) && back < shuttle.loopMinimumEnergy && outcome === 'ok') outcome = 'loop-slow';
+    let exit = back + shuttle.energyPerLevel * rise - shuttle.frictionPerSegment - specialEnergy(current);
     if (exit < creepEnergy) {
       exit = creepEnergy;
       creepRun += 1;

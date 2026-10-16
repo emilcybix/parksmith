@@ -588,7 +588,27 @@ export const GAME_CONFIG = {
       loop: { cost: 260, excitement: 9, intensity: 12 },
       boost: { cost: 140, excitement: 3, intensity: 4 },
       launch: { cost: 420, excitement: 6, intensity: 8 },
+      // Phase 46: the elements.
+      'airtime-hill': { cost: 160, excitement: 5, intensity: 4 },
+      corkscrew: { cost: 380, excitement: 8, intensity: 9 },
+      'zero-g-roll': { cost: 420, excitement: 9, intensity: 8 },
+      'cobra-roll': { cost: 520, excitement: 11, intensity: 12 },
     },
+    /**
+     * Phase 46: what an element costs the train: `drag` cells per second on a circuit (never below `speed.minimum`),
+     * `energy` speed squared on a shuttle (either way; an inversion also needs `shuttle.loopMinimumEnergy` to enter).
+     */
+    elements: {
+      'airtime-hill': { drag: 0.1, energy: 1_000_000 },
+      corkscrew: { drag: 0.4, energy: 3_000_000 },
+      'zero-g-roll': { drag: 0.3, energy: 3_000_000 },
+      'cobra-roll': { drag: 0.6, energy: 6_000_000 },
+    },
+    /**
+     * Phase 46: a helix, four or more turns the same way in a row climbing or falling at least `minimumRise` levels
+     * (the designer's helix tool lays one): excitement and intensity per helix, up to `maximumCounted`.
+     */
+    helix: { minimumTurns: 4, minimumRise: 2, excitement: 4, intensity: 3, maximumCounted: 2 },
   },
   operations: {
     staff: {

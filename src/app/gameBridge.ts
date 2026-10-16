@@ -120,6 +120,8 @@ export interface GameCommands extends UndoCommands {
   coasterAdjustHeight(delta: number): void;
   /** Phase 44: steps a shuttle's launch speed up or down one step. */
   coasterAdjustLaunch(delta: number): void;
+  /** Phase 46: lays a helix from the last piece, turning one way (+1) or the other (-1). */
+  coasterHelix(side: number): void;
   coasterUndo(): void;
   coasterClear(): void;
   coasterBuild(): void;
@@ -224,6 +226,7 @@ export const gameBridge = {
   dismissOnboarding: () => commands?.dismissOnboarding(),
   coasterAdjustHeight: (delta: number) => commands?.coasterAdjustHeight(delta),
   coasterAdjustLaunch: (delta: number) => commands?.coasterAdjustLaunch(delta),
+  coasterHelix: (side: number) => commands?.coasterHelix(side),
   coasterUndo: () => commands?.coasterUndo(),
   coasterClear: () => commands?.coasterClear(),
   coasterBuild: () => commands?.coasterBuild(),
