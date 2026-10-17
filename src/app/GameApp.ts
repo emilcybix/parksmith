@@ -95,8 +95,8 @@ import { consumeRecoverOnBoot } from './alpha/bootFlags';
 import { degradationNotice } from './alpha/degradationNotice';
 import { GAME_VERSION } from '../ui/aboutModel';
 import { AudioEngine } from '../audio/AudioEngine';
-import { createBrowserAudioContext } from '../audio/browserContext';
-import { ambienceFor, soundForCue, volumesOf, wholeMapView } from '../audio/audioDirector';
+import { createBrowserAudioContext, createBrowserMusicSource } from '../audio/browserContext';
+import { ambienceFor, musicStateFor, soundForCue, volumesOf, wholeMapView } from '../audio/audioDirector';
 import { describeLoadResult, planQuickSaveShortcut } from '../ui/saveLoadModel';
 import {
   bootMenuDecision,
@@ -476,7 +476,13 @@ export class GameApp implements GameCommands, RunCommands {
     if (sound !== null) this.audio.play(sound);
   });
   /** Phase 15: the six-bus audio engine; silent until the first user gesture (`unlockAudio`). */
-  private readonly audio = new AudioEngine(createBrowserAudioContext, volumesOf(getSettings()));
+  private readonly audio = new AudioEngine(
+    createBrowserAudioContext,
+    volumesOf(getSettings()),
+    createBrowserMusicSource(),
+  );
+  /** Phase 47: the calendar read at the 4 Hz cadence for the music's night track (the frame's view is the renderer's). */
+  private readonly musicCalendar = createCalendarView();
   /** Phase 15: what the camera shows, refreshed at 4 Hz for the on-screen test and the ambience. */
   private readonly viewInfo: ViewInfo = { zoom: 0.5, x0: 0, y0: 0, x1: 31, y1: 31 };
   private stopWatchingVolumes: (() => void) | null = null;
@@ -4785,6 +4791,8 @@ export class GameApp implements GameCommands, RunCommands {
     if (!this.audio.ready) return;
     const level = ambienceFor(this.viewInfo, this.session, this.clock.speed === 0);
     this.audio.setAmbience(level.crowd, level.machinery);
+    const night = this.session.calendar.viewInto(this.musicCalendar, this.world.tick).label === 'Night';
+    this.audio.setMusicState(musicStateFor(this.session, this.menuHold, night));
   }
 
   /**

@@ -3129,6 +3129,21 @@ uphill the train climbs and rolls backward to the station, so the track does not
   `GameApp.coasterLift.test.ts` (two-piece toggling, the helix tool).
 - [ ] Not built: a sound per element, element markers in the inspector's evidence line, inverted-family elements.
 
+## Phase 47 — Produced Music (built 2026-10-17; owner request 2026-10-17)
+
+The owner wants to produce music for the game. Decision: produced, pre-rendered stems with an N64-like sound, played
+by a small adaptive layer system; no sequencer/soundbank engine now (a sampler for ride-local band-organ music may come
+later).
+
+- [x] `public/music/manifest.json` lists tracks (`menu`, `park`, `night`), each one to four stems with a `from` intensity,
+  a `gain` trim and optional loop points; several formats per stem, the first the browser can play is used. The game
+  ships an empty manifest; MUSIC.md is the composer's guide.
+- [x] `MusicPlayer` (fetch after the first gesture, lazy per track, sample-locked stems, cross-fade, keep at most two
+  decoded), `music.ts` (pure parse, pick, layer levels, state), `musicStateFor` in `audioDirector.ts`, the synthesised
+  loop as fallback. The music volume slider and the mute key cover it (same bus).
+- [x] Tests: `audio/music.test.ts`.
+- [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
+
 ## Voxel Renderer (main renderer)
 
 The main renderer since 2026-10-06. The classic renderer stays the automatic fallback and is reachable with `?renderer=classic`. Architecture is under Renderers in ARCHITECTURE.md. It is a visual change on the fixed camera, not the "Full 3D" listed under not-now.

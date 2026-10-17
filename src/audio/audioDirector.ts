@@ -2,6 +2,7 @@ import type { ParkSession } from '../game/session/ParkSession';
 import type { ViewInfo, WorldEffect, WorldEffectKind } from '../rendering/RendererPort';
 import type { AudioVolumes } from './AudioEngine';
 import type { SoundId } from './synth';
+import { musicStateOf, type MusicState } from './music';
 
 /**
  * Phase 15: the game's side of the mix, pure (no Web Audio here). Which sound a feedback cue plays, whether a world cue
@@ -92,4 +93,11 @@ export const wholeMapView = (session: ParkSession, out: ViewInfo): ViewInfo => {
   out.x1 = session.world.width - 1;
   out.y1 = session.world.height - 1;
   return out;
+};
+
+/** Phase 47: the produced music's state: the start screen, night or day, and how lively the whole park is. */
+export const musicStateFor = (session: ParkSession, menu: boolean, night: boolean): MusicState => {
+  let runningRides = 0;
+  for (const ride of session.rides.rides.values()) if (ride.status === 'running') runningRides += 1;
+  return musicStateOf({ menu, night, guests: session.guests.guests.size, runningRides });
 };

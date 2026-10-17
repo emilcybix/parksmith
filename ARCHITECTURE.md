@@ -529,6 +529,16 @@ the three loops (`synth.ts`, deterministic, 22,050 Hz, nothing fetched or decode
 (`RendererPort.readViewInfo?`, zoom fraction and the visible world rectangle, read at 4 Hz) and computes the crowd and
 machinery beds from the guests and running rides in view and the zoom. A hidden page suspends the context.
 
+**Produced music (Phase 47)**: `MusicPlayer` on the music bus, created at unlock when GameApp passes a `MusicSource`
+(`createBrowserMusicSource`: fetches `music/manifest.json` and files under the base path, `canPlayType` by extension).
+`music.ts` (pure) parses the manifest forgivingly, picks the track for the context (`menu` / `park` / `night`; menu and
+night fall back to park) and the layer levels (a stem is full from its `from` intensity, fading in over 0.15 below).
+GameApp sends `musicStateFor(session, menuHold, night)` at 4 Hz (whole-park guests and running rides, not the view). A
+track's stems are fetched and decoded the first time its context wants it, start at one context time (sample-locked),
+loop together (optional `loopStart` / `loopEnd`) and cross-fade on a switch; at most two tracks stay decoded. While a
+produced track plays, the synthesised music loop is at 0; any failure leaves that track out for the session and the
+synthesised loop plays. Authoring guide: MUSIC.md.
+
 ## Crowd flow and neighborhoods (Phase 14)
 
 Readability and a small, threshold-gated feedback on top of the existing path network and guest records: no collision,

@@ -1,4 +1,6 @@
 import { LOOP_IDS, SOUND_IDS, renderLoop, renderSound, type LoopId, type SoundId } from './synth';
+import { MusicPlayer, type MusicSource } from './MusicPlayer';
+import type { MusicState } from './music';
 
 /**
  * Phase 15: the game's audio. Six buses — master and, under it, music, ambience, rides, guests and UI — each a gain
@@ -65,7 +67,10 @@ export interface AudioBufferLike {
 export interface BufferSourceLike extends AudioNodeLike {
   buffer: AudioBufferLike | null;
   loop: boolean;
+  loopStart?: number;
+  loopEnd?: number;
   start(when?: number): void;
+  stop?(when?: number): void;
 }
 export interface AudioContextLike {
   readonly currentTime: number;
@@ -76,6 +81,8 @@ export interface AudioContextLike {
   createBufferSource(): BufferSourceLike;
   resume(): Promise<unknown>;
   suspend(): Promise<unknown>;
+  /** Phase 47: decodes a produced music file (absent: no produced music, the synthesised loop plays). */
+  decodeAudioData?(data: ArrayBuffer): Promise<AudioBufferLike>;
 }
 
 /** Volume 0-100 to gain: a square law, so the ten steps sound evenly spaced. */
@@ -99,8 +106,21 @@ export class AudioEngine {
   /** Plays started since unlock, by sound (tests and the dev readout). */
   readonly plays = new Map<SoundId, number>();
 
-  constructor(private readonly createContext: () => AudioContextLike | null, volumes: AudioVolumes) {
+  /** Phase 47: the produced music, created at unlock when a source was given; null plays only the synthesised loop. */
+  private music: MusicPlayer | null = null;
+  private musicState: MusicState = { context: 'menu', intensity: 0 };
+
+  constructor(
+    private readonly createContext: () => AudioContextLike | null,
+    volumes: AudioVolumes,
+    private readonly musicSource: MusicSource | null = null,
+  ) {
     this.volumes = volumes;
+  }
+
+  /** The produced track playing, or null (the synthesised loop, or silence). */
+  get musicTrack(): string | null {
+    return this.music?.trackId ?? null;
   }
 
   /** True once the first gesture created the context and every buffer is ready. */
@@ -150,6 +170,10 @@ export class AudioEngine {
       this.loopGains.set(loop, gain);
     }
     this.context = context;
+    if (this.musicSource !== null) {
+      this.music = new MusicPlayer(context, this.buses.get('music') as GainNodeLike, this.musicSource, () => this.applyLoops());
+      this.music.setState(this.musicState, this.musicOn);
+    }
     this.applyVolumes();
     this.applyLoops();
     if (context.state === 'suspended') void context.resume().catch(() => undefined);
@@ -193,7 +217,14 @@ export class AudioEngine {
   setMusicPlaying(playing: boolean): void {
     if (playing === this.musicOn) return;
     this.musicOn = playing;
+    this.music?.setState(this.musicState, playing);
     this.applyLoops();
+  }
+
+  /** Phase 47: what the park is doing, for the produced music's track and layers. Cheap; call a few times a second. */
+  setMusicState(state: MusicState): void {
+    this.musicState = state;
+    this.music?.setState(state, this.musicOn);
   }
 
   /** Stops (true) or restarts the audio clock, e.g. while the page is hidden. */
@@ -205,7 +236,8 @@ export class AudioEngine {
 
   /** The current target level of a loop (tests). */
   loopLevel(loop: LoopId): number {
-    return loop === 'music' ? (this.musicOn ? 1 : 0) : loop === 'crowd' ? this.crowd : this.machinery;
+    // The synthesised music gives way while a produced track plays.
+    return loop === 'music' ? (this.musicOn && !this.music?.active ? 1 : 0) : loop === 'crowd' ? this.crowd : this.machinery;
   }
 
   private applyVolumes(): void {
