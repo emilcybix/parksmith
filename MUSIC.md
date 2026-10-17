@@ -42,10 +42,10 @@ When `from` is left out, the stems spread evenly (0, 1/n, 2/n …).
       "context": "park",
       "gain": 1,
       "stems": [
-        { "file": ["day-bed.webm", "day-bed.m4a"], "from": 0 },
-        { "file": ["day-chords.webm", "day-chords.m4a"], "from": 0.25 },
-        { "file": ["day-melody.webm", "day-melody.m4a"], "from": 0.5 },
-        { "file": ["day-extra.webm", "day-extra.m4a"], "from": 0.8 }
+        { "file": ["day-bed.ogg", "day-bed.flac"], "from": 0 },
+        { "file": ["day-chords.ogg", "day-chords.flac"], "from": 0.25 },
+        { "file": ["day-melody.ogg", "day-melody.flac"], "from": 0.5 },
+        { "file": ["day-extra.ogg", "day-extra.flac"], "from": 0.8 }
       ]
     },
     { "id": "lantern-night", "context": "night", "loopStart": 4.0, "loopEnd": 68.0, "stems": [{ "file": "night.ogg" }] }
@@ -63,10 +63,14 @@ When `from` is left out, the stems spread evenly (0, 1/n, 2/n …).
 
 ## Formats
 
-- **WebM/Opus** (`.webm`) is small and loops cleanly in Chrome, Firefox and Edge. Add **AAC** (`.m4a`) as a second
-  choice for Safari. `.ogg` (Vorbis), `.flac` and `.wav` also work where the browser supports them.
-- Avoid MP3 for loops: the encoder's padding leaves a gap at the seam.
-- Use 48 kHz. 96–128 kbit/s is plenty.
+- **OGG** (Vorbis, `.ogg`) is the first choice: small, loops without a gap, plays in Chrome, Firefox, Edge and newer
+  Safari. Use about 128 kbit/s at 48 kHz.
+- **FLAC** (`.flac`) is the fallback for older Safari: lossless, loops without a gap, about half the size of WAV. List
+  it second: `"file": ["day-bed.ogg", "day-bed.flac"]`.
+- Avoid MP3 and M4A for loops: the encoder's padding can leave a gap at the seam. Keep WAV for your masters.
+- In FL Studio: export with **Wrap remainder**, which folds the reverb tail into the start of the loop, and with
+  **Split mixer tracks**, which writes one file per mixer track. Route the instruments to four mixer tracks (bed,
+  chords, melody, extras) and each one becomes a stem.
 
 ## Making loops that sound right
 
