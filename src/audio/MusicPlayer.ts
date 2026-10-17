@@ -152,9 +152,10 @@ export class MusicPlayer {
         const source = context.createBufferSource();
         source.buffer = buffers[index];
         source.loop = true;
-        if (track.loopEnd !== undefined) {
+        if (track.loopStart !== undefined || track.loopEnd !== undefined) {
+          // Web Audio reads a loopEnd of 0 as "loop the whole buffer", so "to the end" is the buffer's own length.
           source.loopStart = track.loopStart ?? 0;
-          source.loopEnd = track.loopEnd;
+          source.loopEnd = track.loopEnd ?? buffers[index].duration ?? 0;
         }
         source.connect(layer);
         source.start(when);

@@ -24,7 +24,7 @@ export interface MusicTrack {
   readonly stems: readonly MusicStem[];
   /** Loudness trim for the whole track (0-2, default 1), so tracks mastered differently sit level. */
   readonly gain: number;
-  /** Loop points in seconds (an intro before `loopStart` plays once); absent: the whole file loops. */
+  /** Loop points in seconds (an intro before `loopStart` plays once; no `loopEnd`: to the end); absent: the whole file loops. */
   readonly loopStart?: number;
   readonly loopEnd?: number;
 }
@@ -84,15 +84,16 @@ export const parseMusicManifest = (raw: unknown): MusicManifest => {
     const gain = typeof entry.gain === 'number' && Number.isFinite(entry.gain) ? Math.min(2, Math.max(0, entry.gain)) : 1;
     const loopStart = positive(entry.loopStart);
     const loopEnd = positive(entry.loopEnd);
-    const loops = loopEnd !== undefined && loopEnd > (loopStart ?? 0);
+    // loopEnd absent: the loop runs to the end of the file. One that is not after loopStart is dropped with it.
+    const valid = loopEnd === undefined || loopEnd > (loopStart ?? 0);
     seen.add(entry.id);
     tracks.push({
       id: entry.id,
       context: entry.context as MusicContext,
       stems,
       gain,
-      ...(loops && loopStart !== undefined ? { loopStart } : {}),
-      ...(loops ? { loopEnd } : {}),
+      ...(valid && loopStart !== undefined ? { loopStart } : {}),
+      ...(valid && loopEnd !== undefined ? { loopEnd } : {}),
     });
   }
   return { tracks };

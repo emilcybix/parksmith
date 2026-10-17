@@ -37,7 +37,7 @@ export const createBrowserMusicSource = (): MusicSource => {
       return response.json();
     },
     load: async (file) => {
-      const response = await fetch(`${base}${file}`);
+      const response = await fetch(`${base}${file.split('/').map(encodeURIComponent).join('/')}`);
       if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
       return response.arrayBuffer();
     },

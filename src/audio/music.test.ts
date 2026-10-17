@@ -102,14 +102,18 @@ describe('music manifest (Phase 47)', () => {
         { id: 'b', context: 'space', stems: [{ file: 'b.ogg' }] },
         { id: 'c', context: 'menu', stems: [{ file: '../secret.ogg' }, { file: 'https://x.y/z.ogg' }] },
         { id: 'd', context: 'night', stems: [{ file: 'd.ogg', from: 2 }], loopStart: 5, loopEnd: 3 },
+        { id: 'e', context: 'night', stems: [{ file: 'Main theme.ogg' }], loopStart: 7.619048 },
         'nonsense',
       ],
     });
-    expect(manifest.tracks.map((track) => track.id)).toEqual(['a', 'd']);
+    expect(manifest.tracks.map((track) => track.id)).toEqual(['a', 'd', 'e']);
     expect(manifest.tracks[0].stems.map((stem) => stem.from)).toEqual([0, 0.25, 0.5, 0.75]);
     expect(manifest.tracks[0].gain).toBe(2);
     expect(manifest.tracks[1].stems[0].from).toBe(1);
+    expect(manifest.tracks[1].loopStart).toBeUndefined();
     expect(manifest.tracks[1].loopEnd).toBeUndefined();
+    expect(manifest.tracks[2]).toMatchObject({ loopStart: 7.619048, stems: [{ files: ['Main theme.ogg'] }] });
+    expect(manifest.tracks[2].loopEnd).toBeUndefined();
     expect(parseMusicManifest(null).tracks).toEqual([]);
     expect(parseMusicManifest('<!doctype html>').tracks).toEqual([]);
   });
@@ -173,6 +177,17 @@ describe('music player (Phase 47)', () => {
     expect(layers.map((layer) => layer.gain.value)).toEqual([1, 1, 0]);
     engine.setMusicState({ context: 'park', intensity: 1 });
     expect(layers.map((layer) => layer.gain.value)).toEqual([1, 1, 1]);
+  });
+
+  it('a loopStart alone loops from there to the end of the file', async () => {
+    const { context, engine } = setup({ tracks: [{ id: 'main', context: 'park', loopStart: 7.5, stems: [{ file: 'main.ogg' }] }] });
+    const decode = context.decodeAudioData.bind(context);
+    context.decodeAudioData = async (data) => ({ ...(await decode(data)), duration: 83.8 });
+    engine.unlock();
+    await settle();
+    const main = context.sources.at(-1) as FakeSource;
+    expect(engine.musicTrack).toBe('main');
+    expect([main.loop, main.loopStart, main.loopEnd]).toEqual([true, 7.5, 83.8]);
   });
 
   it('cross-fades between tracks and stops the old one after its fade', async () => {

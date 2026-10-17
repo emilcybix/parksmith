@@ -1,3 +1,10 @@
 {
-  "tracks": []
+  "tracks": [
+    {
+      "id": "main-theme",
+      "context": "park",
+      "loopStart": 7.619048,
+      "stems": [{ "file": "Parksmith Main theme.ogg" }]
+    }
+  ]
 }

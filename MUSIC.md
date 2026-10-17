@@ -57,7 +57,7 @@ When `from` is left out, the stems spread evenly (0, 1/n, 2/n …).
   first. The game uses the first one the browser can play.
 - `gain`: loudness trim for the whole track, 0–2.
 - `loopStart` / `loopEnd` (seconds, optional): what comes before `loopStart` plays once as an intro, and the loop then
-  runs from `loopStart` to `loopEnd`. Without them the whole file loops.
+  runs from `loopStart` to `loopEnd`, or to the end of the file when `loopEnd` is left out. Without either, the whole file loops. An intro of n bars at b bpm in 4/4 lasts n × 4 × 60 / b seconds (4 bars at 126 bpm: 7.619048).
 - An entry with a mistake is skipped, and a file that cannot be loaded or decoded is skipped for the session. In both
   cases the browser console warns, the rest still plays, and the built-in loop takes the place of what is missing.
 

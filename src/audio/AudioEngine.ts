@@ -62,6 +62,8 @@ export interface GainNodeLike extends AudioNodeLike {
   readonly gain: AudioParamLike;
 }
 export interface AudioBufferLike {
+  /** Seconds (Phase 47: a produced track loops to its end). */
+  readonly duration?: number;
   copyToChannel(source: Float32Array, channel: number): void;
 }
 export interface BufferSourceLike extends AudioNodeLike {
