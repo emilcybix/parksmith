@@ -1486,15 +1486,18 @@ export const GuestInspector = (): React.JSX.Element | null => {
   );
 };
 
-/** The designer's special-piece buttons, in order (Phase 46 adds the elements). Two-piece elements go on the piece before the last. */
+/**
+ * The designer's special-piece buttons, in order (Phase 46 adds the elements). Each one lays its own track from the
+ * last piece (the straight or the U-turn it needs, and a plain piece after); Undo takes it back.
+ */
 const COASTER_SPECIAL_BUTTONS: ReadonlyArray<{ kind: CoasterSpecial; icon: string; label: string; title: string }> = [
-  { kind: 'loop', icon: '◎', label: 'Loop', title: 'Toggle a vertical loop on the last placed piece (straight track only)' },
-  { kind: 'boost', icon: '»', label: 'Boost', title: 'Toggle a launch boost on the last placed piece (straight track only)' },
-  { kind: 'launch', icon: '⚡', label: 'Launch', title: 'Toggle a launch on the last placed piece (straight track only): it fires the train out at full speed' },
-  { kind: 'airtime-hill', icon: '◠', label: 'Airtime hill', title: 'Toggle an airtime hill on the last placed piece (straight track): a hump that floats the riders' },
-  { kind: 'corkscrew', icon: '⥁', label: 'Corkscrew', title: 'Toggle a corkscrew over the last two pieces (both straight): a full roll round the riders' },
-  { kind: 'zero-g-roll', icon: '∞', label: 'Zero-g roll', title: 'Toggle a zero-g roll over the last two pieces (both straight): a weightless roll over a hump' },
-  { kind: 'cobra-roll', icon: '⤾', label: 'Cobra roll', title: 'Toggle a cobra roll over the last two pieces (a U-turn: two turns the same way): it inverts twice' },
+  { kind: 'loop', icon: '◎', label: 'Loop', title: 'Add a vertical loop: lays a straight piece with the loop and a plain piece after it' },
+  { kind: 'boost', icon: '»', label: 'Boost', title: 'Add a boost: lays a straight piece with the boost and a plain piece after it' },
+  { kind: 'launch', icon: '⚡', label: 'Launch', title: 'Add a launch: lays a straight piece that fires the train out at full speed, and a plain piece after it' },
+  { kind: 'airtime-hill', icon: '◠', label: 'Airtime hill', title: 'Add an airtime hill: lays a straight piece with a hump that floats the riders, and a plain piece after it' },
+  { kind: 'corkscrew', icon: '⥁', label: 'Corkscrew', title: 'Add a corkscrew: lays two straight pieces rolling a full turn, and a plain piece after them' },
+  { kind: 'zero-g-roll', icon: '∞', label: 'Zero-g roll', title: 'Add a zero-g roll: lays two straight pieces with a weightless roll over a hump, and a plain piece after them' },
+  { kind: 'cobra-roll', icon: '⤾', label: 'Cobra roll', title: 'Add a cobra roll: lays a U-turn that inverts twice (toward the free side) and a plain piece leading back' },
 ];
 
 /** Above this, discarding a whole layout asks first — it is too much work to lose to one click. */
@@ -1556,15 +1559,13 @@ export const CoasterPanel = (): React.JSX.Element | null => {
       )}
       {draft.allowedSpecials.length > 0 && (
         <div className="coaster-specials-row">
-          <small>SPECIAL PIECES · LAST PIECE</small>
+          <small>SPECIAL PIECES · ADDED AT THE END</small>
           <div className="coaster-special-buttons">
             {COASTER_SPECIAL_BUTTONS.filter((button) => draft.allowedSpecials.includes(button.kind)).map((button) => (
               <button
                 key={button.kind}
-                className={draft.lastPieceSpecial === button.kind ? 'active' : ''}
-                aria-pressed={draft.lastPieceSpecial === button.kind}
                 onClick={() => gameBridge.coasterToggleSpecial(button.kind)}
-                disabled={draft.pieces === 0}
+                disabled={draft.pieces < 3}
                 title={button.title}
               ><span aria-hidden="true">{button.icon}</span> {button.label}</button>
             ))}

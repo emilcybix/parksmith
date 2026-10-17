@@ -3519,23 +3519,11 @@ export class GameApp implements GameCommands, RunCommands {
       refuse(`A helix climbs or falls 5 levels: this one would leave 0–${maximum}. Set the track height to climb or fall.`);
       return;
     }
-    if (added.some((piece) => !this.world.isInside(piece.cell))) {
-      refuse('No room on the map for a helix here.');
-      return;
-    }
-    const layout = [...draft];
-    for (const piece of added) {
-      for (let other = 0; other < layout.length; other += 1) {
-        if (!sameCell(layout[other].cell, piece.cell)) continue;
-        if (!trackPiecesMayCross(layout[other].height, piece.height) || isExclusiveCoasterPiece([...layout, piece], other)) {
-          refuse('A helix crosses its own entry: start it from plain track, away from the station and specials.');
-          return;
-        }
-      }
-      layout.push(piece);
-    }
-    if (layout.length > GAME_CONFIG.coaster.maximumPieces) {
-      refuse(COASTER_VALIDATION_TEXT['too-long']);
+    const refusal = this.draftAcceptsPieces(added);
+    if (refusal !== null) {
+      refuse(refusal === COASTER_VALIDATION_TEXT['crossing-not-allowed']
+        ? 'A helix crosses its own entry: start it from plain track, away from the station and specials.'
+        : refusal.replace('that', 'a helix'));
       return;
     }
     for (const piece of added) draft.push(piece);
@@ -3549,23 +3537,92 @@ export class GameApp implements GameCommands, RunCommands {
     return type.allowedSpecials.filter((special) => type.layout !== 'shuttle' || special !== 'launch');
   }
 
+  /**
+   * Adds a special piece with the track it needs, from the last piece on (owner request 2026-10-17: no setting up the
+   * shape by hand). A loop, boost, launch or airtime hill lays a straight piece carrying it and a plain one after; a
+   * corkscrew or zero-g roll two straight pieces and a plain one; a cobra roll a U-turn (two turns the same way, toward
+   * whichever side is free) and a plain piece leading back. Plain straight pieces go first when the last special is too
+   * close. Everything stays level with the last piece; Undo takes the pieces back one at a time.
+   */
   coasterToggleSpecial(kind: CoasterSpecial): void {
     const type = this.currentCoasterType();
-    const last = this.coasterDraft[this.coasterDraft.length - 1];
-    if (!type || !last) return;
+    const draft = this.coasterDraft;
+    if (!type) return;
     if (!this.designerSpecials(type).includes(kind)) {
       this.toast(COASTER_VALIDATION_TEXT['special-not-allowed']);
       return;
     }
-    // Phase 46: a two-piece element goes on the piece before the last (lay both pieces, then add it).
-    const target = coasterSpecialSpan(kind) === 2 ? this.coasterDraft[this.coasterDraft.length - 2] : last;
-    if (!target) {
-      this.toast('Lay two pieces for this element first.');
+    const station = GAME_CONFIG.coaster.stationLength;
+    if (draft.length < station) {
+      this.toast(`Lay the station first (${station} pieces), then add special pieces.`);
       return;
     }
-    target.special = target.special === kind ? undefined : kind;
-    normaliseLiftFlags(this.coasterDraft);
+    const last = draft[draft.length - 1];
+    const previous = draft[draft.length - 2];
+    const dx = Math.sign(last.cell.x - previous.cell.x);
+    const dy = Math.sign(last.cell.y - previous.cell.y);
+    // Plain straight pieces first while the last special (or element) is too close for another.
+    let lead = 0;
+    for (let index = draft.length - 1; index >= 0; index -= 1) {
+      const special = draft[index].special;
+      if (!special) continue;
+      lead = Math.max(0, index + coasterSpecialSpan(special) + 1 - draft.length);
+      break;
+    }
+    const at = (steps: number, sideX = 0, sideY = 0): Cell => ({ x: last.cell.x + dx * steps + sideX, y: last.cell.y + dy * steps + sideY });
+    const piece = (cell: Cell, special?: CoasterSpecial): CoasterPiece => (special ? { cell, height: last.height, special } : { cell, height: last.height });
+    const leadIn = Array.from({ length: lead }, (_unused, step) => piece(at(step + 1)));
+    const candidates: CoasterPiece[][] = [];
+    if (kind === 'cobra-roll') {
+      // A U-turn either way: in at last + d, across, and back out heading −d.
+      for (const turn of [1, -1]) {
+        const lx = -dy * turn;
+        const ly = dx * turn;
+        candidates.push([
+          ...leadIn,
+          piece(at(lead + 1), kind),
+          piece(at(lead + 1, lx, ly)),
+          piece(at(lead, lx, ly)),
+        ]);
+      }
+    } else {
+      const body = coasterSpecialSpan(kind) === 2 ? 3 : 2;
+      candidates.push([...leadIn, ...Array.from({ length: body }, (_unused, step) => piece(at(lead + step + 1), step === 0 ? kind : undefined))]);
+    }
+    // The first shape that fits the map and the draft, preferring one clear of everything else in the park.
+    const fitting = candidates.filter((added) => this.draftAcceptsPieces(added) === null);
+    const clear = fitting.find((added) => added.every((candidate) => this.world.coasterPieceConflict({
+      cell: candidate.cell, height: candidate.height, exclusive: true, hangs: coasterHangs(type.definitionId),
+    }) === null));
+    const chosen = clear ?? fitting[0];
+    if (!chosen) {
+      this.toast(this.draftAcceptsPieces(candidates[0]) ?? 'No room for that special piece here.');
+      return;
+    }
+    for (const added of chosen) draft.push(added);
+    normaliseLiftFlags(draft);
+    this.coasterLastCell = null;
     this.refreshCoasterPreview();
+  }
+
+  /**
+   * Whether pieces can be appended to the draft as they are: on the map, within the length cap, and crossing the
+   * draft's own track only where two pieces may cross (Phase 38). The refusal to show, or null.
+   */
+  private draftAcceptsPieces(added: readonly CoasterPiece[]): string | null {
+    if (added.some((piece) => !this.world.isInside(piece.cell))) return 'No room on the map for that here.';
+    const layout = [...this.coasterDraft];
+    if (layout.length + added.length > GAME_CONFIG.coaster.maximumPieces) return COASTER_VALIDATION_TEXT['too-long'];
+    for (const piece of added) {
+      for (let other = 0; other < layout.length; other += 1) {
+        if (!sameCell(layout[other].cell, piece.cell)) continue;
+        if (!trackPiecesMayCross(layout[other].height, piece.height) || isExclusiveCoasterPiece([...layout, piece], other)) {
+          return COASTER_VALIDATION_TEXT['crossing-not-allowed'];
+        }
+      }
+      layout.push(piece);
+    }
+    return null;
   }
 
   /**

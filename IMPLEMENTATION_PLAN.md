@@ -3127,6 +3127,12 @@ uphill the train climbs and rolls backward to the station, so the track does not
 - [x] Tests: `game/coaster/elements.test.ts` (rules, stats, cost, shuttle energy, roll and hump on the line, helix,
   save round trip), `coasterFamilies.test.ts` (swept pieces inside their tiles, no overlaps, within the allowance),
   `GameApp.coasterLift.test.ts` (two-piece toggling, the helix tool).
+- [x] Owner request 2026-10-17 ("every special piece should include the ordinary pieces it needs"): a special button
+  now lays its own track from the last piece, level with it: loop / boost / launch / airtime hill a straight piece
+  with the special and a plain one after; corkscrew / zero-g two straight pieces and a plain one; cobra roll a U-turn
+  toward the free side (clear of other track, paths and objects when possible) and a plain piece leading back. Plain
+  pieces go first when the last special is too close. Undo takes them back a piece at a time; the buttons no longer
+  toggle the last piece. Test: `GameApp.coasterLift.test.ts`.
 - [ ] Not built: a sound per element, element markers in the inspector's evidence line, inverted-family elements.
 
 ## Phase 47 — Produced Music (built 2026-10-17; owner request 2026-10-17)

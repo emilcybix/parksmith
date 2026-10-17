@@ -347,7 +347,7 @@ describe('Phase 44: the shuttle designer', () => {
 });
 
 describe('Phase 46: elements and the helix tool in the designer', () => {
-  it('a two-piece element goes on the piece before the last; the helix lays four turns round a block and out', async () => {
+  it('a special button lays its own track; the helix lays four turns round a block and out', async () => {
     const game = await makeGame();
     game.world.addMoney(1_000_000);
     game.world.setBuildAccessPolicy(null);
@@ -362,14 +362,27 @@ describe('Phase 46: elements and the helix tool in the designer', () => {
     inputHandlers!.end({ x: 13, y: 4 });
     const pieces = internals(game).coasterDraft;
     expect(pieces.at(-1)!.height).toBe(5);
+    // A corkscrew: two straight pieces and a plain one, straight on and level.
+    let before = pieces.length;
     gameBridge.coasterToggleSpecial('corkscrew');
-    expect(pieces.at(-2)!.special).toBe('corkscrew');
-    expect(draft().lastPieceSpecial).toBe('corkscrew');
-    gameBridge.coasterToggleSpecial('corkscrew');
-    expect(pieces.some((piece) => piece.special !== undefined)).toBe(false);
+    expect(pieces.slice(before).map((piece) => [piece.cell.x, piece.special ?? null, piece.height]))
+      .toEqual([[14, 'corkscrew', 5], [15, null, 5], [16, null, 5]]);
+    // A cobra right after: the U-turn and the way back.
+    before = pieces.length;
+    gameBridge.coasterToggleSpecial('cobra-roll');
+    const cobra = pieces.slice(before);
+    expect(cobra.map((piece) => piece.special ?? null)).toEqual(['cobra-roll', null, null]);
+    expect(cobra[0].cell.x).toBe(cobra[1].cell.x);
+    expect(cobra[2].cell.x).toBe(cobra[1].cell.x - 1);
+    // An airtime hill heading back: the hill and a plain piece (the cobra's plain piece already spaces them).
+    before = pieces.length;
+    gameBridge.coasterToggleSpecial('airtime-hill');
+    expect(pieces.slice(before).map((piece) => piece.special ?? null)).toEqual(['airtime-hill', null]);
+    expect(draft().validationMessage).not.toMatch(/special|straight|U-turn|close/i);
+    for (let step = 0; step < 3 + 3 + 2; step += 1) gameBridge.coasterUndo();
     // Height setting below the track: the helix falls a level a piece.
     for (let level = 0; level < 5; level += 1) gameBridge.coasterAdjustHeight(-1);
-    const before = pieces.length;
+    before = pieces.length;
     gameBridge.coasterHelix(1);
     expect(pieces).toHaveLength(before + 5);
     expect(pieces.slice(before).map((piece) => piece.height)).toEqual([4, 3, 2, 1, 0]);

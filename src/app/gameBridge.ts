@@ -125,6 +125,7 @@ export interface GameCommands extends UndoCommands {
   coasterUndo(): void;
   coasterClear(): void;
   coasterBuild(): void;
+  /** Adds a special piece with the track it needs at the end of the layout (name kept from when it toggled the last piece). */
   coasterToggleSpecial(kind: CoasterSpecial): void;
   /** Flips the lift under the cursor, else the last one laid. */
   coasterToggleLift(): void;
