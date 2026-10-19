@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–55, not started)
+## Owner Feedback 2026-10-19 (Phases 48–56; 48 built, the rest not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3271,6 +3271,54 @@ Replaces "Terrain elevation" and "Water as buildable terrain" under Future Candi
   those levels. Whichever way is chosen, a 64 × 64 map should fit on a 1920 × 1080 screen at DPR 1. Also widen
   `CLASSIC_MIN_ZOOM` if it is cheap (classic is frozen, so optional). Tests: the zoom levels in `camera.test.ts`
   and the frame-cost budget.
+
+### Phase 56 — Atmosphere by Zoom and Coaster Sounds (owner request 2026-10-19)
+
+The owner is producing the sounds: park ambience recordings and a library of coaster sounds (chain lift, drop and
+so on). The first files are in `public/sound effects/` (four park ambience beds, one ride-start scream). Today the two
+ambience beds (crowd, machinery) are synthesised loops whose level follows the guests and rides in view and the zoom
+(`ambienceFor` in `audio/audioDirector.ts`). The produced music (Phase 47) plays the same at every zoom.
+
+- [ ] **Music out, atmosphere in, as the camera zooms in.** Above a zoom threshold the background music fades down
+  and produced atmosphere beds fade up. Zooming out reverses it.
+  - The fade runs over a band of zoom levels, not at a single step: music is full at or below `musicFullBelow`, the
+    atmosphere is full at or above `atmosphereFullAbove`, and both move with the engine's time constant, so a quick
+    scroll never jumps.
+  - Proposed default: the band covers the two closest zoom levels. The band and how far the music ducks (fully out,
+    or down to a floor) are the owner's call.
+  - The music keeps playing underneath at zero gain (ducked, not stopped), so zooming out picks it up in step and
+    does not restart the track. The menu and the cinematic camera keep the music.
+  - Atmosphere beds come from a manifest like the music's (`public/sfx/manifest.json`; a folder without spaces).
+    Each bed has an id, files (OGG first, MP3 fallback), a gain trim, loop points, and when it plays: day or night,
+    the weather (rain, storm), and how busy the view is (an empty park against a crowded one).
+  - The synthesised crowd and machinery beds stay as the fallback when no bed is listed or a file fails to load.
+  - The crowd and machinery levels still follow what is in view, as `ambienceFor` does now.
+- [ ] **Coaster sound library.** Sounds tied to what a train is doing, worked out from the centre line and the
+  train's position (no simulation change: the determinism pins stay):
+  - a chain-lift clatter loop while the train is on a chained segment (`centreLineChainedHalf`);
+  - a crest-and-drop whoosh where the pitch turns steeply down after a climb, louder with the drop's depth;
+  - screams on big drops and inversions (loops, corkscrews, zero-g and cobra rolls). Their chance and loudness grow
+    with the ride's intensity, and the ride-start scream plays on dispatch;
+  - a launch and boost surge, a brake hiss into the station, and a station dispatch bell;
+  - the wheel roar under the train, its pitch following the speed.
+- [ ] **Coaster sound rules.**
+  - Each sound plays from where the train is: louder the closer to the middle of the screen and the closer the zoom,
+    panned left or right by screen position.
+  - Nothing plays for a coaster off-screen or while the game is paused.
+  - A voice budget (for example 6 coaster voices at once, nearest first) keeps a park of coasters from turning into
+    noise.
+  - The sounds go on the existing rides bus, so the settings sliders and the mute key cover them.
+  - Each sound may list several variants, picked at random, so a repeated drop does not sound looped.
+- [ ] **Licensing.** Every file gets its source and licence recorded next to it (freesound files are CC0 or CC-BY;
+  check the ElevenLabs terms). CC-BY credits go into About and feedback.
+- [ ] **Guide.** A sound guide like MUSIC.md (SOUND.md): file names, formats, loudness targets, loop points, which
+  coaster event plays which id, and how to test a new file in the game without a build.
+- [ ] Tests, all pure functions:
+  - the crossfade curve against zoom, including that the music is ducked and not restarted;
+  - manifest parsing that forgives typos, as `music.ts` does;
+  - event detection on fixture layouts (a chain lift, a drop, a loop, a launch and the brakes each fire where
+    expected, and nothing fires twice in a row);
+  - the voice budget and the screen-position pan.
 
 ## Voxel Renderer (main renderer)
 
