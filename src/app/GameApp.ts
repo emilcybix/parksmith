@@ -121,7 +121,7 @@ import { inwardOf, menuShot, type ShotScene } from './cinematicShots';
 import type { CinematicView } from '../rendering/RendererPort';
 import { START_MENU_DEFAULT } from './menuFlag';
 import { onReducedMotionChange, reducedMotion } from '../settings/motion';
-import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type LandUi, type LeaveRunPrompt, type ToolMode, type UiState } from '../ui/store';
+import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type CoasterDraftSnapshot, type LandUi, type LeaveRunPrompt, type ToolMode, type UiState } from '../ui/store';
 import { parkTitleOf } from '../ui/modeLabels';
 import { placementThemeViewOf, researchCardFaces, samePlacementThemeView } from '../ui/themeCopy';
 import { createCalendarView, type TimeLock } from '../game/calendar/calendarMath';
@@ -2830,6 +2830,7 @@ export class GameApp implements GameCommands, RunCommands {
       this.refreshAmbience();
       this.noticeDegradation();
       this.refreshHints();
+      this.refreshCoasterAffordability(ui.coasterDraft);
       // The label counts simulated seconds ("rewinds 42 s") and the arm expires on a timer, so
       // the control is refreshed on this cadence, and written only when something changed.
       this.publishUndoStatus();
@@ -3804,6 +3805,12 @@ export class GameApp implements GameCommands, RunCommands {
     this.renderer?.clearPreview();
     updateUiSnapshot({ coasterDraft: null });
     this.publishUndoStatus();
+  }
+
+  /** The park's cash moves without the draft changing, so a finished design turns buildable (or stops being) the moment it does. */
+  private refreshCoasterAffordability(draft: CoasterDraftSnapshot | null): void {
+    if (draft === null || draft.pieces === 0 || this.coasterDraft.length === 0 || this.currentCoasterType() === undefined) return;
+    if ((draft.effectiveCost <= this.world.cash) !== draft.affordable) this.refreshCoasterPreview();
   }
 
   private refreshCoasterPreview(): void {

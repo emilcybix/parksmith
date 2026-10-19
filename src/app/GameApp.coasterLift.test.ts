@@ -19,13 +19,14 @@ type Handlers = {
 };
 let inputHandlers: Handlers | null = null;
 let hovered: Cell | null = null;
+let frameCallback: ((deltaMs: number) => void) | null = null;
 const drawn: unknown[][] = [];
 
 class FakeRenderer {
   get hoveredCell() { return hovered; }
   mount(): Promise<void> { return Promise.resolve(); }
   destroy(): void {}
-  onFrame(): void {}
+  onFrame(callback: (deltaMs: number) => void): void { frameCallback = callback; }
   setSession(): void {}
   syncWorld(): void {}
   update(): void {}
@@ -389,6 +390,24 @@ describe('Phase 46: elements and the helix tool in the designer', () => {
     // The fourth piece is back over the last one; the fifth over the first turn.
     expect(pieces[before + 3].cell).toEqual(pieces[before - 1].cell);
     expect(pieces[before + 4].cell).toEqual(pieces[before].cell);
+    game.destroy();
+  });
+});
+
+describe('a finished design waiting for cash', () => {
+  it('turns buildable once the park can afford it, with no edit to the draft', async () => {
+    const game = await openDesigner(hillDipLayout());
+    expect(draft().buildable).toBe(true);
+    game.world.cash = draft().effectiveCost - 1;
+    inputHandlers!.hover({ x: 41, y: 20 });
+    expect(draft().affordable).toBe(false);
+    expect(draft().buildable).toBe(false);
+    // Takings arrive through the simulation, not a construction change: nothing redraws the draft for them.
+    game.world.cash += 10;
+    frameCallback!(300);
+    expect(draft().affordable).toBe(true);
+    expect(draft().buildable).toBe(true);
+    expect(draft().validationMessage).not.toBe('Not enough cash.');
     game.destroy();
   });
 });
