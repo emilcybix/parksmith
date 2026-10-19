@@ -106,3 +106,88 @@ export const perspectiveFigureShaderSource = (): ShaderSource => {
   vertex = replace(vertex, '  vLambert = vxLambert(normal);', '  vLambert = vxLambert(vec3(abs(normal.x), abs(normal.y), normal.z));');
   return { vertex, fragment: base.fragment };
 };
+
+/**
+ * The point lights through the cinematic camera (a view turn at dusk or night; owner report 2026-10-19: every lamp went
+ * out while the map turned). The isometric light pass (lightPass.ts) reads isometric positions, so this one projects
+ * each light's bounding cube with `uViewProj` to a screen quad and reconstructs every covered texel's world voxel from
+ * the perspective depth through `uInvViewProj`. Falloff and facing are the isometric pass's; a face the isometric view
+ * never shows (-x, -y: FACE_OTHER in the G-buffer) takes the average facing. Same resources as the isometric pass plus
+ * `perspectiveUniforms` (which carries the inverse).
+ */
+const lightVertex = `#version 300 es
+${VX_PRECISION}
+${VX_COMMON}
+uniform highp sampler2D uLights;
+uniform mat4 uViewProj;
+uniform float uZScale;
+uniform float uPresetBit;
+
+flat out vec4 vLight;
+flat out vec3 vColor;
+
+vec2 vxScreenOf(vec3 p) {
+  vec4 clip = uViewProj * vec4(p.xy, p.z * uZScale, 1.0);
+  // The geometry flips both axes after the projection (perspective world program).
+  return -clip.xy / max(clip.w, 1e-3);
+}
+
+void main() {
+  int light = gl_VertexID / 4;
+  int corner = gl_VertexID & 3;
+  vec4 place = texelFetch(uLights, vxTexelOf(light, VX_LIGHT_TEXELS, VX_LIGHT_TEX_WIDTH, 0), 0);
+  vec4 color = texelFetch(uLights, vxTexelOf(light, VX_LIGHT_TEXELS, VX_LIGHT_TEX_WIDTH, 1), 0);
+  bool on = (int(color.w) & int(uPresetBit)) != 0 && place.w > 0.0;
+  vec2 lo = vec2(1e9);
+  vec2 hi = vec2(-1e9);
+  for (int i = 0; i < 8; i += 1) {
+    vec3 offset = vec3(float(i & 1), float((i >> 1) & 1), float(i >> 2)) * 2.0 - 1.0;
+    vec2 screen = vxScreenOf(place.xyz + offset * place.w);
+    lo = min(lo, screen);
+    hi = max(hi, screen);
+  }
+  vec2 ndc = mix(lo, hi, vec2(float(corner & 1), float(corner >> 1)));
+  gl_Position = on ? vec4(ndc, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  vLight = place;
+  vColor = color.rgb;
+}
+`;
+
+const lightFragment = `#version 300 es
+${VX_PRECISION}
+${VX_COMMON}
+uniform highp sampler2D uDepth;
+uniform highp sampler2D uGData;
+uniform vec2 uLowSize;
+uniform mat4 uInvViewProj;
+uniform float uZScale;
+
+flat in vec4 vLight;
+flat in vec3 vColor;
+
+out vec4 outLight;
+
+void main() {
+  ivec2 texel = ivec2(gl_FragCoord.xy);
+  float depth = texelFetch(uDepth, texel, 0).r;
+  vec4 gdata = texelFetch(uGData, texel, 0);
+  if (depth >= 1.0) {
+    outLight = vec4(0.0);
+    return;
+  }
+  vec2 ndc = gl_FragCoord.xy / uLowSize * 2.0 - 1.0;
+  vec4 world = uInvViewProj * vec4(-ndc, depth * 2.0 - 1.0, 1.0);
+  vec3 position = world.xyz / world.w;
+  position.z /= uZScale;
+  vec3 toLight = vLight.xyz - position;
+  float lightDistance = length(toLight);
+  float falloff = clamp(1.0 - lightDistance / vLight.w, 0.0, 1.0);
+  int face = vxFaceOf(gdata);
+  vec3 normal = face == VX_FACE_X ? vec3(1.0, 0.0, 0.0) : face == VX_FACE_Y ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
+  float facing = face == VX_FACE_OTHER ? 0.75 : 0.5 + 0.5 * max(0.0, dot(normal, toLight / max(lightDistance, 1e-3)));
+  outLight = vec4(vColor * (falloff * falloff * facing), 1.0);
+}
+`;
+
+/** Phase 41: the cinematic camera's light pass (see lightVertex). */
+export const perspectiveLightShaderSource = (): ShaderSource => ({ vertex: lightVertex, fragment: lightFragment });

@@ -10,7 +10,7 @@ import { MAT_COLOR } from '../../contracts/palette';
 import { SEE_THROUGH } from '../../../seeThrough';
 import { PLANE_GRADIENT_TOP, PLANE_GRADIENT_X, PLANE_GRADIENT_Y } from '../../contracts/space';
 import { VX_COMMON, VX_PRECISION } from './common';
-import { VX_COMPOSITE_LOOK, VX_COMPOSITE_LOOK_LITE } from './compositeLook';
+import { VX_COMPOSITE_LOOK, VX_COMPOSITE_LOOK_LITE, VX_LIGHT_POOL } from './compositeLook';
 import { weatherChunks, type WeatherTier } from './compositeWeather';
 import { glslFloat, glslIvec2, glslRgb, glslVec2 } from './glsl';
 import type { ShaderSource } from './world';
@@ -398,6 +398,7 @@ void main() {
 /** Phase 41: the cinematic camera's main (see CompositeOptions.perspective). */
 const perspectiveMain = `
 ${VX_COMPOSITE_LOOK_LITE}
+${VX_LIGHT_POOL}
 uniform vec3 uSkyZenith;
 uniform vec3 uSkyHorizon;
 /** The horizon's row as a fraction of the target from the top (row 0); may lie outside 0..1. */
@@ -456,7 +457,14 @@ void main() {
     if (outline.a > 0.5) {
       color = outline;
     } else if (depth < 1.0) {
-      color = vec4(clamp(vxLook(texelFetch(uAlbedo, texel, 0), texelFetch(uGData, texel, 0)), 0.0, 1.0), 1.0);
+      vec4 albedo = texelFetch(uAlbedo, texel, 0);
+      vec3 lit = vxLook(albedo, texelFetch(uGData, texel, 0));
+      // The lamps' pools, as the full look adds them (its own pass: perspectiveLightShaderSource).
+      if (uLightEnabled > 0.5) {
+        vec3 pool = vxLightPool(texelFetch(uLight, texel, 0).rgb, vxWorldTexel(texel));
+        lit += vxGrade(albedo.rgb * pool * 0.85 + pool * 0.3);
+      }
+      color = vec4(clamp(lit, 0.0, 1.0), 1.0);
     } else {
       color = vxBackground();
     }

@@ -88,8 +88,8 @@ import type { WeatherTier } from './shaders/compositeWeather';
 import { WeatherUniformSync, type WeatherUniformTarget } from './weatherUniforms';
 import { rgbToUnit } from './shaders/glsl';
 import { GpuPassTimer, PASS_COMPOSITE, PASS_GBUFFER, PASS_LIGHT, PASS_UPSCALE, type GpuPassTimings } from './timing';
-import { perspectiveCompositeShaderSource, perspectiveFigureShaderSource, perspectiveWorldShaderSource } from './shaders/perspective';
-import { horizonRow, perspectiveDepthPlanes, viewProjection, type CinematicView } from '../cameraOrbit';
+import { perspectiveCompositeShaderSource, perspectiveFigureShaderSource, perspectiveLightShaderSource, perspectiveWorldShaderSource } from './shaders/perspective';
+import { horizonRow, invertMatrix4, perspectiveDepthPlanes, viewProjection, type CinematicView } from '../cameraOrbit';
 
 /**
  * The voxel renderer's GPU side (design §5–§7): every Pixi resource and every pass of a frame.
@@ -470,6 +470,7 @@ class PixiVoxelGpu implements VoxelGpu {
   /** Phase 41: the cinematic camera (read only while a view is set). */
   private readonly perspectiveUniforms = new UniformGroup({
     uViewProj: { value: new Float32Array(16), type: 'mat4x4<f32>' },
+    uInvViewProj: { value: new Float32Array(16), type: 'mat4x4<f32>' },
     uEye: { value: vec3(), type: 'vec3<f32>' },
     uZScale: { value: 1, type: 'f32' },
   });
@@ -485,6 +486,7 @@ class PixiVoxelGpu implements VoxelGpu {
   private perspectiveProgram: GlProgram | null = null;
   private perspectiveComposite: Shader | null = null;
   private perspectiveFigures: Shader | null = null;
+  private perspectiveLights: Shader | null = null;
   private perspectiveFailed = false;
   private skirtSource: VoxelDataSource | null = null;
   private skirtShader: Shader | null = null;
@@ -1259,8 +1261,14 @@ class PixiVoxelGpu implements VoxelGpu {
 
   private drawLightAndComposite(renderTargets: WebGLRenderer['renderTarget'], lightDraws: number): void {
     const timer = this.timer;
-    // Phase 41: the cinematic frame has its own composite (no light pools: their pass reads isometric positions).
+    // Phase 41: the cinematic frame has its own light pass (the isometric one reads isometric positions) and composite.
     if (this.perspectiveView !== null && this.perspectiveComposite !== null) {
+      if (lightDraws > 0 && this.perspectiveLights !== null) {
+        timer?.begin(PASS_LIGHT);
+        renderTargets.bind(this.lightBinding);
+        this.drawLights(lightDraws, this.perspectiveLights);
+        timer?.end();
+      }
       timer?.begin(PASS_COMPOSITE);
       renderTargets.bind(this.compositeBinding);
       this.drawFullscreen(this.perspectiveComposite);
@@ -1386,6 +1394,18 @@ class PixiVoxelGpu implements VoxelGpu {
             perspectiveUniforms: this.perspectiveUniforms,
           },
         });
+        const lights = perspectiveLightShaderSource();
+        this.perspectiveLights = new Shader({
+          glProgram: new GlProgram({ name: 'voxel-lightPerspective', vertex: lights.vertex, fragment: lights.fragment, preferredVertexPrecision: 'highp', preferredFragmentPrecision: 'highp' }),
+          resources: {
+            uLights: this.lights,
+            uDepth: this.depth,
+            uGData: this.gdata,
+            frameUniforms: this.frameUniforms,
+            lightUniforms: this.lightUniforms,
+            perspectiveUniforms: this.perspectiveUniforms,
+          },
+        });
         this.skirtSource = new VoxelDataSource({ width: BOX_TEX_WIDTH, label: 'voxel-skirt' });
         this.skirtShader = this.perspectiveShaderFor(this.skirtSource);
       }
@@ -1443,6 +1463,7 @@ class PixiVoxelGpu implements VoxelGpu {
     const { near, far } = perspectiveDepthPlanes(view, size);
     const uniforms = this.perspectiveUniforms.uniforms;
     viewProjection(view, frame.uLowSize[0] / Math.max(1, frame.uLowSize[1]), view.fovY, near, far, uniforms.uViewProj);
+    invertMatrix4(uniforms.uViewProj, uniforms.uInvViewProj);
     uniforms.uEye[0] = view.eye[0];
     uniforms.uEye[1] = view.eye[1];
     uniforms.uEye[2] = view.eye[2];

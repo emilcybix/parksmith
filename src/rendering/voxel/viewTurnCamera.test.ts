@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ISO_Z_SCALE, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
-import { perspectiveDepthPlanes, viewProjection } from './cameraOrbit';
-import { perspectiveCompositeShaderSource } from './gpu/shaders/perspective';
+import { invertMatrix4, perspectiveDepthPlanes, viewProjection } from './cameraOrbit';
+import { perspectiveCompositeShaderSource, perspectiveLightShaderSource } from './gpu/shaders/perspective';
 import type { CinematicView } from '../RendererPort';
 import { projectX, projectY } from './contracts/space';
 
@@ -77,5 +77,26 @@ describe('Phase 41 step 3: smooth view turns', () => {
     expect(step).toBeLessThan(0.05);
     // A close camera (the ride-along) keeps the 2-voxel near plane.
     expect(perspectiveDepthPlanes({ eye: [10, 10, 10], target: [0, 0, 0] }, size).near).toBe(2);
+  });
+
+  it('the lamps stay lit through a turn: a light pass that unprojects the perspective depth (owner report 2026-10-19)', () => {
+    const view: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 0 };
+    const size = 64 * 32;
+    turnView([size / 2, size / 2], viewAzimuth(2), 800, view);
+    const { near, far } = perspectiveDepthPlanes(view, size);
+    const m = viewProjection(view, 1.6, view.fovY, near, far, new Float32Array(16));
+    const inverse = invertMatrix4(m, new Float32Array(16));
+    // A lamp's foot (z scaled as the shader draws it) projects and comes back to the same world point.
+    const p = [700, 900, 12 * ISO_Z_SCALE, 1];
+    const clip = [0, 1, 2, 3].map((row) => m[row] * p[0] + m[4 + row] * p[1] + m[8 + row] * p[2] + m[12 + row]);
+    const ndc = clip.map((value) => value / clip[3]);
+    const back = [0, 1, 2, 3].map((row) => inverse[row] * ndc[0] + inverse[4 + row] * ndc[1] + inverse[8 + row] * ndc[2] + inverse[12 + row]);
+    expect(back[0] / back[3]).toBeCloseTo(700, 1);
+    expect(back[1] / back[3]).toBeCloseTo(900, 1);
+    expect(back[2] / back[3] / ISO_Z_SCALE).toBeCloseTo(12, 1);
+    const light = perspectiveLightShaderSource();
+    expect(light.vertex).toContain('uniform mat4 uViewProj;');
+    expect(light.fragment).toContain('uInvViewProj * vec4(-ndc, depth * 2.0 - 1.0, 1.0)');
+    expect(perspectiveCompositeShaderSource().fragment).toContain('vxLightPool(texelFetch(uLight, texel, 0).rgb');
   });
 });

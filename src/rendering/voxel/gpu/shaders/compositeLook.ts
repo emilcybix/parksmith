@@ -56,6 +56,22 @@ vec3 vxGrade(vec3 color) {
 }
 `;
 
+/** Light-pool quantisation, shared by the full look and the cinematic composite. */
+export const VX_LIGHT_POOL = /* glsl */ `/** Light-pool colour for this texel, quantised to 3 bands with a world-anchored Bayer threshold. */
+vec3 vxLightPool(vec3 light, ivec2 worldTexel) {
+  vec3 pool = light * uLightStrength;
+  float amount = max(pool.r, max(pool.g, pool.b));
+  if (amount <= 0.0) return vec3(0.0);
+  // The Bayer threshold is squeezed to +-0.1 around the band edge: wide bands with a narrow dithered
+  // seam read as pixel-art pools, a full-range dither reads as noise (visual critique).
+  float seam = 0.5 + (vxBayer4(worldTexel + VX_DITHER_OFFSET_LIGHT) - 0.5) * 0.2;
+  // The light pass falls off with the square of the distance, which leaves a lamp 47 voxels above
+  // the path with a few percent at its foot: the square root turns that into a pool you can see.
+  float band = floor(sqrt(min(amount, 1.0)) * 3.0 + seam) / 3.0;
+  return pool / amount * min(band, 1.0);
+}
+`;
+
 export const VX_COMPOSITE_LOOK = /* glsl */ `
 ${VX_COMPOSITE_GRADE}
 /** Contact shadow: a tap counts when it sees something this many voxels higher, this near. */
@@ -72,20 +88,7 @@ vec3 vxOutlineColor(vec3 neighbourAlbedo) {
   return mix(neighbourAlbedo * uOutlineTint, VX_INK, uOutlineInkMix);
 }
 
-/** Light-pool colour for this texel, quantised to 3 bands with a world-anchored Bayer threshold. */
-vec3 vxLightPool(vec3 light, ivec2 worldTexel) {
-  vec3 pool = light * uLightStrength;
-  float amount = max(pool.r, max(pool.g, pool.b));
-  if (amount <= 0.0) return vec3(0.0);
-  // The Bayer threshold is squeezed to +-0.1 around the band edge: wide bands with a narrow dithered
-  // seam read as pixel-art pools, a full-range dither reads as noise (visual critique).
-  float seam = 0.5 + (vxBayer4(worldTexel + VX_DITHER_OFFSET_LIGHT) - 0.5) * 0.2;
-  // The light pass falls off with the square of the distance, which leaves a lamp 47 voxels above
-  // the path with a few percent at its foot: the square root turns that into a pool you can see.
-  float band = floor(sqrt(min(amount, 1.0)) * 3.0 + seam) / 3.0;
-  return pool / amount * min(band, 1.0);
-}
-
+${VX_LIGHT_POOL}
 /** Whether the point seen at \`tapTexel\` (raw \`tapDepth\`) towers over \`p\` closely enough to shade it. */
 bool vxShadowHit(vec3 p, ivec2 tapTexel, float tapDepth) {
   if (tapDepth >= 1.0) return false;
