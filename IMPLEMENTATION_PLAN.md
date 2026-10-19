@@ -3150,6 +3150,93 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
+## Owner Feedback 2026-10-19 (Phases 48–54, not started)
+
+Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
+first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
+intended?"). Each gets an answer measured from the simulation before any tuning, and the answer is written here.
+
+### Phase 48 — Coaster Loop Through Its Own Track (bug)
+
+- [ ] A vertical loop "goes into itself": the ring stands in the same lateral position as the track it starts and
+  ends on, so the train runs through its own rails. A real loop is offset sideways (the exit runs beside the entry).
+  Fix in the centre line (`centreLine.ts`, the loop sampler), so track, train, classic view and ride camera agree.
+  The loop's tile footprint and exclusivity rules must still hold. Check the voxel and classic art, the car poses and
+  the ride camera. Pin with a centre-line test (entry and exit apart sideways at the bottom) and a no-overlap test in
+  `coasterFamilies.test.ts`. Saved layouts keep their pieces. Only the drawn shape moves, so state whether the
+  golden stats change.
+
+### Phase 49 — Litter, Vomit and Scenery Readability and Balance (questions first)
+
+- [ ] **Litter against cleaners.** Over time a park reaches a point where litter spawns faster than the maximum
+  number of cleaners can clear. Answer first: is the intended answer more bins and toilets (litter per guest falls),
+  or is the cleaner cap too low? Measure litter units per minute against cleaner throughput at 250, 500 and 1,000
+  guests, with and without bins in reach. If bins and toilets are the lever, the game must say so: a Park Pulse
+  insight ("Litter outpaces your cleaners: bins near X would help") and a cleaner-capacity read in the Staff window.
+  If not, raise the cap or the cleaner speed. Record the numbers in BALANCE_NOTES.md.
+- [ ] **Vomit is hard to see on paths.** The owner sees no vomit, or cannot tell it apart from other litter. Check
+  that vomit is drawn at all (the guest has a vomit keyframe since Phase 29; check the path decal). Give it its own
+  distinct look in the voxel renderer: shape and colour, readable at the default zoom and against every path and
+  biome colour. Add it to the litter overlay and the inspector.
+- [ ] **Scenery appeal is hard to max.** Is that intended? Measure what a "fully decorated" ride needs to reach 100
+  (pieces, radius, theme bonus). Then decide: either a reachable maximum with diminishing returns, or a stated soft
+  cap with the factor line saying how far away the next step is. Record the decision in BALANCE_NOTES.md.
+
+### Phase 50 — Difficulty, Angry Guests and Security
+
+- [ ] **Difficulty up a notch.** It is hard to lose. Start from the balance harness: where does a passive or careless
+  park still win? Tighten costs, guest patience and the scenario thresholds a little, without touching the First Day
+  route. The healthy-park bots in BALANCE_NOTES.md must still win. A "lazy park" bot should now lose some scenarios.
+  The sandbox stays as it is.
+- [ ] **Vandalism.** A very angry guest (satisfaction under a threshold, for example after long queues, broken rides,
+  litter or high prices) can start breaking things: benches, bins, lamps and scenery. Broken objects stop working,
+  show as broken, cost money to repair and lower nearby appeal. The guest gets a readable thought and an inspector
+  line. A Park Pulse insight names the cause. The rule is deterministic (seeded like the rest of the simulation) and
+  rare in a healthy park.
+- [ ] **New staff type: security guard.** A guard walks the paths like a cleaner. Near a guard, guests vandalise much
+  less or not at all, and a guard who catches a vandal removes them from the park. Hire, wage and patrol work like the
+  other staff. Add a row in the Staff window, a research gate if it fits the tree, save and migration, and a Pulse
+  card or modifier if one fits naturally.
+
+### Phase 51 — Demolition Research
+
+- [ ] The bulldozer can be improved through research. Tiers: the start (today's rules), then removing natural props
+  that are locked from the start (rocks, big trees), and finally the permanent features of a map (monuments, land
+  features), at a rising cost per removal. Each tier is a research project. The tool's tooltip and the blocked toast
+  name the project that unlocks the next tier. The gate rules (no land stranded behind permanent props) still hold
+  for map generation. The owner's Phase 21 decision (no selling back land) is unaffected.
+
+### Phase 52 — More Scenarios (also for The Map)
+
+- [ ] New scenario starts, written so The Map can draw them as levels too:
+  - the park starts full of litter (a cleanup start with a tight first deadline);
+  - monuments or land features that take up a large part of the map (build around them, or research demolition
+    from Phase 51);
+  - more in the same spirit. Each gets a scenario definition, objectives, a map preset or generator switch, and a
+    browser and Map entry.
+- [ ] Each new start passes the scenario validator, the balance bot can win it, and it is deterministic.
+
+### Phase 53 — Lakes, Building on Water and Land Manipulation
+
+Replaces "Terrain elevation" and "Water as buildable terrain" under Future Candidates (owner request 2026-10-19).
+
+- [ ] **Lakes as a land type.** Today water is a flush, non-buildable ground kind (Phase 24). Make lakes a proper
+  feature of the map generator and the biomes: bigger connected bodies, shore tiles and a readable water look.
+- [ ] **Building on water through research.** A research project lets paths, rides and stalls stand on water. Each
+  water tile under a build costs extra (a multiplier in `GAME_CONFIG`, shown in the ghost price and the cursor
+  readout). Pathfinding and the plot rules treat a built water tile like land.
+- [ ] **Land manipulation.** Raise and lower the ground, and dig or fill lakes. This needs terrain height in the
+  world, the save format, both renderers (voxel at least, since classic is frozen), picking, paths on slopes, plot
+  footprints and coaster supports. It is the largest item here. Start with a design step that fixes the height model
+  (per tile corner or per tile, maximum height, slopes paths can take) before any code.
+
+### Phase 54 — Water Rides
+
+- [ ] Water rides on lakes (after Phase 53): rowing boats, a log flume, and later more (river rapids, a water
+  coaster from the Phase 39 candidates). Each has catalog data, research, voxel art, its own stats and wet-weather
+  behaviour (Phase 20: soaked guests). These are rides in a theme park, not the "water park" (pools and slides)
+  listed under Explicitly not now.
+
 ## Voxel Renderer (main renderer)
 
 The main renderer since 2026-10-06. The classic renderer stays the automatic fallback and is reachable with `?renderer=classic`. Architecture is under Renderers in ARCHITECTURE.md. It is a visual change on the fixed camera, not the "Full 3D" listed under not-now.
@@ -3298,8 +3385,7 @@ Ideas worth keeping, none of them commitments. Nothing here is scheduled, and an
 into a phase must first justify itself against the priority order — friction, readability,
 feedback, persistence, balancing, content, new systems.
 
-- Terrain elevation
-- Water as buildable terrain
+- ~~Terrain elevation~~ and ~~water as buildable terrain~~: now Phase 53 (owner request 2026-10-19)
 - More coaster piece types (banked turns, helices, brakes, block sections); the visual side of coasters is Phase 27
 - Custom queue paths, separate from walkways
 - Richer scenery theming, including themed zones that read as one place
