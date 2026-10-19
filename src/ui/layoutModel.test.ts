@@ -161,6 +161,8 @@ describe('anchors match the stylesheet', () => {
     expect(css).toContain(`--dock-reserve: ${ANCHORS.dockReserve}px;`);
     expect(ANCHORS.dockReserve).toBeGreaterThanOrEqual(ANCHORS.dockBottom + ANCHORS.dockHeight);
     expect(px(block('.help-hint'), 'bottom')).toBe(ANCHORS.dockReserve);
+    // The hint sits on the dock, so it goes with it: a closed dock leaves no line floating over the park.
+    expect(readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')).toContain('{dockOpen && <HelpHint />}');
     expect(css).toContain(`@container ui (max-height: ${ANCHORS.compactAtMostHeight}px)`);
   });
 

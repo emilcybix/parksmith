@@ -90,7 +90,7 @@ export const App = (): React.JSX.Element => {
           <SaveBanner />
           <Toast />
           <div className="clean-hideable" hidden={hudHidden} inert={menuKind !== null}>
-            <HelpHint />
+            {dockOpen && <HelpHint />}
             {dockOpen && <BuildDock />}
             <MenuBar />
           </div>
