@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–54, not started)
+## Owner Feedback 2026-10-19 (Phases 48–55, not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3236,6 +3236,17 @@ Replaces "Terrain elevation" and "Water as buildable terrain" under Future Candi
   coaster from the Phase 39 candidates). Each has catalog data, research, voxel art, its own stats and wet-weather
   behaviour (Phase 20: soaked guests). These are rides in a theme park, not the "water park" (pools and slides)
   listed under Explicitly not now.
+
+### Phase 55 — Zoom Out Further
+
+- [ ] Raise the maximum zoom-out. Today the voxel camera's zoom is a whole number of device pixels per texel, and the
+  furthest-out level is the smallest one whose low-res target fits `LOW_RES_TEXEL_BUDGET` (2.2 M texels,
+  `zoomLevelsFor` in `voxel/camera.ts`). There are two ways to go further: raise the budget (costs fill rate, so
+  re-measure the frame budget at 1,000 guests), or add fractional zoom levels below 1 texel per pixel by rendering
+  at a lower scale and downsampling. That also needs the outline width, the sub-texel snap and picking to work at
+  those levels. Whichever way is chosen, a 64 × 64 map should fit on a 1920 × 1080 screen at DPR 1. Also widen
+  `CLASSIC_MIN_ZOOM` if it is cheap (classic is frozen, so optional). Tests: the zoom levels in `camera.test.ts`
+  and the frame-cost budget.
 
 ## Voxel Renderer (main renderer)
 
