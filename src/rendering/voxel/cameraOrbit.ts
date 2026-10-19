@@ -53,6 +53,17 @@ const normalise = (x: number, y: number, z: number): [number, number, number] =>
   return [x / length, y / length, z / length];
 };
 
+/**
+ * Near and far planes of a perspective camera over a map `size` voxels across: the near plane just short of the nearest
+ * the map can come (two map sizes nearer than the target), never under 2 voxels. A far camera (a view turn frames the
+ * isometric picture from thousands of voxels away) with the near plane at 2 had too little depth precision to keep the
+ * soil 1 voxel under the grass from showing through it in stripes.
+ */
+export const perspectiveDepthPlanes = (pose: CameraPose, size: number): { near: number; far: number } => {
+  const distance = Math.hypot(pose.eye[0] - pose.target[0], pose.eye[1] - pose.target[1], pose.eye[2] - pose.target[2]);
+  return { near: Math.max(2, distance - 2 * size), far: distance + 12 * size };
+};
+
 export const viewProjection = (pose: CameraPose, aspect: number, fovYRadians: number, near: number, far: number, out: Float32Array): Float32Array => {
   const [ex, ey, ez] = pose.eye;
   const f = normalise(pose.target[0] - ex, pose.target[1] - ey, pose.target[2] - ez);

@@ -405,6 +405,10 @@ uniform float uHorizonY;
 uniform vec2 uNearFar;
 /** Fog start and end distance (voxels). */
 uniform vec2 uFog;
+/** 1 for a view turn: the isometric background (no sky) and a silhouette outline, so the turn keeps the map's look. */
+uniform float uIsoFrame;
+/** A neighbour this many voxels nearer (linear depth) is across a silhouette: well above the ~1.2 voxels a texel of ground spans at 30°. */
+const float VX_TURN_SILHOUETTE_VOXELS = 4.0;
 
 vec3 vxSky(float rowFraction) {
   float up = clamp((uHorizonY - rowFraction) / max(uHorizonY, 0.05), 0.0, 1.0);
@@ -417,13 +421,46 @@ float vxLinearDepth(float depth) {
   return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x));
 }
 
+/**
+ * The isometric look's silhouette, in linear depth: the far side of an edge (or background beside geometry) takes the
+ * outline colour of the nearest neighbour across it. Returns vec4(colour, 1) on an outline, else alpha 0.
+ */
+vec4 vxTurnOutline(ivec2 texel, float depth) {
+  float own = depth < 1.0 ? vxLinearDepth(depth) : 1e30;
+  float best = own - VX_TURN_SILHOUETTE_VOXELS;
+  ivec2 nearest = ivec2(0);
+  bool found = false;
+  ivec2 steps[4] = ivec2[4](VX_STEP_RIGHT, VX_STEP_LEFT, VX_STEP_DOWN, VX_STEP_UP);
+  for (int i = 0; i < 4; i += 1) {
+    float neighbour = vxTapDepth(texel + steps[i]);
+    if (neighbour >= 1.0) continue;
+    float linear = vxLinearDepth(neighbour);
+    if (linear < best) {
+      best = linear;
+      nearest = steps[i];
+      found = true;
+    }
+  }
+  if (!found) return vec4(0.0);
+  return vec4(clamp(vxGrade(mix(vxTapAlbedo(texel + nearest).rgb * uOutlineTint, VX_INK, uOutlineInkMix)), 0.0, 1.0), 1.0);
+}
+
 void main() {
   ivec2 texel = ivec2(gl_FragCoord.xy);
   float rowFraction = (gl_FragCoord.y) / uLowSize.y;
   float depth = texelFetch(uDepth, texel, 0).r;
   vec3 horizon = vxGrade(uSkyHorizon);
   vec4 color;
-  if (depth < 1.0) {
+  if (uIsoFrame > 0.5) {
+    vec4 outline = vxTurnOutline(texel, depth);
+    if (outline.a > 0.5) {
+      color = outline;
+    } else if (depth < 1.0) {
+      color = vec4(clamp(vxLook(texelFetch(uAlbedo, texel, 0), texelFetch(uGData, texel, 0)), 0.0, 1.0), 1.0);
+    } else {
+      color = vxBackground();
+    }
+  } else if (depth < 1.0) {
     vec3 lit = vxLook(texelFetch(uAlbedo, texel, 0), texelFetch(uGData, texel, 0));
     float fog = smoothstep(uFog.x, uFog.y, vxLinearDepth(depth));
     color = vec4(clamp(mix(lit, horizon, fog), 0.0, 1.0), 1.0);

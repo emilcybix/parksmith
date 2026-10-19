@@ -90,6 +90,8 @@ export interface CinematicView {
   zScale?: number;
   /** Distance fog and the sky (default on); a view turn, framed like the isometric view, has neither. */
   atmosphere?: boolean;
+  /** The grass skirt laid round the map so a low camera never sees past its edge (default on); a view turn shows the edge as the isometric view does. */
+  skirt?: boolean;
 }
 
 /**

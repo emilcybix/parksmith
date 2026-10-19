@@ -59,5 +59,6 @@ export const turnView = (target: readonly [number, number], azimuth: number, low
   out.fovY = TURN_FOV;
   out.zScale = ISO_Z_SCALE;
   out.atmosphere = false;
+  out.skirt = false;
   return out;
 };

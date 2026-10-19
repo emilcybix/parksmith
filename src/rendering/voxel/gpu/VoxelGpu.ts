@@ -89,7 +89,7 @@ import { WeatherUniformSync, type WeatherUniformTarget } from './weatherUniforms
 import { rgbToUnit } from './shaders/glsl';
 import { GpuPassTimer, PASS_COMPOSITE, PASS_GBUFFER, PASS_LIGHT, PASS_UPSCALE, type GpuPassTimings } from './timing';
 import { perspectiveCompositeShaderSource, perspectiveFigureShaderSource, perspectiveWorldShaderSource } from './shaders/perspective';
-import { horizonRow, viewProjection, type CinematicView } from '../cameraOrbit';
+import { horizonRow, perspectiveDepthPlanes, viewProjection, type CinematicView } from '../cameraOrbit';
 
 /**
  * The voxel renderer's GPU side (design §5–§7): every Pixi resource and every pass of a frame.
@@ -479,6 +479,7 @@ class PixiVoxelGpu implements VoxelGpu {
     uHorizonY: { value: 0.4, type: 'f32' },
     uNearFar: { value: vec2(), type: 'vec2<f32>' },
     uFog: { value: vec2(), type: 'vec2<f32>' },
+    uIsoFrame: { value: 0, type: 'f32' },
   });
   private perspectiveView: CinematicView | null = null;
   private perspectiveProgram: GlProgram | null = null;
@@ -1343,6 +1344,7 @@ class PixiVoxelGpu implements VoxelGpu {
     held.fovY = view.fovY;
     held.zScale = view.zScale ?? 1;
     held.atmosphere = view.atmosphere ?? true;
+    held.skirt = view.skirt ?? true;
   }
 
   get perspectiveOk(): boolean {
@@ -1438,8 +1440,7 @@ class PixiVoxelGpu implements VoxelGpu {
     const view = this.perspectiveView as CinematicView;
     const frame = this.frameUniforms.uniforms;
     const size = Math.max(this.cameraMapWidth, this.cameraMapHeight) * VOXELS_PER_TILE_SPIKE;
-    const near = 2;
-    const far = 12 * size;
+    const { near, far } = perspectiveDepthPlanes(view, size);
     const uniforms = this.perspectiveUniforms.uniforms;
     viewProjection(view, frame.uLowSize[0] / Math.max(1, frame.uLowSize[1]), view.fovY, near, far, uniforms.uViewProj);
     uniforms.uEye[0] = view.eye[0];
@@ -1454,6 +1455,8 @@ class PixiVoxelGpu implements VoxelGpu {
     const atmosphere = view.atmosphere ?? true;
     sky.uFog[0] = atmosphere ? 1.4 * size : far * 2;
     sky.uFog[1] = atmosphere ? 3.2 * size : far * 3;
+    // Without atmosphere (a view turn) the picture is framed like the isometric one: its background and outlines.
+    sky.uIsoFrame = atmosphere ? 0 : 1;
     const night = this.look.backgroundAlpha;
     const background = this.look.backgroundRgb;
     for (let channel = 0; channel < 3; channel += 1) {
@@ -1463,8 +1466,11 @@ class PixiVoxelGpu implements VoxelGpu {
     this.skyUniforms.update();
     const gl = this.renderer.gl;
     gl.viewport(0, 0, frame.uLowSize[0], frame.uLowSize[1]);
-    this.syncSkirt();
-    if (this.skirtShader !== null) this.drawBoxes(this.skirtShader, 1, this.opaque);
+    // A view turn starts and lands on the isometric picture, which shows the map's edge: no skirt hides it.
+    if (view.skirt !== false) {
+      this.syncSkirt();
+      if (this.skirtShader !== null) this.drawBoxes(this.skirtShader, 1, this.opaque);
+    }
     for (const chunk of this.chunks) {
       if (!chunk || chunk.count === 0) continue;
       const shader = chunk.perspectiveShader ?? (chunk.perspectiveShader = this.perspectiveShaderFor(chunk.source));

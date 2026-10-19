@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ISO_Z_SCALE, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
-import { viewProjection } from './cameraOrbit';
+import { perspectiveDepthPlanes, viewProjection } from './cameraOrbit';
+import { perspectiveCompositeShaderSource } from './gpu/shaders/perspective';
 import type { CinematicView } from '../RendererPort';
 import { projectX, projectY } from './contracts/space';
 
@@ -48,5 +49,33 @@ describe('Phase 41 step 3: smooth view turns', () => {
     expect(turnAzimuth(3, -3, 1)).toBeCloseTo(-3 + 2 * Math.PI, 9);
     expect(turnAzimuth(0, 1, 0)).toBe(0);
     expect(turnAzimuth(0, 1, 0.5)).toBeCloseTo(0.5, 9);
+  });
+
+  it('a turn keeps the isometric framing: no skirt over the map edge, no sky, outlines on (owner report 2026-10-19)', () => {
+    const view: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 0 };
+    turnView([1024, 1024], viewAzimuth(1), 400, view);
+    expect(view.skirt).toBe(false);
+    expect(view.atmosphere).toBe(false);
+    // The composite takes the isometric background and a silhouette outline when there is no atmosphere.
+    const fragment = perspectiveCompositeShaderSource().fragment;
+    expect(fragment).toContain('uniform float uIsoFrame;');
+    expect(fragment).toContain('vxTurnOutline(texel, depth)');
+    expect(fragment).toContain('vxBackground()');
+  });
+
+  it('a far turn camera keeps the depth precision to hold the soil 1 voxel under the grass', () => {
+    const view: CinematicView = { eye: [0, 0, 0], target: [0, 0, 0], fovY: 0 };
+    const size = 64 * 32;
+    turnView([size / 2, size / 2], viewAzimuth(0), 1600, view);
+    const { near, far } = perspectiveDepthPlanes(view, size);
+    const distance = Math.hypot(view.eye[0] - size / 2, view.eye[1] - size / 2, view.eye[2]);
+    // The whole map stays inside the planes...
+    expect(near).toBeLessThanOrEqual(distance - Math.SQRT2 * size);
+    expect(far).toBeGreaterThan(distance + Math.SQRT2 * size);
+    // ...and one step of a 24-bit depth buffer at the target is far under a voxel (it was about one at near = 2).
+    const step = (distance * distance) / (near * 2 ** 24);
+    expect(step).toBeLessThan(0.05);
+    // A close camera (the ride-along) keeps the 2-voxel near plane.
+    expect(perspectiveDepthPlanes({ eye: [10, 10, 10], target: [0, 0, 0] }, size).near).toBe(2);
   });
 });
