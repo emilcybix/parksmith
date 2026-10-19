@@ -120,7 +120,8 @@ describe('coaster track: random circuits', () => {
       let worst = 0;
       const holePieces = new Set<number>();
       for (let distance = 0; distance < line.totalLength; distance += 0.01) {
-        sampleCentreLine(line, distance, sample);
+        // The plain layout has no loops, so its spine is under the line without Phase 48's loop step.
+        sampleCentreLine(line, distance, sample, false);
         if (sample.ringAngle > 0) continue;
         const surface = top.get(key(Math.floor(sample.x * TILE), Math.floor(sample.y * TILE)));
         if (surface === undefined) { holes += 1; holePieces.add(sample.piece); continue; }

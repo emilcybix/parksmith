@@ -314,14 +314,18 @@ describe('coaster cars through a loop', () => {
       const segmentEnd = track.centreDistance[6];
       const head = 5 + (distance - segmentStart) / (segmentEnd - segmentStart);
       const [car] = trainAt(coaster, head, 1);
-      expect(Math.abs(length(minus(car.position, centre)) - 16), `step ${step}: on the ring (the chord midpoint sits a sagitta inside)`).toBeLessThan(0.4);
-      expect(car.position[1], `step ${step}: in the vertical plane of travel`).toBeCloseTo(base[1], 3);
+      // In the plane of travel: the ring drifts sideways (Phase 48), checked against the line just below.
+      expect(Math.abs(length(minus([car.position[0], base[1], car.position[2]], centre)) - 16), `step ${step}: on the ring (the chord midpoint sits a sagitta inside)`).toBeLessThan(0.4);
+      // Phase 48: the ring drifts sideways as it goes round (the exit leg lands beside the entry leg); the car follows
+      // the line's drift, and its up and left lean by at most the drift's 0.2 rad.
+      const drifted = linePoint(coaster.pieces, distance).position[1];
+      expect(Math.abs(car.position[1] - drifted), `step ${step}: on the drifting ring`).toBeLessThan(0.5);
       if (step > 0 && step < 400) {
-        const inward = minus(centre, car.position);
-        expectVector(car.up, [inward[0] / 16, inward[1] / 16, inward[2] / 16], `step ${step}: wheels on the running surface`, 1);
+        const inward = minus(centre, [car.position[0], base[1], car.position[2]]);
+        expect(dot(car.up, [inward[0] / 16, 0, inward[2] / 16]), `step ${step}: wheels on the running surface`).toBeGreaterThan(Math.cos(0.25));
         around += 1;
       }
-      expectVector(car.left, [0, 1, 0], `step ${step}: the yaw never changes in a straight loop`, 5);
+      expect(car.left[1], `step ${step}: the yaw stays within the drift in a straight loop`).toBeGreaterThan(Math.cos(0.25));
     }
     expect(around).toBe(399);
     const [before] = trainAt(coaster, 5.01, 1);
@@ -350,9 +354,10 @@ describe('coaster cars through a loop', () => {
       previous = angle;
     }
     expect(turned, 'once around the ring').toBeCloseTo(2 * Math.PI, 0);
-    expectVector(at(0.5).up, [0, 0, -1], 'upside down at the top', 5);
-    expectVector(at(0.5).forward, [-1, 0, 0], 'running backwards over the top', 5);
-    expectVector(at(0.25).forward, [0, 0, 1], 'nose straight up a quarter of the way round', 5);
+    // Within the ring's sideways drift (Phase 48: at most 0.2 rad, the most at the top).
+    expect(dot(at(0.5).up, [0, 0, -1]), 'upside down at the top').toBeGreaterThan(Math.cos(0.25));
+    expect(dot(at(0.5).forward, [-1, 0, 0]), 'running backwards over the top').toBeGreaterThan(Math.cos(0.25));
+    expect(dot(at(0.25).forward, [0, 0, 1]), 'nose straight up a quarter of the way round').toBeGreaterThan(Math.cos(0.25));
   });
 
   it('puts the ring base at the rail top of the exit edge, climbing or flat', () => {
@@ -362,7 +367,8 @@ describe('coaster cars through a loop', () => {
     expect(base[2], 'between the heights of pieces 3 and 4').toBeGreaterThan(18);
     expect(base[2]).toBeLessThan(31);
     const [climbing] = trainAt(coaster, 3.9, 1);
-    expect(climbing.left[2], 'a climb never rolls the car').toBeCloseTo(0, 2);
+    // Within the loop piece's sideways step (Phase 48), which tilts the chord a little out of the plan direction.
+    expect(climbing.left[2], 'a climb never rolls the car').toBeCloseTo(0, 1);
   });
 
   it('turns out of a loop into the corner without a pop: heading and position stay continuous', () => {

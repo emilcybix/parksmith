@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { COASTER_LEVEL_VOXELS, VOXELS_PER_TILE } from '../../rendering/voxel/contracts/space';
 import {
+  centreLineLoopLateral,
   CENTRE_LINE_BANK_MAX,
   CENTRE_LINE_CORNER_RADIUS,
   CENTRE_LINE_HALF_GAUGE,
   CENTRE_LINE_LOOP_RADIUS,
+  CENTRE_LINE_LOOP_SHIFT,
   CENTRE_LINE_SUPPORT_ALONG,
   CENTRE_LINE_SUPPORT_HALF_SPAN,
   CENTRE_LINE_TIE_OFFSET,
@@ -124,7 +126,14 @@ const joinsOf = (line: CentreLine): number[] => {
 
 /** A ring's base M and its plan forward, from the loop piece's exit edge. */
 const ringBase = (line: CentreLine, index: number): CentreLineSample =>
-  sampleCentreLine(line, line.tileStart[index] + line.tileLength[index], createCentreLineSample());
+  sampleUnshifted(line, line.tileStart[index] + line.tileLength[index], createCentreLineSample());
+
+/**
+ * Phase 48: a sample without its loop's sideways step (`loopShift` false), i.e. the line as it was before Phase 48. The
+ * shape tests below pin that line; 'centre line: Phase 48 loop legs' tests the step itself.
+ */
+const sampleUnshifted = (line: CentreLine, distance: number, out: CentreLineSample): CentreLineSample =>
+  sampleCentreLine(line, distance, out, false);
 
 describe('centre line constants', () => {
   it('agrees with the voxel space: a level is 13 of 32 voxels, a corner 16 voxels', () => {
@@ -172,16 +181,16 @@ describe('centre line: lengths and shape', () => {
         const start = line.tileStart[index];
         const cellX = line.cellX[index];
         const cellY = line.cellY[index];
-        sampleCentreLine(line, start, sample);
+        sampleUnshifted(line, start, sample);
         expect(sample.x, `${name} piece ${index} entry x`).toBeCloseTo(cellX + 0.5 - 0.5 * line.inX[index], 10);
         expect(sample.y, `${name} piece ${index} entry y`).toBeCloseTo(cellY + 0.5 - 0.5 * line.inY[index], 10);
-        sampleCentreLine(line, start + length, sample);
+        sampleUnshifted(line, start + length, sample);
         if (line.loop[index] === 0) {
           expect(sample.x, `${name} piece ${index} exit x`).toBeCloseTo(cellX + 0.5 + 0.5 * line.outX[index], 10);
           expect(sample.y, `${name} piece ${index} exit y`).toBeCloseTo(cellY + 0.5 + 0.5 * line.outY[index], 10);
         }
         for (let step = 0; step <= 40; step += 1) {
-          sampleCentreLine(line, start + (length * step) / 40, sample);
+          sampleUnshifted(line, start + (length * step) / 40, sample);
           expect(sample.x).toBeGreaterThanOrEqual(cellX - 1e-9);
           expect(sample.x).toBeLessThanOrEqual(cellX + 1 + 1e-9);
           expect(sample.y).toBeGreaterThanOrEqual(cellY - 1e-9);
@@ -241,8 +250,8 @@ describe('centre line: continuity', () => {
       const a = createCentreLineSample();
       const b = createCentreLineSample();
       for (let distance = 0; distance < line.totalLength; distance += 0.0137) {
-        sampleCentreLine(line, distance, a);
-        sampleCentreLine(line, distance + delta, b);
+        sampleUnshifted(line, distance, a);
+        sampleUnshifted(line, distance + delta, b);
         if (a.ringAngle === 0 && b.ringAngle === 0 && a.piece === b.piece) {
           expect(Math.hypot(b.x - a.x, b.y - a.y) / delta, `${name} at ${distance}`).toBeCloseTo(1, 4);
         } else if (a.ringAngle > 0 && b.ringAngle > 0) {
@@ -261,8 +270,8 @@ describe('centre line: continuity', () => {
       const b = createCentreLineSample();
       let worst = 0;
       for (let distance = 0; distance < line.totalLength; distance += step) {
-        sampleCentreLine(line, distance, a);
-        sampleCentreLine(line, distance + step, b);
+        sampleUnshifted(line, distance, a);
+        sampleUnshifted(line, distance + step, b);
         const move = norm3(b.x - a.x, b.y - a.y, (b.z - a.z) * COASTER_LEVEL_TILES);
         // Plan speed is 1 on track (less on a ring); the climb adds at most a slope's worth.
         expect(Math.hypot(b.x - a.x, b.y - a.y), `${name} plan position at ${distance}`).toBeLessThanOrEqual(step * 1.00001);
@@ -425,11 +434,11 @@ describe('centre line: loops', () => {
     const line = createCentreLine(loopOvalLayout(START));
     const sample = createCentreLineSample();
     const base = createCentreLineSample();
-    sampleCentreLine(line, line.tileStart[5] + line.tileLength[5], base);
+    sampleUnshifted(line, line.tileStart[5] + line.tileLength[5], base);
     const baseZ = base.z;
     let top = -Infinity;
     for (let step = 0; step < 64; step += 1) {
-      sampleCentreLine(line, line.tileStart[5] + line.tileLength[5] + (Math.PI * step) / 64, sample);
+      sampleUnshifted(line, line.tileStart[5] + line.tileLength[5] + (Math.PI * step) / 64, sample);
       expect(sample.ringAngle).toBeCloseTo((2 * Math.PI * step) / 64, 8);
       // On the circle of radius 1/2 centred a radius above the base, in the vertical plane.
       const along = (sample.x - base.x) * base.dirX + (sample.y - base.y) * base.dirY;
@@ -440,7 +449,7 @@ describe('centre line: loops', () => {
       top = Math.max(top, sample.z);
     }
     expect(top - baseZ).toBeCloseTo(1 / COASTER_LEVEL_TILES, 6);
-    sampleCentreLine(line, line.tileStart[6], sample);
+    sampleUnshifted(line, line.tileStart[6], sample);
     expect(Math.hypot(sample.x - base.x, sample.y - base.y)).toBeLessThan(1e-9);
     expect(sample.z).toBeCloseTo(baseZ, 9);
   });
@@ -648,7 +657,7 @@ describe('centre line: step-1 positions are pinned', () => {
       let ring = '';
       let ringCount = 0;
       for (let k = 0; k < 1000; k += 1) {
-        sampleCentreLine(line, (line.totalLength * k) / 1000, sample);
+        sampleUnshifted(line, (line.totalLength * k) / 1000, sample);
         const row = `${k}:${rounded(sample.x)},${rounded(sample.y)},${rounded(sample.z)},${rounded(sample.tangentX)},${rounded(sample.tangentY)},${rounded(sample.tangentZ)},${rounded(sample.pitch)};`;
         if (sample.ringAngle === 0) off += row;
         else { ring += row; ringCount += 1; }
@@ -820,7 +829,7 @@ describe('centre line: cross-section frame', () => {
       for (let distance = 0; distance < line.totalLength; distance += 0.0137) {
         sampleCentreLineFrame(line, distance, frame);
         expectFrameSane(frame, `${name} at ${distance}`);
-        if (frame.ringAngle === 0 && line.turn[frame.piece] === 0) {
+        if (frame.ringAngle === 0 && line.turn[frame.piece] === 0 && centreLineLoopLateral(line, frame) === 0) {
           expect(frame.roll).toBe(0);
           expect(frame.normalX).toBeCloseTo(-frame.dirY, 12);
           expect(frame.normalY).toBeCloseTo(frame.dirX, 12);
@@ -895,16 +904,17 @@ describe('centre line: cross-section frame', () => {
         const centreUp = CENTRE_LINE_LOOP_RADIUS * Math.cos(alpha);
         for (let step = 0; step < 48; step += 1) {
           sampleCentreLineFrame(line, line.tileStart[index] + line.tileLength[index] + (Math.PI * step) / 48, frame);
-          expect(frame.normalX).toBeCloseTo(-base.dirY, 12);
-          expect(frame.normalY).toBeCloseTo(base.dirX, 12);
-          expect(frame.normalZ).toBeCloseTo(0, 12);
+          // Phase 48: the ring drifts sideways, so N leans off the ring axis by the drift (under 0.2 rad).
+          expect(frame.normalX * -base.dirY + frame.normalY * base.dirX, 'N along the ring axis').toBeGreaterThan(Math.cos(0.2));
+          expect(Math.abs(frame.normalZ)).toBeLessThan(0.2);
           expect(frame.roll).toBe(0);
           // From the sample toward the centre, in tiles, along the ring plane's forward and up.
-          const toCentreAlong = centreAlong - ((frame.x - base.x) * base.dirX + (frame.y - base.y) * base.dirY);
+          const lateral = centreLineLoopLateral(line, frame);
+          const toCentreAlong = centreAlong - ((frame.x + frame.dirY * lateral - base.x) * base.dirX + (frame.y - frame.dirX * lateral - base.y) * base.dirY);
           const toCentreUp = centreUp - (frame.z - base.z) * COASTER_LEVEL_TILES;
           const upAlong = frame.upX * base.dirX + frame.upY * base.dirY;
-          expect(upAlong * CENTRE_LINE_LOOP_RADIUS).toBeCloseTo(toCentreAlong, 9);
-          expect(frame.upZ * CENTRE_LINE_LOOP_RADIUS).toBeCloseTo(toCentreUp, 9);
+          expect(upAlong * CENTRE_LINE_LOOP_RADIUS).toBeCloseTo(toCentreAlong, 1);
+          expect(frame.upZ * CENTRE_LINE_LOOP_RADIUS).toBeCloseTo(toCentreUp, 1);
         }
       }
     }
@@ -931,7 +941,7 @@ describe('centre line: round loops', () => {
         expect(line.tileStart[index + 1] - ringStart, `${name} loop ${index}: arc length`).toBeCloseTo(2 * Math.PI * radius, 12);
         for (let step = 0; step < 96; step += 1) {
           const theta = (2 * Math.PI * step) / 96;
-          sampleCentreLine(line, ringStart + theta * radius, sample);
+          sampleUnshifted(line, ringStart + theta * radius, sample);
           const along = (sample.x - base.x) * base.dirX + (sample.y - base.y) * base.dirY;
           const across = (sample.x - base.x) * -base.dirY + (sample.y - base.y) * base.dirX;
           const up = (sample.z - base.z) * COASTER_LEVEL_TILES;
@@ -945,10 +955,10 @@ describe('centre line: round loops', () => {
           expect(up).toBeCloseTo(radius * Math.sin(theta) * Math.sin(alpha) + radius * (1 - Math.cos(theta)) * Math.cos(alpha), 9);
         }
         // Entry and exit: the ramp's own tangent at M, on both sides, and the next piece's start.
-        const before = sampleCentreLine(line, ringStart - 1e-9, createCentreLineSample());
-        const entry = sampleCentreLine(line, ringStart + 1e-9, createCentreLineSample());
-        const exit = sampleCentreLine(line, line.tileStart[index + 1] - 1e-9, createCentreLineSample());
-        const after = sampleCentreLine(line, line.tileStart[index + 1] + 1e-9, createCentreLineSample());
+        const before = sampleUnshifted(line, ringStart - 1e-9, createCentreLineSample());
+        const entry = sampleUnshifted(line, ringStart + 1e-9, createCentreLineSample());
+        const exit = sampleUnshifted(line, line.tileStart[index + 1] - 1e-9, createCentreLineSample());
+        const after = sampleUnshifted(line, line.tileStart[index + 1] + 1e-9, createCentreLineSample());
         for (const [a, b, label] of [[before, entry, 'entry'], [exit, after, 'exit'], [entry, exit, 'entry vs exit']] as const) {
           expect(norm3(a.tangentX - b.tangentX, a.tangentY - b.tangentY, a.tangentZ - b.tangentZ), `${name} loop ${index} ${label} tangent`).toBeLessThan(1e-6);
           expect(norm3(a.x - b.x, a.y - b.y, (a.z - b.z) * COASTER_LEVEL_TILES), `${name} loop ${index} ${label} position`).toBeLessThan(1e-6);
@@ -1099,5 +1109,65 @@ describe('centre line: tie and support sampling', () => {
       }
     }
     expect(centreLineSupportDistance(createCentreLine([{ cell: { x: 1, y: 1 }, height: 0 }]), 0)).toBeCloseTo(CENTRE_LINE_SUPPORT_ALONG, 12);
+  });
+});
+
+describe('centre line: Phase 48 loop legs', () => {
+  it('runs the exit leg beside the entry leg: the loop piece steps aside, the ring drifts back, the next piece is untouched', () => {
+    const sample = createCentreLineSample();
+    for (const make of [loopOvalLayout.bind(null, START), loopOnClimbLayout, loopOnDropLayout]) {
+      const line = createCentreLine(make());
+      for (let index = 0; index < line.pieceCount; index += 1) {
+        if (line.loop[index] === 0) continue;
+        const side = line.loopSide[index];
+        expect(Math.abs(side)).toBe(1);
+        const ringStart = line.tileStart[index] + line.tileLength[index];
+        const across = (s: CentreLineSample): number => {
+          const centreX = line.cellX[index] + 0.5;
+          const centreY = line.cellY[index] + 0.5;
+          return (s.x - centreX) * -line.inY[index] + (s.y - centreY) * line.inX[index];
+        };
+        // Enters on the tile's axis, meets the ring S to the side, leaves the ring on the axis again.
+        sampleCentreLine(line, line.tileStart[index], sample);
+        expect(across(sample)).toBeCloseTo(0, 12);
+        sampleCentreLine(line, ringStart, sample);
+        expect(across(sample)).toBeCloseTo(side * CENTRE_LINE_LOOP_SHIFT, 12);
+        sampleCentreLine(line, line.tileStart[index + 1], sample);
+        expect(across(sample)).toBeCloseTo(0, 12);
+        // The legs near the ring's base are apart by more than the track's width (8 voxels).
+        for (const back of [2, 4, 6]) {
+          sampleCentreLine(line, ringStart - back / 32, sample);
+          const entry = across(sample);
+          sampleCentreLine(line, line.tileStart[index + 1] - Math.asin(back / 16) * CENTRE_LINE_LOOP_RADIUS, sample);
+          expect(Math.abs(across(sample) - entry) * 32, `loop ${index}: legs ${back} voxels back from the base`).toBeGreaterThan(7.5);
+        }
+      }
+    }
+  });
+
+  it('stays continuous in position and direction through the step and the drift, at most 11% faster than the plan', () => {
+    const step = 0.002;
+    const a = createCentreLineSample();
+    const b = createCentreLineSample();
+    for (const make of [loopOvalLayout.bind(null, START), loopOnClimbLayout, loopOnDropLayout]) {
+      const line = createCentreLine(make());
+      for (let distance = 0; distance < line.totalLength; distance += step) {
+        sampleCentreLine(line, distance, a);
+        sampleCentreLine(line, distance + step, b);
+        expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThanOrEqual(step * 1.11);
+        const dot = a.tangentX * b.tangentX + a.tangentY * b.tangentY + a.tangentZ * b.tangentZ;
+        expect(Math.acos(Math.min(1, dot))).toBeLessThanOrEqual(step * 5 + 1e-9);
+      }
+    }
+  });
+
+  it('steps toward the side the track turns next, so a mirrored layout mirrors its loops', () => {
+    const line = createCentreLine(loopOvalLayout(START));
+    for (let index = 0; index < line.pieceCount; index += 1) {
+      if (line.loop[index] === 0) continue;
+      let next = 0;
+      for (let step = 1; step < line.pieceCount && next === 0; step += 1) next = line.turn[(index + step) % line.pieceCount];
+      expect(line.loopSide[index]).toBe(next);
+    }
   });
 });

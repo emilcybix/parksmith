@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { centreLineFor, createCentreLineFrame, sampleCentreLineFrame } from '../../../game/coaster/centreLine';
 import { hillDipLayout, layoutFromMoves, ovalLayout } from '../../../game/coaster/testLayouts';
 import { COASTER_HANG_OFFSET_VOXELS, coasterHangOffset, coasterRailTopZ } from '../scene/coasterCars';
 import { BUILD_BY_ID, BUILD_CATALOG } from '../../../game/content/catalog';
@@ -159,5 +160,64 @@ describe('Phase 46: element art', () => {
         for (let b = a + 1; b < list.length; b += 1) expect(overlaps(list[a], list[b]), `piece ${index}: boxes ${a} and ${b}`).toBe(false);
       }
     }
+  });
+});
+
+describe('Phase 48: swept loop', () => {
+  const OVAL_MOVES = `${'E'.repeat(10)}${'S'.repeat(4)}${'W'.repeat(10)}${'N'.repeat(4)}`;
+  const OVAL_HEIGHTS = [0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 1, 0];
+  const cases: Array<[string, ReturnType<typeof layoutFromMoves>, number]> = [
+    ['flat', layoutFromMoves({ x: 2, y: 2 }, OVAL_MOVES, OVAL_HEIGHTS, { 6: 'loop' as never }), 6],
+    ['on a climb', layoutFromMoves({ x: 2, y: 2 }, OVAL_MOVES, OVAL_HEIGHTS, { 3: 'loop' as never }), 3],
+    ['into a turn', layoutFromMoves({ x: 2, y: 2 }, OVAL_MOVES, OVAL_HEIGHTS, { 9: 'loop' as never }), 9],
+  ];
+  const piecesOf = (layout: ReturnType<typeof layoutFromMoves>, index: number): Float32Array[] => {
+    const writer = new BoxWriter(64);
+    coasterContent.pieceBoxes(layout, index, BUILD_BY_ID.get('titan-hyper')!, palette, 1, writer);
+    return Array.from({ length: writer.count }, (_unused, box) => writer.data.slice(box * BOX_FLOATS, box * BOX_FLOATS + 8));
+  };
+  const filledAt = (boxes: readonly Float32Array[], x: number, y: number, z: number): boolean => boxes.some((box) =>
+    box[0] <= x && x < box[0] + box[4] && box[1] <= y && y < box[1] + box[5] && box[2] <= z && z < box[2] + box[6]);
+
+  it.each(cases)('%s: in its tile and the next, clear of the next piece, within budget, rails under the cars', (_name, layout, index) => {
+    const loop = piecesOf(layout, index);
+    const next = piecesOf(layout, index + 1);
+    const here = layout[index].cell;
+    const there = layout[index + 1].cell;
+    expect(loop.length, 'box allowance').toBeLessThanOrEqual(COASTER_PIECE_BOX_ALLOWANCE.plain + COASTER_PIECE_BOX_ALLOWANCE.loop
+      + 2 * COASTER_PIECE_BOX_ALLOWANCE.ramp + 4 * COASTER_PIECE_BOX_ALLOWANCE.bentPerLevel + COASTER_PIECE_BOX_ALLOWANCE.chain);
+    for (const box of loop) {
+      expect(box[0]).toBeGreaterThanOrEqual(Math.min(here.x, there.x) * 32);
+      expect(box[0] + box[4]).toBeLessThanOrEqual((Math.max(here.x, there.x) + 1) * 32);
+      expect(box[1]).toBeGreaterThanOrEqual(Math.min(here.y, there.y) * 32);
+      expect(box[1] + box[5]).toBeLessThanOrEqual((Math.max(here.y, there.y) + 1) * 32);
+    }
+    for (let a = 0; a < loop.length; a += 1) {
+      for (let b = a + 1; b < loop.length; b += 1) expect(overlaps(loop[a], loop[b]), `loop boxes ${a} and ${b}`).toBe(false);
+      for (const other of next) expect(overlaps(loop[a], other), `loop box ${a} and the next piece`).toBe(false);
+    }
+    // Along the loop piece and round its ring, a rail voxel within a voxel of each rail (3 either side along the frame).
+    const line = centreLineFor(layout);
+    const frame = createCentreLineFrame();
+    const start = line.tileStart[index];
+    const end = line.tileStart[index + 1];
+    let checked = 0;
+    for (let distance = start + 2 / 32; distance < end - 2 / 32; distance += 0.5 / 32) {
+      sampleCentreLineFrame(line, distance, frame);
+      for (const side of [-1, 1]) {
+        const x = frame.x * 32 + frame.normalX * side * 3;
+        const y = frame.y * 32 + frame.normalY * side * 3;
+        const z = coasterRailTopZ(frame.z) + frame.normalZ * side * 3;
+        let found = false;
+        for (let dx = -1; dx <= 1 && !found; dx += 1) {
+          for (let dy = -1; dy <= 1 && !found; dy += 1) {
+            for (let dz = -2; dz <= 1 && !found; dz += 1) found = filledAt(loop, Math.floor(x) + dx, Math.floor(y) + dy, Math.floor(z) + dz);
+          }
+        }
+        expect(found, `rail ${side} at arc ${(distance - start).toFixed(3)}`).toBe(true);
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(200);
   });
 });

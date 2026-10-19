@@ -176,7 +176,7 @@ describe('classic coaster rails and ties', () => {
     expect(withLoops.ties.length / 4).toBe(20 * 8 + 4 * 7 + 2 * 25);
   });
 
-  it('draws a loop ring as a closed circle of 32 segments with its rails offset by the constant ring axis', () => {
+  it('draws a loop ring as a circle of 32 segments drifting a step sideways, its rails offset along the ring axis', () => {
     const geometry = closed(loopOvalLayout(START));
     expect(geometry.spine).toHaveLength(3);
     expect(geometry.left).toHaveLength(3);
@@ -184,16 +184,20 @@ describe('classic coaster rails and ties', () => {
       const spine = geometry.spine[ring];
       const left = geometry.left[ring];
       expect(spine.length / 2).toBe(33);
-      expect(spine[0]).toBeCloseTo(spine[64], 6);
-      expect(spine[1]).toBeCloseTo(spine[65], 6);
+      // Phase 48: the ring comes down 10 voxels to the side of where it went up (the legs side by side): on screen
+      // that is 10/32 of a tile along the track's normal, (10, 5) px on the classic projection: 11.2 px.
+      const gap = Math.hypot(spine[0] - spine[64], spine[1] - spine[65]);
+      expect(gap).toBeCloseTo(Math.hypot(10, 5), 6);
       const offsetX = left[0] - spine[0];
       const offsetY = left[1] - spine[1];
       expect(Math.hypot(offsetX, offsetY)).toBeGreaterThan(1);
       for (let at = 0; at < spine.length; at += 2) {
-        expect(left[at] - spine[at]).toBeCloseTo(offsetX, 9);
-        expect(left[at + 1] - spine[at + 1]).toBeCloseTo(offsetY, 9);
+        // The ring axis leans by the drift (at most 0.2 rad), so the rail offset stays within a pixel.
+        expect(Math.abs(left[at] - spine[at] - offsetX)).toBeLessThan(1);
+        expect(Math.abs(left[at + 1] - spine[at + 1] - offsetY)).toBeLessThan(1);
       }
-      // A flat ring's screen extent: 2 · R · |(16 · forward, −32 · up)| = sqrt(16² + 32²) = 35.8 px for R = ½.
+      // A flat ring's screen extent: 2 · R · |(16 · forward, −32 · up)| = sqrt(16² + 32²) = 35.8 px for R = ½, plus up
+      // to the drift's 5 px on screen.
       let top = Infinity;
       let bottom = -Infinity;
       for (let at = 1; at < spine.length; at += 2) {
@@ -201,7 +205,7 @@ describe('classic coaster rails and ties', () => {
         bottom = Math.max(bottom, spine[at]);
       }
       expect(bottom - top).toBeGreaterThan(34);
-      expect(bottom - top).toBeLessThan(36);
+      expect(bottom - top).toBeLessThan(41);
     }
   });
 });

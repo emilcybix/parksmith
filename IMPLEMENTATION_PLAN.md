@@ -3156,15 +3156,39 @@ Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
 intended?"). Each gets an answer measured from the simulation before any tuning, and the answer is written here.
 
-### Phase 48 — Coaster Loop Through Its Own Track (bug)
+### Phase 48 — Coaster Loop Through Its Own Track (built 2026-10-19)
 
-- [ ] A vertical loop "goes into itself": the ring stands in the same lateral position as the track it starts and
-  ends on, so the train runs through its own rails. A real loop is offset sideways (the exit runs beside the entry).
-  Fix in the centre line (`centreLine.ts`, the loop sampler), so track, train, classic view and ride camera agree.
-  The loop's tile footprint and exclusivity rules must still hold. Check the voxel and classic art, the car poses and
-  the ride camera. Pin with a centre-line test (entry and exit apart sideways at the bottom) and a no-overlap test in
-  `coasterFamilies.test.ts`. Saved layouts keep their pieces. Only the drawn shape moves, so state whether the
-  golden stats change.
+- [x] A loop no longer runs into its own track. The entry and exit legs now run side by side, 10 voxels apart
+  (`CENTRE_LINE_LOOP_SHIFT`: the 8-voxel track plus a 2-voxel gap). The loop piece steps sideways along its own tile
+  (a smoothstep, so it enters on the tile's axis). The ring drifts back across while it goes round
+  (S · (1 − t + sin 2πt / 2π), flat at both ends) and comes down on the next piece's axis, so the next piece is
+  untouched. Each loop steps toward the side the track turns next (`loopSide`), so a turned or mirrored layout
+  turns or mirrors its loops with it. All of this is in the centre line (`centreLine.ts`), so the voxel track, the
+  classic view, the train and the ride camera follow without changes of their own. The frame is re-orthonormalised
+  where the drift tilts the tangent. Timing still follows the plan arc, as before.
+- [x] Voxel art: a loop piece and its ring are now swept together into one grid that covers the loop tile and the
+  next one (`emitSweptLoop` over a generalised `sweepTrack`). Before that, the next piece's own boxes are built into
+  scratch, so the ring keeps out of them and nothing overlaps. Chain dashes and the brake pad are swept too. A loop
+  piece gets no brake fin, because the stepping track may run where the fin would stand. Sections are taken at
+  half-steps, so a sample never lands on a voxel boundary along a straight.
+- [x] Costs:
+  - A loop is now up to 547 boxes over the plain piece (`BOX_BUDGET.coasterLoopRing` 560; the planar ring was 210).
+  - The step runs the cars up to 10% further apart than their arc, so the coupling halves grew from 8 to 9 voxels
+    (`COUPLING_HALF_LENGTH`, `COASTER_COUPLING_HALF_TILES`). The measured hitch distance is 9.45 to 16.5.
+  - Re-pinned baselines (the coaster chunk of the dev park, the colour test park's loop coaster, the coupling and
+    loop pieces in `objects-boxes-pre-step2.json`, the classic Skyline Serpent). In every case only the coaster
+    chunk, the coupling or the loop pieces changed.
+- [x] Tests:
+  - `centreLine.test.ts` 'Phase 48 loop legs': the legs are more than 7.5 voxels apart near the base, the line is
+    continuous, and the side rule holds.
+  - `coasterFamilies.test.ts` 'Phase 48: swept loop': boxes stay in the two tiles, nothing overlaps (also against
+    the next piece), the budget holds, and there are rails under the cars all the way round.
+  - The pre-Phase-48 shape pins sample with `loopShift` false (`sampleCentreLine`).
+  - The orientation test checks a loop's volume (within 2%) instead of its exact voxels, because the swept
+    rasterisation rounds differently when the layout is turned.
+  - Checked in headless Chromium in two views.
+- [ ] Not done: thinning the swept loop's box count (rectangles merge poorly along the step). Supports under the
+  step stand where the plain piece put them.
 
 ### Phase 49 — Litter, Vomit and Scenery Readability and Balance (questions first)
 

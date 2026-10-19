@@ -1,5 +1,5 @@
 {
- "_note": "Pre-Phase-24 StaticWorld chunk hashes (box count, chunkHash) of the default Meadow parks, captured BEFORE any biome change (REGISTRY content, view rotation in the key). The default must stay bit-identical.",
+ "_note": "Pre-Phase-24 StaticWorld chunk hashes (box count, chunkHash) of the default Meadow parks, captured BEFORE any biome change (REGISTRY content, view rotation in the key). The default must stay bit-identical. Phase 48 re-pinned the dev park's coaster chunk (index 4, same box count) for the 9-voxel coupling halves.",
  "entrance": {
   "boxes": 106,
   "sha": "eeb6bd8f939eed58"
@@ -152,7 +152,7 @@
    ],
    [
     369,
-    "71c396856b726e87"
+    "8bfca685a7729bc7"
    ],
    [
     1505,
@@ -218,7 +218,7 @@
    ],
    [
     369,
-    "c7b0c58518eff536"
+    "dcaa3585e13c028d"
    ],
    [
     1505,
@@ -284,7 +284,7 @@
    ],
    [
     369,
-    "81540705ff9c78b5"
+    "c2340705e8d8af22"
    ],
    [
     1505,
@@ -350,7 +350,7 @@
    ],
    [
     369,
-    "b9d86e05291973de"
+    "95986e05686a24e6"
    ],
    [
     1505,

@@ -1,5 +1,5 @@
 {
- "note": "StaticWorld.chunkHash of every chunk of the seeded dev park with REGISTRY content, captured BEFORE Phase 28 colour tags",
+ "note": "StaticWorld.chunkHash of every chunk of the seeded dev park with REGISTRY content, captured BEFORE Phase 28 colour tags Phase 48 re-pinned the coaster's chunk (index 4, same box count) for the 9-voxel coupling halves.",
  "chunkCount": 16,
  "totalBoxes": 15401,
  "hashes": [
@@ -7,7 +7,7 @@
   "060e1abdac1f1f15",
   "afd15b7d7f05a520",
   "028c01fdd3b23482",
-  "71c396856b726e87",
+  "8bfca685a7729bc7",
   "d7a7ee917c8452af",
   "1b55e8f43a425b13",
   "2bac01fd9e6d8053",

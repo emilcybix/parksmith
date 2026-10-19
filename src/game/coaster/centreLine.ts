@@ -39,6 +39,10 @@ import type { CoasterPiece } from './design';
  * cos α Z, ring(θ) = M + R sin θ F' + R (1 − cos θ) U', tangent pitch = α + θ, centre M + R U'.
  * On a flat run (α = 0) that is the plain ring. The ring adds its circumference to the arc length.
  * A loop on a turn is ignored, as the track content ignores it.
+ * Phase 48: the legs do not share a line. The loop piece steps sideways to S (S = CENTRE_LINE_LOOP_SHIFT, toward the side the
+ * track turns next: `loopSide`; a smoothstep over the piece), and the ring drifts from S back to 0 as it goes round
+ * (S (1 − t + sin 2πt / 2π) with t = θ / 2π, flat at both ends), so the exit leg comes down beside the entry leg and runs on
+ * along the next piece's axis. The arc length (timing) is the plan's, as before; the tangent includes the drift.
  *
  * Frame and banking (Phase 27 step 2). Every sample has a cross-section frame (`sampleCentreLineFrame`):
  * T the unit tangent, N the plan left of travel (−dirY, dirX, 0) — on a ring the ring's axis, so the
@@ -67,6 +71,14 @@ import type { CoasterPiece } from './design';
 export const CENTRE_LINE_CORNER_RADIUS = 0.5;
 /** Radius of a loop ring to the running surface, in tiles (16 voxels). */
 export const CENTRE_LINE_LOOP_RADIUS = 0.5;
+/**
+ * Phase 48 (owner report 2026-10-19: the loop "went into itself"): a loop's entry and exit legs run side by side, this
+ * far apart (10 voxels: the 8-voxel track and a 2-voxel gap). The loop piece steps over sideways along its
+ * own tile (a smoothstep, so it enters on the tile's axis; the side is `loopSide`), the ring drifts back across while it
+ * goes round, and the line leaves the ring on the tile's axis again: the next piece is untouched.
+ */
+export const CENTRE_LINE_LOOP_SHIFT = 10 / 32;
+
 /** One height level in tiles: 13 voxels over 32 per tile (contracts/space.ts COASTER_LEVEL_VOXELS). */
 export const COASTER_LEVEL_TILES = 13 / 32;
 /** Peak banking of a corner, radians (26 degrees: ±2 voxels over the 6-voxel gauge). */
@@ -85,6 +97,62 @@ export const CENTRE_LINE_SUPPORT_HALF_SPAN = 8 / 32;
 const HALF_PI = Math.PI / 2;
 const TURN_LENGTH = CENTRE_LINE_CORNER_RADIUS * HALF_PI;
 const RING_LENGTH = 2 * Math.PI * CENTRE_LINE_LOOP_RADIUS;
+
+/** Smoothstep 0 → 1 over `u` (clamped) and its derivative. */
+const smoothstep = (u: number): { value: number; slope: number } => {
+  const t = Math.min(1, Math.max(0, u));
+  return { value: t * t * (3 - 2 * t), slope: 6 * t * (1 - t) };
+};
+
+/** Phase 48: a sample's sideways offset (tiles, along the plan left of travel) and its rate per tile of arc. */
+interface LoopShift { lateral: number; rate: number }
+const SHIFT: LoopShift = { lateral: 0, rate: 0 };
+
+/**
+ * Phase 48: the loop shift at a point of loop piece `index` (`along` its plan arc) or, with `angle` > 0, of the ring after
+ * it: the piece eases from 0 to S · side, the ring drifts back to 0 (S · side · (1 − t + sin 2πt / 2π), t = θ / 2π, flat
+ * at both ends). 0 off a loop piece. Writes `SHIFT`.
+ */
+const loopShiftAt = (line: CentreLine, index: number, along: number, angle: number): LoopShift => {
+  SHIFT.lateral = 0;
+  SHIFT.rate = 0;
+  if (line.loop[index] !== 1) return SHIFT;
+  const entry = line.loopSide[index] * CENTRE_LINE_LOOP_SHIFT;
+  if (angle > 0) {
+    const t = angle / (2 * Math.PI);
+    SHIFT.lateral = entry * (1 - t + Math.sin(angle) / (2 * Math.PI));
+    SHIFT.rate = (-entry * (1 - Math.cos(angle))) / RING_LENGTH;
+  } else {
+    const length = line.tileLength[index];
+    const ease = smoothstep(along / length);
+    SHIFT.lateral = entry * ease.value;
+    SHIFT.rate = (entry * ease.slope) / length;
+  }
+  return SHIFT;
+};
+
+/**
+ * Phase 48: how far a sample was moved along the plan left of travel by its loop (tiles; 0 off a loop piece and its
+ * ring), from the sample's own piece, `along` and `ringAngle`.
+ */
+export const centreLineLoopLateral = (line: CentreLine, sample: Readonly<CentreLineSample>): number =>
+  loopShiftAt(line, sample.piece, sample.along, sample.ringAngle).lateral;
+
+/** Phase 48: moves a sample `lateral` tiles along the plan left of travel and tilts its tangent by the drift `rate`. */
+const applyLateral = (out: CentreLineSample, lateral: number, rate: number): void => {
+  const normalX = -out.dirY;
+  const normalY = out.dirX;
+  out.x += normalX * lateral;
+  out.y += normalY * lateral;
+  if (rate === 0) return;
+  const tx = out.tangentX + normalX * rate;
+  const ty = out.tangentY + normalY * rate;
+  const tz = out.tangentZ;
+  const norm = Math.sqrt(tx * tx + ty * ty + tz * tz);
+  out.tangentX = tx / norm;
+  out.tangentY = ty / norm;
+  out.tangentZ = tz / norm;
+};
 
 export interface CentreLine {
   /** Pieces on the line: a shuttle's line has two scratch pieces after its real ones (`realPieceCount`). */
@@ -109,6 +177,11 @@ export interface CentreLine {
   readonly turn: Int8Array;
   /** 1 where a loop ring follows piece i (a loop special on a straight piece). */
   readonly loop: Uint8Array;
+  /**
+   * Phase 48: which way loop piece i steps, as a multiple of the plan left of travel (0 off a loop): toward the side the
+   * track turns next (+1 left), so it reads the same on a turned or mirrored layout; +1 when nothing turns.
+   */
+  readonly loopSide: Int8Array;
   /** Plan length of piece i's own line: 1 on a straight, π/4 on a turn. */
   readonly tileLength: Float64Array;
   /** Arc length where piece i begins (its entry edge); `tileStart[pieceCount]` = totalLength. */
@@ -288,6 +361,19 @@ export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine =>
     }
   }
   const helix = helixPieces(turn, nodeHeight, count);
+  const loopSide = new Int8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    if (loop[index] === 0) continue;
+    let side = 1;
+    for (let step = 1; step < count; step += 1) {
+      const next = turn[(index + step) % count];
+      if (next !== 0) {
+        side = next;
+        break;
+      }
+    }
+    loopSide[index] = side;
+  }
   const line: CentreLine = {
     pieceCount: count,
     realPieceCount: count,
@@ -300,6 +386,7 @@ export const createCentreLine = (pieces: readonly CoasterPiece[]): CentreLine =>
     outY,
     turn,
     loop,
+    loopSide,
     tileLength,
     tileStart,
     centreDistance,
@@ -600,7 +687,7 @@ const pieceAt = (line: CentreLine, wrapped: number): number => {
  * argument, because V8 boxes a double that crosses a call it did not inline (a heap number per
  * call), which in a per-car per-frame loop is an allocation per car per frame.
  */
-export const resampleCentreLine = (line: CentreLine, out: CentreLineSample): CentreLineSample => {
+export const resampleCentreLine = (line: CentreLine, out: CentreLineSample, loopShift = true): CentreLineSample => {
   const distance = out.distance;
   const count = line.pieceCount;
   if (count === 0) {
@@ -629,6 +716,10 @@ export const resampleCentreLine = (line: CentreLine, out: CentreLineSample): Cen
     out.pitch = Math.atan(out.slope * COASTER_LEVEL_TILES);
     out.ringAngle = 0;
     setTangent(out);
+    if (loopShift) {
+      const shift = loopShiftAt(line, index, out.along, 0);
+      if (shift.lateral !== 0 || shift.rate !== 0) applyLateral(out, shift.lateral, shift.rate);
+    }
     return out;
   }
   // The loop ring after this piece: a vertical circle in the plane of travel on its exit edge M,
@@ -654,16 +745,21 @@ export const resampleCentreLine = (line: CentreLine, out: CentreLineSample): Cen
   out.pitch = entryPitch + angle;
   out.ringAngle = angle;
   setTangent(out);
+  if (loopShift) {
+    const drift = loopShiftAt(line, index, length, angle);
+    applyLateral(out, drift.lateral, drift.rate);
+  }
   return out;
 };
 
 /**
  * Samples the centre line at arc length `distance` (any value, wrapped onto the circuit and stored
- * wrapped in `out.distance`). An empty layout samples the origin. Allocation-free.
+ * wrapped in `out.distance`). An empty layout samples the origin. Allocation-free. `loopShift` false leaves out
+ * Phase 48's sideways loop step (the line as it was before it; the shape tests pin that).
  */
-export const sampleCentreLine = (line: CentreLine, distance: number, out: CentreLineSample): CentreLineSample => {
+export const sampleCentreLine = (line: CentreLine, distance: number, out: CentreLineSample, loopShift = true): CentreLineSample => {
   out.distance = distance;
-  return resampleCentreLine(line, out);
+  return resampleCentreLine(line, out, loopShift);
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -774,6 +870,24 @@ export const resampleCentreLineFrame = (line: CentreLine, out: CentreLineFrame):
   out.upX = cosine * upX - sine * normalX;
   out.upY = cosine * upY - sine * normalY;
   out.upZ = cosine * upZ;
+  // Phase 48: a loop's sideways drift tilts the tangent out of the plan direction; N is made perpendicular to it again
+  // (Gram–Schmidt) and B = T × N, so the cross-section stays square to the track. Exact no-op everywhere else.
+  const lean = out.normalX * out.tangentX + out.normalY * out.tangentY + out.normalZ * out.tangentZ;
+  if (lean !== 0 && loopShiftAt(line, out.piece, out.along, out.ringAngle).rate !== 0) {
+    let nx = out.normalX - lean * out.tangentX;
+    let ny = out.normalY - lean * out.tangentY;
+    let nz = out.normalZ - lean * out.tangentZ;
+    const norm = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    nx /= norm;
+    ny /= norm;
+    nz /= norm;
+    out.normalX = nx;
+    out.normalY = ny;
+    out.normalZ = nz;
+    out.upX = out.tangentY * nz - out.tangentZ * ny;
+    out.upY = out.tangentZ * nx - out.tangentX * nz;
+    out.upZ = out.tangentX * ny - out.tangentY * nx;
+  }
   return out;
 };
 

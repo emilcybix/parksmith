@@ -308,8 +308,9 @@ describe('coaster structure review: rails, ties and chain', () => {
     let samples = 0;
     for (const [name, pieces] of CIRCUITS) {
       const boxes = built(pieces);
-      const rails = boxes.filter((box) => isRail(box));
       const line = centreLineFor(pieces);
+      // A swept loop piece's rail boxes stack two voxels where the rail layer climbs.
+      const rails = boxes.filter((box) => isRail(box) || (box.material === LOOK.rail && line.loop[box.piece] === 1 && box.z1 - box.z0 <= 2));
       const byPiece = new Map<number, Box[]>();
       for (const rail of rails) byPiece.set(rail.piece, [...(byPiece.get(rail.piece) ?? []), rail]);
       for (let index = 0; index < pieces.length; index += 1) {
@@ -325,8 +326,10 @@ describe('coaster structure review: rails, ties and chain', () => {
           for (const side of [1, -1]) {
             const across = side * CENTRE_LINE_HALF_GAUGE;
             const lift = Math.round(centreLineBankLift(across, roll) * TILE);
-            const px = Math.floor((frame.x - frame.dirY * across) * TILE);
-            const py = Math.floor((frame.y + frame.dirX * across) * TILE);
+            // Phase 48: a loop piece steps aside, so its rails sit along the frame's own normal, not the tile's.
+            const loop = line.loop[index] === 1;
+            const px = Math.floor((frame.x + (loop ? frame.normalX : -frame.dirY) * across) * TILE);
+            const py = Math.floor((frame.y + (loop ? frame.normalY : frame.dirX) * across) * TILE);
             let found = false;
             for (let dz = -2; dz <= 1 && !found; dz += 1) {
               for (let dx = -1; dx <= 1 && !found; dx += 1) {
@@ -402,6 +405,8 @@ describe('coaster structure review: rails, ties and chain', () => {
       for (let index = 0; index < pieces.length; index += 1) {
         const dashes = boxes.filter((box) => box.piece === index && box.material === MAT.FENCE_RAIL);
         const brake = index === pieces.length - 1;
+        // Phase 48: a loop piece is swept, off the tile's axis (coasterFamilies.test.ts 'Phase 48: swept loop' checks it).
+        if (line.loop[index] === 1) continue;
         for (const dash of dashes) {
           expect(dash.z1 - dash.z0, `${name} piece ${index}: ${describeBox(dash)} in the rail layer`).toBe(1);
           for (let x = dash.x0; x < dash.x1; x += 1) {
@@ -574,19 +579,32 @@ const difference = (a: Set<string>, b: Set<string>): string[] => [...a].filter((
 describe('coaster structure review: orientation', () => {
   it('builds the same track voxels (rails, ties, spine, chain, brake pad) for a layout turned by a quarter, half and three quarters, and mirrored', () => {
     const subjects = CIRCUITS.slice(0, 25);
+    let loopsChecked = 0;
     for (const [name, pieces] of subjects) {
-      const original = built(pieces).filter((box) => (isRail(box) || isTie(box) || isSpine(box) || box.material === MAT.FENCE_RAIL || box.material === MAT.CONCRETE) && box.piece >= STATION_LENGTH);
+      // Phase 48: a loop piece is swept along its rolled frame, which rounds a voxel either way where a turned layout's
+      // floating point lands on a voxel boundary: its volume is checked (within 2 %) instead of its exact voxels.
+      const loop = centreLineFor(pieces).loop;
+      const original = built(pieces).filter((box) => (isRail(box) || isTie(box) || isSpine(box) || box.material === MAT.FENCE_RAIL || box.material === MAT.CONCRETE) && box.piece >= STATION_LENGTH && loop[box.piece] === 0);
       const expected = voxelKeys(original);
+      const loopVolume = (boxes: readonly Box[]): number => boxes.filter((box) => loop[box.piece] === 1 && box.piece >= STATION_LENGTH)
+        .reduce((sum, box) => sum + (box.x1 - box.x0) * (box.y1 - box.y0) * (box.z1 - box.z0), 0);
+      const originalLoops = loopVolume(built(pieces));
       for (const transform of TRANSFORMS) {
         const turned = pieces.map((piece): CoasterPiece => ({ ...piece, cell: transform.cell(piece.cell) }));
-        const actual = voxelKeys(buildAll(turned).filter((box) => (isRail(box) || isTie(box) || isSpine(box) || box.material === MAT.FENCE_RAIL || box.material === MAT.CONCRETE) && box.piece >= STATION_LENGTH));
+        const turnedBoxes = buildAll(turned);
+        const actual = voxelKeys(turnedBoxes.filter((box) => (isRail(box) || isTie(box) || isSpine(box) || box.material === MAT.FENCE_RAIL || box.material === MAT.CONCRETE) && box.piece >= STATION_LENGTH && loop[box.piece] === 0));
         const mapped = voxelKeys(original.map(transform.box));
         const missing = difference(mapped, actual);
         const extra = difference(actual, mapped);
         expect(missing.length + extra.length, `${name} ${transform.name}: ${missing.length} track voxels missing, ${extra.length} extra (e.g. ${missing[0] ?? extra[0]})`).toBe(0);
         expect(actual.size).toBe(expected.size);
+        if (originalLoops > 0) {
+          loopsChecked += 1;
+          expect(Math.abs(loopVolume(turnedBoxes) - originalLoops) / originalLoops, `${name} ${transform.name}: loop volume`).toBeLessThan(0.02);
+        }
       }
     }
+    expect(loopsChecked).toBeGreaterThan(0);
   });
 
   // FINDING (step 2 review): a bent's legs are rasterised with floor(centre) − 1, which is not

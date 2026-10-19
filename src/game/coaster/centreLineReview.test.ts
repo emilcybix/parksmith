@@ -11,6 +11,7 @@ import {
   centreLineTieCount,
   createCentreLineFrame,
   createCentreLineSample,
+  centreLineLoopLateral,
   sampleCentreLine,
   sampleCentreLineFrame,
 } from './centreLine';
@@ -207,7 +208,14 @@ describe('centre line review: loops', () => {
         const ringStart = line.tileStart[index] + line.tileLength[index];
         const ringEnd = line.tileStart[index + 1];
         expect(ringEnd - ringStart).toBeCloseTo(2 * Math.PI * CENTRE_LINE_LOOP_RADIUS, 9);
+        // Phase 48: the ring drifts sideways (centreLineLoopLateral); the circle is checked with the drift taken out.
+        const unshift = (): void => {
+          const lateral = centreLineLoopLateral(line, sample);
+          sample.x += sample.dirY * lateral;
+          sample.y -= sample.dirX * lateral;
+        };
         sampleCentreLine(line, ringStart, sample);
+        unshift();
         const base = { x: sample.x, y: sample.y, z: sample.z * COASTER_LEVEL_TILES, dirX: sample.dirX, dirY: sample.dirY };
         const pitch = line.ringEntryPitch[index];
         if (Math.abs(pitch) > 0.05) ramped += 1;
@@ -219,6 +227,7 @@ describe('centre line review: loops', () => {
         };
         for (let step = 1; step < 128; step += 1) {
           sampleCentreLine(line, ringStart + ((ringEnd - ringStart) * step) / 128, sample);
+          unshift();
           const z = sample.z * COASTER_LEVEL_TILES;
           const distance = Math.hypot(sample.x - centre.x, sample.y - centre.y, z - centre.z);
           expect(distance, `${name} loop ${index} step ${step}: on the circle`).toBeCloseTo(radius, 9);

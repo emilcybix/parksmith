@@ -62,7 +62,8 @@ describe('centre line fuzz', () => {
         worstTurn = Math.max(worstTurn, Math.acos(Math.min(1, dot)) / step);
       }
       expect(finite, name).toBe(true);
-      expect(worstPlan, `${name} plan jump`).toBeLessThanOrEqual(1.0001);
+      // Phase 48: a loop piece's sideways step runs up to 11% faster than its plan arc (the timing stays the plan's).
+      expect(worstPlan, `${name} plan jump`).toBeLessThanOrEqual(1.11);
       expect(worstZ, `${name} z jump`).toBeLessThan(2.5);
       expect(worstTurn, `${name} tangent kink (rad per tile)`).toBeLessThan(9);
       // The seam: tangent and position match across the lap start.
@@ -125,7 +126,8 @@ describe('centre line fuzz', () => {
           const up = (frame.z - base.z) * COASTER_LEVEL_TILES;
           expect(Math.hypot(along + radius * Math.sin(alpha), up - radius * Math.cos(alpha)), `${name} ring ${index} circle`).toBeCloseTo(radius, 9);
           expect(frame.pitch, `${name} ring ${index} pitch`).toBeCloseTo(alpha + (2 * Math.PI * step) / 40, 9);
-          expect(frame.normalZ, `${name} ring ${index} axis`).toBeCloseTo(0, 12);
+          // Phase 48: the ring's sideways drift leans N off the horizontal axis a little.
+          expect(Math.abs(frame.normalZ), `${name} ring ${index} axis`).toBeLessThan(0.2);
         }
       }
     }

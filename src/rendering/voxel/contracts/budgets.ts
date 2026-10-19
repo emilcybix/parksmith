@@ -52,7 +52,8 @@ export const BOX_BUDGET = {
   coasterBentPerLevel: 10,
   coasterTurnPiece: 92,
   coasterRampedTurnPiece: 130,
-  coasterLoopRing: 210,
+  /** Phase 48: the loop piece's track and its ring swept together (the legs side by side); measured up to 547 over the plain piece, its ramps and bents (a ramped loop; the planar ring was 210). */
+  coasterLoopRing: 560,
   coasterCar: 48,
   /** One car's riders (up to four seats of 4 boxes; measured 9 at most). */
   coasterRiders: 16,

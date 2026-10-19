@@ -21,8 +21,7 @@ import { colourSlotsFor, type ColourSlotId } from '../../../game/content/colours
 import { GUEST_COLORS } from '../../../game/guests/GuestSimulation';
 import type { BuildDefinition, Cell } from '../../../game/types';
 import type { Blueprint, Shape } from '../contracts/blueprint';
-import { BOX_FLOATS, packBoxWord } from '../contracts/boxes';
-import type { BoxWriter } from '../contracts/boxes';
+import { BOX_FLOATS, BoxWriter, packBoxWord } from '../contracts/boxes';
 import { BOX_BUDGET } from '../contracts/budgets';
 import type { CoasterContent } from '../contracts/content';
 import { MAT, MATERIAL_EMPTY, PATTERN, SKIN_MATERIALS } from '../contracts/palette';
@@ -79,13 +78,11 @@ import { COASTER_LOOP_RADIUS_VOXELS, coasterRailTopZ } from '../scene/coasterCar
  * bracing cross the along-track corridor only at z ≥ 23, above a walking guest. The rotated strip
  * of a corner's bent is rasterised per column.
  *
- * Loop ring (a loop special on a straight piece): the centre line's ring, a circle of radius 16 in
- * the vertical plane of travel on the piece's exit edge M, rotated by the track's pitch α there
- * (`ringEntryPitch`), so its centre is M + 16 · (−sin α, cos α) in (along, up) and the ring enters
- * and leaves along the ramp's own tangent (the step-1 kink is gone). Cross-section as the straight
- * track bent round: rails in the annulus [16, 18) at |across| ∈ [2, 4), ties as radial bars every 4
- * voxels of arc at |across| < 2, the spine in [18, 20) at |across| < 1. Voxels at or under the
- * straight track's rail top are left to the straight track, so nothing overlaps.
+ * Loop ring (a loop special on a straight piece): the centre line's ring, a circle of radius 16 in the vertical plane
+ * of travel on the piece's exit edge M, rotated by the track's pitch α there (`ringEntryPitch`). Phase 48: the loop
+ * piece steps sideways into it and the ring drifts back as it goes round, so the legs run side by side. The piece and
+ * its ring are swept together (`emitSweptLoop`): the ordinary cross-section (rails, ties, spine, chain, brake) is laid
+ * along the line's frame into one grid over the loop tile and the next, kept out of the next piece's own boxes.
  *
  * Station (the first GAME_CONFIG.coaster.stationLength pieces, level 0): a stone platform from the
  * grass up to the rail top with an accent edge beside the track, a striped canopy with an accent valance hung with glowing bulbs,
@@ -174,8 +171,6 @@ const WALK_CENTRE_RADIUS = 4;
 export const LOOP_RAIL_RADIUS = COASTER_LOOP_RADIUS_VOXELS;
 export const LOOP_RAIL_THICKNESS = 2;
 export const LOOP_OUTER_RADIUS = LOOP_RAIL_RADIUS + TRACK_DEPTH;
-/** The ring's grid reaches this far either way along travel from its base M (the rotated centre shifts ≤ 9). */
-const LOOP_REACH = 30;
 
 /** Boost chevrons: tips every 8 voxels along the piece, between the rails. */
 const CHEVRON_TIPS: readonly number[] = [-10, -2, 6, 14];
@@ -454,7 +449,6 @@ const createPieceFrame = (): PieceFrame => ({
 });
 
 const FRAME = createPieceFrame();
-const NEXT_FRAME = createPieceFrame();
 const STATION_FRAME = createPieceFrame();
 
 /** Unit step x from one cell toward another (a malformed layout still gets an axis, never NaN). */
@@ -911,125 +905,6 @@ const emitSupports = (frame: PieceFrame, look: CoasterLook, out: BoxWriter, latt
 };
 
 // ---------------------------------------------------------------------------------------------
-// Loop ring
-
-const LOOP_COLUMNS = 2 * LOOP_REACH;
-const LOOP_ROWS = 2 * LOOP_OUTER_RADIUS + 3;
-/** Columns of the ring's plane counted from this piece's centre along travel. */
-const LOOP_FIRST_COLUMN = HALF_TILE - LOOP_REACH;
-const LOOP_TOPS = new Int32Array(LOOP_COLUMNS);
-
-const NEXT_COLUMN_TOP = new Int32Array(TILE * TILE);
-const NEXT_COLUMN_FLAGS = new Uint8Array(TILE * TILE);
-const NEXT_COLUMN_TOP_KIND = new Uint8Array(TILE * TILE);
-const ARM_COLUMNS = HALF_TILE;
-
-/**
- * Rail top of the track under column `column` of the loop's plane, counted from this piece's centre
- * along travel (−14 … 45): the straight piece's own line up to its exit edge, then the next piece's
- * columns under the ring's far half — the highest track column within the ring's width, so a next
- * piece that turns away or climbs never reaches into the ring (and the ring is cut only where
- * track really is).
- */
-const trackTopAlongLoop = (frame: PieceFrame, nextFrame: PieceFrame, column: number): number => {
-  if (column < ARM_COLUMNS) return railTopAt(frame, 0.5 + (column + 0.5) / TILE);
-  const along = column - ARM_COLUMNS;
-  // The straight continuation of the line: right for a straight next piece, a lower bound otherwise.
-  let top = railTopAt(nextFrame, (along + 0.5) / TILE);
-  const forwardSign = nextFrame.inX + nextFrame.inY;
-  const acrossIsY = nextFrame.inX !== 0;
-  const position = forwardSign > 0 ? along : TILE - 1 - along;
-  for (let across = -TRACK_HALF_WIDTH; across < TRACK_HALF_WIDTH; across += 1) {
-    const x = acrossIsY ? position : HALF_TILE + across;
-    const y = acrossIsY ? HALF_TILE + across : position;
-    if (NEXT_COLUMN_FLAGS[y * TILE + x] & FLAG_BAND) top = Math.max(top, NEXT_COLUMN_TOP[y * TILE + x]);
-  }
-  return top;
-};
-
-const RING_RAILS = 0;
-const RING_TIES = 1;
-const RING_SPINE = 2;
-
-/**
- * The loop ring of a loop piece: the centre line's circle of radius 16 in the vertical plane of
- * travel, rotated by the track's pitch α at its base M (the rail top on the piece's exit edge), so
- * the ring's centre is M + 16 · (−sin α, cos α) in (along, up) and the ring enters and leaves along
- * the ramp's tangent. In the ring's plane, three passes over its (along, z) grid: the rails (annulus
- * [16, 18), |across| ∈ [2, 4)), the ties (the same annulus at |across| < 2, a radial bar every 4
- * voxels of arc) and the spine ([18, 20), |across| < 1). Voxels at or below the straight track's
- * rail top are left to the straight track, so nothing overlaps.
- */
-const emitLoopRing = (pieces: readonly CoasterPiece[], index: number, frame: PieceFrame, look: CoasterLook, out: BoxWriter): void => {
-  const next = readPiece(pieces, index + 1, NEXT_FRAME);
-  layoutBand(next, pieces, NEXT_COLUMN_FLAGS, NEXT_COLUMN_TOP, NEXT_COLUMN_TOP_KIND);
-  // M, the ring's base: the line's rail top on the exit edge, where the cars run in and out.
-  centreLineHeightAt(frame.line, frame.line.groundStart[index + 1], HEIGHT);
-  const baseZ = coasterRailTopZ(HEIGHT.z);
-  const pitch = frame.line.ringEntryPitch[index];
-  const pitchCos = Math.cos(pitch);
-  const pitchSin = Math.sin(pitch);
-  const centreAlong = -LOOP_RAIL_RADIUS * pitchSin;
-  const centreZ = baseZ + LOOP_RAIL_RADIUS * pitchCos;
-  const firstRow = Math.floor(centreZ - LOOP_OUTER_RADIUS) - 1;
-  for (let column = 0; column < LOOP_COLUMNS; column += 1) {
-    LOOP_TOPS[column] = trackTopAlongLoop(frame, next, LOOP_FIRST_COLUMN + column);
-  }
-  const railInner = LOOP_RAIL_RADIUS * LOOP_RAIL_RADIUS;
-  const railOuter = (LOOP_RAIL_RADIUS + LOOP_RAIL_THICKNESS) * (LOOP_RAIL_RADIUS + LOOP_RAIL_THICKNESS);
-  const outer = LOOP_OUTER_RADIUS * LOOP_OUTER_RADIUS;
-  const railWord = packBoxWord(look.rail, frame.outlineGroup, PATTERN.PLAIN, 0);
-  const tieWord = packBoxWord(look.tie, frame.outlineGroup, PATTERN.PLAIN, 0);
-  const spineWord = packBoxWord(look.spine, frame.outlineGroup, PATTERN.PLAIN, 0);
-  const alongX = frame.outX;
-  const alongY = frame.outY;
-  const acrossX = frame.outY !== 0 ? 1 : 0;
-  const acrossY = frame.outX !== 0 ? 1 : 0;
-  const railInnerAcross = TRACK_HALF_WIDTH - RAIL_WIDTH;
-  const tieHalfArc = 0.75;
-  for (let pass = RING_RAILS; pass <= RING_SPINE; pass += 1) {
-    const from = pass === RING_SPINE ? railOuter : railInner;
-    const to = pass === RING_SPINE ? outer : railOuter;
-    for (let row = 0; row < LOOP_ROWS; row += 1) {
-      const z = firstRow + row;
-      const dz = z + 0.5 - centreZ;
-      for (let column = 0; column < LOOP_COLUMNS; column += 1) {
-        // The ring's base M sits on the tile edge, 16 columns from this piece's centre.
-        const along = LOOP_FIRST_COLUMN + column + 0.5 - HALF_TILE - centreAlong;
-        const distance = along * along + dz * dz;
-        let inRing = z >= LOOP_TOPS[column] && distance >= from && distance < to;
-        if (inRing && pass === RING_TIES) {
-          // Angle round the ring from its base, in the rotated plane: a tie every 4 voxels of arc.
-          const forward = along * pitchCos + dz * pitchSin;
-          const up = -along * pitchSin + dz * pitchCos;
-          let angle = Math.atan2(forward, -up);
-          if (angle < 0) angle += 2 * Math.PI;
-          const arc = (angle * LOOP_RAIL_RADIUS) % TIE_PERIOD;
-          inRing = arc < tieHalfArc || arc > TIE_PERIOD - tieHalfArc;
-        }
-        GRID_KEYS[row * LOOP_COLUMNS + column] = inRing ? 1 : EMPTY;
-      }
-    }
-    const count = mergeRectangles(LOOP_COLUMNS, LOOP_ROWS);
-    for (let rectangle = 0; rectangle < count; rectangle += 1) {
-      const at = rectangle * RECT_STRIDE;
-      const alongFrom = LOOP_FIRST_COLUMN + RECTS[at];
-      const alongTo = LOOP_FIRST_COLUMN + RECTS[at + 1];
-      const z = firstRow + RECTS[at + 2];
-      const height = RECTS[at + 3] - RECTS[at + 2];
-      if (pass === RING_RAILS) {
-        pushTileBox(frame, alongX, alongY, alongFrom, alongTo, acrossX, acrossY, -TRACK_HALF_WIDTH, -railInnerAcross, z, height, railWord, out);
-        pushTileBox(frame, alongX, alongY, alongFrom, alongTo, acrossX, acrossY, railInnerAcross, TRACK_HALF_WIDTH, z, height, railWord, out);
-      } else if (pass === RING_TIES) {
-        pushTileBox(frame, alongX, alongY, alongFrom, alongTo, acrossX, acrossY, -railInnerAcross, railInnerAcross, z, height, tieWord, out);
-      } else {
-        pushTileBox(frame, alongX, alongY, alongFrom, alongTo, acrossX, acrossY, -SPINE_HALF_WIDTH, SPINE_HALF_WIDTH, z, height, spineWord, out);
-      }
-    }
-  }
-};
-
-// ---------------------------------------------------------------------------------------------
 // Station
 
 /** Side (±1 along the positive axis across the station) a turned station arm leaves toward, or 0. */
@@ -1159,6 +1034,9 @@ const emitBrakeFin = (pieces: readonly CoasterPiece[], frame: PieceFrame, out: B
 const SWEPT_SPINE = 1;
 const SWEPT_TIE = 2;
 const SWEPT_RAIL = 3;
+/** Phase 48: the decorations of a swept loop piece, in the rail layer between the rails (as layoutBand lays them). */
+const SWEPT_CHAIN = 4;
+const SWEPT_BRAKE = 5;
 /** Arc between cross-sections and between points of a cross-section, voxels. */
 const SWEPT_STEP = 0.5;
 let SWEPT_GRID = new Uint8Array(TILE * TILE * 64);
@@ -1173,65 +1051,104 @@ const SWEPT_FRAME = createCentreLineFrame();
  * (`COLUMN_FLAGS` / `COLUMN_TOP`) with the lowest track voxel per column, so a support bent meets it from below.
  */
 const emitSweptPiece = (frame: PieceFrame, look: CoasterLook, out: BoxWriter): void => {
+  const start = frame.line.tileStart[frame.index];
+  sweepTrack(frame, look, out, start, start + frame.line.tileLength[frame.index], frame.cellX * TILE, frame.cellY * TILE, TILE, TILE, null, false);
+};
+
+/**
+ * Sweeps the track's cross-section along arc [arcFrom, arcTo] of the line into a grid of `sizeX` × `sizeY` columns from
+ * world voxel (originX, originY) (at most 64 a side), then merges it into boxes; `keep` may refuse a voxel (world x, y,
+ * z). Fills the column layout of the piece's own tile for its bent. See `emitSweptPiece`.
+ */
+const sweepTrack = (
+  frame: PieceFrame,
+  look: CoasterLook,
+  out: BoxWriter,
+  arcFrom: number,
+  arcTo: number,
+  originX: number,
+  originY: number,
+  sizeX: number,
+  sizeY: number,
+  keep: ((x: number, y: number, z: number) => boolean) | null,
+  brakePiece: boolean,
+): void => {
   const line = frame.line;
-  const index = frame.index;
-  const start = line.tileStart[index];
-  const length = line.tileLength[index];
-  const originX = frame.cellX * TILE;
-  const originY = frame.cellY * TILE;
+  const length = arcTo - arcFrom;
   const steps = Math.max(1, Math.ceil((length * TILE) / SWEPT_STEP));
+  const area = sizeX * sizeY;
   // The grid's height: every sample's rail top, with the cross-section's reach either way.
   let low = Number.POSITIVE_INFINITY;
   let high = Number.NEGATIVE_INFINITY;
   for (let step = 0; step <= steps; step += 1) {
-    sampleCentreLineFrame(line, start + (length * step) / steps, SWEPT_FRAME);
+    sampleCentreLineFrame(line, arcFrom + (length * step) / steps, SWEPT_FRAME);
     const top = coasterRailTopZ(SWEPT_FRAME.z);
     low = Math.min(low, top);
     high = Math.max(high, top);
   }
   const zFrom = Math.max(PATH_TOP_Z, Math.floor(low) - TRACK_HALF_WIDTH - TRACK_DEPTH - 1);
   const layers = Math.ceil(high) + TRACK_HALF_WIDTH + TRACK_DEPTH + 2 - zFrom;
-  const size = TILE * TILE * layers;
+  const size = area * layers;
   if (SWEPT_GRID.length < size) SWEPT_GRID = new Uint8Array(size);
   const grid = SWEPT_GRID;
   grid.fill(0, 0, size);
-  for (let step = 0; step <= steps; step += 1) {
-    const arc = (length * step) / steps;
-    sampleCentreLineFrame(line, start + arc, SWEPT_FRAME);
+  // Cross-sections at the middles of the steps: never on a voxel boundary along a straight, where a turned or mirrored
+  // layout would round the other way (Phase 48: a loop's sweep is the same voxels whichever way the layout faces).
+  for (let step = 0; step < steps; step += 1) {
+    const arc = (length * (step + 0.5)) / steps;
+    sampleCentreLineFrame(line, arcFrom + arc, SWEPT_FRAME);
     const baseX = SWEPT_FRAME.x * TILE - originX;
     const baseY = SWEPT_FRAME.y * TILE - originY;
     const baseZ = coasterRailTopZ(SWEPT_FRAME.z);
     const tie = Math.floor(arc * TILE) % TIE_PERIOD < TIE_LENGTH;
+    // The piece's own arc (not a ring after it) carries its chain dashes and, on the run into the station, the brake.
+    const own = arc <= line.tileLength[frame.index];
+    const alongVoxel = Math.floor(arc * TILE);
+    const brake = brakePiece && own && alongVoxel >= BRAKE_FROM && alongVoxel < BRAKE_TO;
+    const chain = own && alongVoxel % CHAIN_PERIOD < CHAIN_DASH && centreLineChainedHalf(line, frame.index, arc);
     for (let across = -TRACK_HALF_WIDTH + SWEPT_STEP / 2; across < TRACK_HALF_WIDTH; across += SWEPT_STEP) {
       const width = Math.abs(across);
       for (let depth = -TRACK_DEPTH + SWEPT_STEP / 2; depth < 0; depth += SWEPT_STEP) {
         let kind = 0;
         if (width >= TRACK_HALF_WIDTH - RAIL_WIDTH && depth >= -RAIL_HEIGHT) kind = SWEPT_RAIL;
+        else if (brake && width < BRAKE_HALF_WIDTH && depth >= -RAIL_HEIGHT) kind = SWEPT_BRAKE;
+        else if (chain && width < CHAIN_HALF_WIDTH && depth >= -RAIL_HEIGHT) kind = SWEPT_CHAIN;
         else if (tie && width < TIE_HALF_WIDTH && depth >= -RAIL_HEIGHT - TIE_THICKNESS && depth < -RAIL_HEIGHT) kind = SWEPT_TIE;
         else if (width < SPINE_HALF_WIDTH && depth < -RAIL_HEIGHT - TIE_THICKNESS) kind = SWEPT_SPINE;
         if (kind === 0) continue;
         const x = Math.floor(baseX + across * SWEPT_FRAME.normalX + depth * SWEPT_FRAME.upX);
         const y = Math.floor(baseY + across * SWEPT_FRAME.normalY + depth * SWEPT_FRAME.upY);
         const z = Math.floor(baseZ + across * SWEPT_FRAME.normalZ + depth * SWEPT_FRAME.upZ) - zFrom;
-        if (x < 0 || y < 0 || x >= TILE || y >= TILE || z < 0 || z >= layers) continue;
-        const cell = (z * TILE + y) * TILE + x;
+        if (x < 0 || y < 0 || x >= sizeX || y >= sizeY || z < 0 || z >= layers) continue;
+        if (keep !== null && !keep(originX + x, originY + y, zFrom + z)) continue;
+        const cell = (z * sizeY + y) * sizeX + x;
         if (grid[cell] < kind) grid[cell] = kind;
       }
     }
   }
-  // The column layout a bent reads: the lowest track voxel of each column.
+  // The column layout a bent reads: the lowest track voxel of each column of the piece's own tile.
   COLUMN_FLAGS.fill(0);
   COLUMN_TOP_KIND.fill(TOP_NONE);
+  const tileX = frame.cellX * TILE - originX;
+  const tileY = frame.cellY * TILE - originY;
   for (let column = 0; column < TILE * TILE; column += 1) {
+    const cell = (tileY + Math.floor(column / TILE)) * sizeX + tileX + (column % TILE);
     for (let z = 0; z < layers; z += 1) {
-      if (grid[z * TILE * TILE + column] === 0) continue;
+      if (grid[z * area + cell] === 0) continue;
       COLUMN_FLAGS[column] = FLAG_BAND | FLAG_SPINE;
       COLUMN_TOP[column] = zFrom + z + TRACK_DEPTH;
       break;
     }
   }
   // Rectangles per layer, stacked: a rectangle open since `z0` grows while the next layer has the same one.
-  const words = [0, packBoxWord(look.spine, frame.outlineGroup, PATTERN.PLAIN, 0), packBoxWord(look.tie, frame.outlineGroup, PATTERN.PLAIN, 0), packBoxWord(look.rail, frame.outlineGroup, PATTERN.PLAIN, 0)];
+  const words = [
+    0,
+    packBoxWord(look.spine, frame.outlineGroup, PATTERN.PLAIN, 0),
+    packBoxWord(look.tie, frame.outlineGroup, PATTERN.PLAIN, 0),
+    packBoxWord(look.rail, frame.outlineGroup, PATTERN.PLAIN, 0),
+    packBoxWord(MAT.FENCE_RAIL, frame.outlineGroup, PATTERN.PLAIN, 0),
+    packBoxWord(MAT.CONCRETE, frame.outlineGroup, PATTERN.PLAIN, 0),
+  ];
   let open = new Map<number, number>();
   const flush = (key: number, z0: number, z1: number): void => {
     const x0 = key & 63;
@@ -1243,9 +1160,9 @@ const emitSweptPiece = (frame: PieceFrame, look: CoasterLook, out: BoxWriter): v
   for (let z = 0; z <= layers; z += 1) {
     const next = new Map<number, number>();
     if (z < layers) {
-      const base = z * TILE * TILE;
-      for (let cell = 0; cell < TILE * TILE; cell += 1) GRID_KEYS[cell] = grid[base + cell] === 0 ? EMPTY : grid[base + cell];
-      const count = mergeRectangles(TILE, TILE);
+      const base = z * area;
+      for (let cell = 0; cell < area; cell += 1) GRID_KEYS[cell] = grid[base + cell] === 0 ? EMPTY : grid[base + cell];
+      const count = mergeRectangles(sizeX, sizeY);
       for (let rectangle = 0; rectangle < count; rectangle += 1) {
         const at = rectangle * RECT_STRIDE;
         const key = RECTS[at] | (RECTS[at + 1] << 6) | (RECTS[at + 2] << 13) | (RECTS[at + 3] << 19) | (RECTS[at + 4] << 26);
@@ -1255,6 +1172,76 @@ const emitSweptPiece = (frame: PieceFrame, look: CoasterLook, out: BoxWriter): v
     for (const [key, z0] of open) if (!next.has(key)) flush(key, z0, z);
     open = next;
   }
+};
+
+/** Phase 48: the next piece's own boxes, voxelised over its tile (z from NEXT_OCCUPIED_Z), so the ring keeps out of them. */
+const NEXT_BOXES = new BoxWriter(256);
+let NEXT_OCCUPIED = new Uint8Array(TILE * TILE * 64);
+let NEXT_OCCUPIED_Z = 0;
+let NEXT_OCCUPIED_LAYERS = 0;
+let NEXT_OCCUPIED_X = 0;
+let NEXT_OCCUPIED_Y = 0;
+let buildingNeighbour = false;
+
+/** Voxelises `NEXT_BOXES` over the tile at world voxel (originX, originY). */
+const occupyNextTile = (originX: number, originY: number): void => {
+  const data = NEXT_BOXES.data;
+  let low = Number.POSITIVE_INFINITY;
+  let high = Number.NEGATIVE_INFINITY;
+  for (let box = 0; box < NEXT_BOXES.count; box += 1) {
+    const at = box * BOX_FLOATS;
+    low = Math.min(low, data[at + 2]);
+    high = Math.max(high, data[at + 2] + data[at + 6]);
+  }
+  NEXT_OCCUPIED_X = originX;
+  NEXT_OCCUPIED_Y = originY;
+  NEXT_OCCUPIED_Z = Number.isFinite(low) ? Math.floor(low) : 0;
+  NEXT_OCCUPIED_LAYERS = Number.isFinite(high) ? Math.ceil(high) - NEXT_OCCUPIED_Z : 0;
+  const size = TILE * TILE * Math.max(1, NEXT_OCCUPIED_LAYERS);
+  if (NEXT_OCCUPIED.length < size) NEXT_OCCUPIED = new Uint8Array(size);
+  NEXT_OCCUPIED.fill(0, 0, size);
+  for (let box = 0; box < NEXT_BOXES.count; box += 1) {
+    const at = box * BOX_FLOATS;
+    const x0 = Math.max(0, data[at] - originX);
+    const y0 = Math.max(0, data[at + 1] - originY);
+    const x1 = Math.min(TILE, data[at] + data[at + 4] - originX);
+    const y1 = Math.min(TILE, data[at + 1] + data[at + 5] - originY);
+    const z0 = data[at + 2] - NEXT_OCCUPIED_Z;
+    const z1 = z0 + data[at + 6];
+    for (let z = z0; z < z1; z += 1) {
+      for (let y = y0; y < y1; y += 1) NEXT_OCCUPIED.fill(1, (z * TILE + y) * TILE + x0, (z * TILE + y) * TILE + x1);
+    }
+  }
+};
+
+/**
+ * Phase 48: a loop piece and its ring in one sweep (owner report 2026-10-19: the ring went into its own track). The
+ * centre line steps the loop piece sideways and drifts the ring back (CENTRE_LINE_LOOP_SHIFT), so the legs run side by
+ * side; sweeping both into one grid over the loop tile and the next tile (the ring overhangs into it, as before) means
+ * they never share a voxel. In the next tile, a voxel the next piece's own boxes take (track, bent, platform) is left
+ * to it. A malformed layout whose next piece is not beside the loop sweeps the loop tile only.
+ */
+const emitSweptLoop = (frame: PieceFrame, look: CoasterLook, out: BoxWriter, nextX: number, nextY: number, beside: boolean, brakePiece: boolean): void => {
+  const line = frame.line;
+  const index = frame.index;
+  const keep = (x: number, y: number, z: number): boolean => {
+    const localX = x - NEXT_OCCUPIED_X;
+    const localY = y - NEXT_OCCUPIED_Y;
+    const localZ = z - NEXT_OCCUPIED_Z;
+    if (localX < 0 || localY < 0 || localX >= TILE || localY >= TILE || localZ < 0 || localZ >= NEXT_OCCUPIED_LAYERS) return true;
+    return NEXT_OCCUPIED[(localZ * TILE + localY) * TILE + localX] === 0;
+  };
+  const cellX = frame.cellX * TILE;
+  const cellY = frame.cellY * TILE;
+  if (!beside) {
+    sweepTrack(frame, look, out, line.tileStart[index], line.tileStart[index + 1], cellX, cellY, TILE, TILE, null, brakePiece);
+    return;
+  }
+  const originX = Math.min(cellX, nextX);
+  const originY = Math.min(cellY, nextY);
+  const sizeX = cellX === nextX ? TILE : 2 * TILE;
+  const sizeY = cellY === nextY ? TILE : 2 * TILE;
+  sweepTrack(frame, look, out, line.tileStart[index], line.tileStart[index + 1], originX, originY, sizeX, sizeY, keep, brakePiece);
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -1318,6 +1305,29 @@ const pieceBoxes = (
   supports = true,
 ): void => {
   if (pieces.length === 0) return;
+  // Phase 48: a loop's ring reaches into the next tile; the next piece is built first (into scratch) so the ring can
+  // keep out of its boxes. Done before this piece reads anything: the build shares the module's scratch frames.
+  const loopPiece = !buildingNeighbour && pieceAt(pieces, index).special === 'loop' && pieces.length > 1;
+  let nextX = 0;
+  let nextY = 0;
+  let beside = false;
+  if (loopPiece) {
+    const here = pieceAt(pieces, index).cell;
+    const there = pieceAt(pieces, index + 1).cell;
+    nextX = there.x * TILE;
+    nextY = there.y * TILE;
+    beside = Math.abs(there.x - here.x) + Math.abs(there.y - here.y) === 1;
+    if (beside) {
+      NEXT_BOXES.clear();
+      buildingNeighbour = true;
+      try {
+        pieceBoxes(pieces, index + 1, definition, palette, outlineGroup, NEXT_BOXES, paint, supports);
+      } finally {
+        buildingNeighbour = false;
+      }
+      occupyNextTile(nextX, nextY);
+    }
+  }
   const piece = pieceAt(pieces, index);
   const frame = readPiece(pieces, index, FRAME);
   frame.outlineGroup = outlineGroup;
@@ -1330,6 +1340,15 @@ const pieceBoxes = (
     if (supports && !hasLowerPieceInCell(pieces, index)) {
       emitSupports(frame, look, out, COASTER_TYPE_BY_ID.get(definition.id)?.family === 'wooden');
     }
+    return;
+  }
+  // Phase 48: a loop piece and its ring are swept together (the line steps sideways into the ring); a bent carries it.
+  if (loopPiece && special === 'loop' && frame.line.loop[frame.index] === 1 && frame.index < frame.line.realPieceCount) {
+    emitSweptLoop(frame, look, out, nextX, nextY, beside, pieces.length >= 2 && index === pieces.length - 1 && !isShuttleLayout(pieces));
+    if (supports && !hasLowerPieceInCell(pieces, index)) {
+      emitSupports(frame, look, out, COASTER_TYPE_BY_ID.get(definition.id)?.family === 'wooden');
+    }
+    // No brake fin: the fin stands beside the tile's axis, where the stepping track may run.
     return;
   }
   layoutColumns(frame, pieces, special);
@@ -1360,7 +1379,6 @@ const pieceBoxes = (
   if (supports && !hasLowerPieceInCell(pieces, index)) {
     emitSupports(frame, look, out, COASTER_TYPE_BY_ID.get(definition.id)?.family === 'wooden');
   }
-  if (special === 'loop') emitLoopRing(pieces, index, frame, look, out);
   emitStation(pieces, index, frame, definition, palette, out, paint);
   emitBrakeFin(pieces, frame, out);
 };
@@ -1383,10 +1401,10 @@ export const CAR_HEIGHT = 8;
 export const CAR_NOSE_LENGTH = 3;
 /**
  * A coupling is two half-bars of this length (voxels), one from each hitch toward the other: together
- * they bridge every measured hitch distance (9.4 to 15.6 voxels on every fixture and fuzz circuit),
- * and one half alone never reaches the far hitch.
+ * they bridge every measured hitch distance (9.45 to 16.5 voxels on every fixture and fuzz circuit; 9, not 8, since
+ * Phase 48's loop step stretches the train by up to 10%), and one half alone never reaches the far hitch.
  */
-export const COUPLING_HALF_LENGTH = 8;
+export const COUPLING_HALF_LENGTH = 9;
 /** The longest hitch distance the two halves close (voxels). */
 export const COUPLING_LENGTH = 2 * COUPLING_HALF_LENGTH;
 

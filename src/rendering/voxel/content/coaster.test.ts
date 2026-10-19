@@ -539,6 +539,8 @@ describe('coaster track pieces', () => {
         const label = `${layout.name} piece ${index}`;
         const middle = middleOf(layout.pieces, index);
         expect(middle.z, `${label}: the line is at the rail top there`).toBeCloseTo(railTop, 9);
+        // Phase 48: a loop piece is swept (it steps aside into its ring); coasterFamilies.test.ts 'Phase 48: swept loop' checks its track.
+        if (line.loop[index] === 1) return;
         const column = (x: number, y: number) => boxes.filter((box) => box.x0 <= x && x < box.x1 && box.y0 <= y && y < box.y1
           && box.z0 < railTop + 3 && box.z1 > railTop - TRACK_DEPTH - 2 && isTrackBox(layout, box));
         // The column under the line: the spine (or the station's stone bed), 2 thick (3 from the grass at level 0), its top 2 under the rail top.
@@ -627,11 +629,14 @@ describe('coaster track pieces', () => {
       const layerAt = (x: number, y: number, is: (box: TestBox) => boolean): TestBox | undefined => boxes
         .filter((box) => is(box) && box.x0 <= x && x < box.x1 && box.y0 <= y && y < box.y1)
         .sort((a, b) => a.z0 - b.z0)[0];
+      const line = centreLineFor(pieces);
       pieces.forEach((piece, index) => {
         const next = pieces[(index + 1) % pieces.length];
         const dx = next.cell.x - piece.cell.x;
         const dy = next.cell.y - piece.cell.y;
         if (Math.abs(dx) + Math.abs(dy) !== 1) return;
+        // Phase 48: a loop piece is swept with its ring, its spine not a 2-thick columnar layer (coasterFamilies.test.ts 'Phase 48: swept loop').
+        if (line.loop[index] === 1 || line.loop[(index + 1) % pieces.length] === 1) return;
         // Voxel columns just before and just after the shared edge, across the 32 columns of the edge.
         const edge = dx !== 0 ? (dx > 0 ? next.cell.x : piece.cell.x) * TILE : (dy > 0 ? next.cell.y : piece.cell.y) * TILE;
         for (let across = 0; across < TILE; across += 1) {
@@ -672,6 +677,11 @@ describe('coaster track pieces', () => {
       pieces.forEach((piece, index) => {
         const next = pieces[(index + 1) % pieces.length];
         if (next.height !== piece.height) ramped += 1;
+        // Phase 48: a loop piece is swept (coasterFamilies.test.ts 'Phase 48: swept loop' checks the cars ride on it).
+        if (track.loop[index] === 1) {
+          previousTop = Number.NaN;
+          return;
+        }
         const first = track.tileStart[index];
         const length = track.tileLength[index];
         const steps = Math.round(length * TILE * 4);
@@ -910,7 +920,8 @@ describe('coaster track pieces', () => {
           expect(dashes.length, `${label}: chain dashes on a climbing straight`).toBeGreaterThanOrEqual(2);
           chained += 1;
         }
-        for (const dash of dashes) expect(dash.z1 - dash.z0, `${label}: ${describeBox(dash)} in the rail layer`).toBe(1);
+        // A swept loop piece voxelises its rail layer along the climb: a dash may span two voxels there.
+        for (const dash of dashes) expect(dash.z1 - dash.z0, `${label}: ${describeBox(dash)} in the rail layer`).toBeLessThanOrEqual(line.loop[index] === 1 ? 2 : 1);
         const pads = boxes.filter((box) => box.material === MAT.CONCRETE);
         const fins = boxes.filter((box) => box.material === MAT.FENCE_POST);
         if (index !== last) {
@@ -927,7 +938,7 @@ describe('coaster track pieces', () => {
           const to = (alongX ? pad.x1 : pad.y1) - (alongX ? centre.x : centre.y) + HALF_TILE;
           if (line.turn[index] === 0) expect(from >= BRAKE_FROM - 1 && to <= BRAKE_TO + 1, `${label}: ${describeBox(pad)} over the middle of the piece`).toBe(true);
         }
-        if (line.turn[index] === 0) {
+        if (line.turn[index] === 0 && line.loop[index] === 0) {
           expect(fins.length, `${label}: a brake fin beside a straight last piece`).toBe(1);
           const beside = boxes.find((box) => (railBox(layout, box) || isTieBox(layout, box)) && touches(box, fins[0]));
           expect(beside, `${label}: the fin hangs on the rail or a tie`).toBeDefined();
@@ -1097,10 +1108,12 @@ describe('coaster track pieces', () => {
           // track rises under its far half), so look at the ring from 14 voxels up.
           if (point.z < base.z + 14) continue;
           samples += 1;
-          const radius = Math.hypot(point.x - centreX, point.y - centreY, point.z - centreZ);
+          // Phase 48: the ring drifts sideways as it goes round, so the circle is measured in the plane of travel.
+          const alongDelta = (point.x - centreX) * direction.dx + (point.y - centreY) * direction.dy;
+          const radius = Math.hypot(alongDelta, point.z - centreZ);
           expect(radius, `${layout.name} loop ${index}: the cars run 16 from the ring centre`).toBeCloseTo(LOOP_RAIL_RADIUS, 6);
-          const outX = (point.x - centreX) / radius;
-          const outY = (point.y - centreY) / radius;
+          const outX = (direction.dx * alongDelta) / radius;
+          const outY = (direction.dy * alongDelta) / radius;
           const outZ = (point.z - centreZ) / radius;
           const filled = (distance: number, lateral: number, materials: ReadonlySet<number>): boolean => boxes.some((box) =>
             box.piece === index && materials.has(box.material) && contains(box,
@@ -1109,7 +1122,8 @@ describe('coaster track pieces', () => {
               Math.floor(point.z + outZ * distance)));
           const label = `${layout.name} loop ${index} at ${point.pitch.toFixed(2)} rad`;
           expect(filled(-1, 0.5, ring), `${label}: the cars' side of the ring is open`).toBe(false);
-          expect(filled(LOOP_OUTER_RADIUS - LOOP_RAIL_RADIUS + 1, 0.5, ring), `${label}: the ring is 4 thick`).toBe(false);
+          // Swept (Phase 48), the ring's voxels round to within a voxel of its 4-voxel thickness.
+          expect(filled(LOOP_OUTER_RADIUS - LOOP_RAIL_RADIUS + 2, 0.5, ring), `${label}: the ring is 4 thick`).toBe(false);
           // A 1-voxel digital ring can pass a ray diagonally, so look for rail in the 3×3 voxels of
           // the ring plane around the running surface, and for the spine behind the ties.
           for (const lateral of [-TRACK_HALF_WIDTH + 1, TRACK_HALF_WIDTH - 1]) {
@@ -1124,7 +1138,10 @@ describe('coaster track pieces', () => {
             }
             expect(railThere, `${label}: a rail on the running surface ${lateral} across`).toBe(true);
           }
-          expect(filled(LOOP_RAIL_THICKNESS + 1, 0.5, new Set([look.spine])), `${label}: the spine behind the rails`).toBe(true);
+          const spine = new Set([look.spine]);
+          // The swept spine is 2 wide and 2 deep behind the ties: one of its four voxels on this ray's neighbourhood.
+          expect([LOOP_RAIL_THICKNESS + 1, LOOP_RAIL_THICKNESS + 2].some((distance) => [-0.5, 0.5].some((lateral) => filled(distance, lateral, spine))),
+            `${label}: the spine behind the rails`).toBe(true);
         }
       });
     }

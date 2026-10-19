@@ -1,5 +1,5 @@
 {
-  "note": "Phase 28 step 2 baseline (taken before any step-2 change): sha16 of sceneFingerprint of every non-flat-ride object display of the colour test park per view rotation, the entrance, the classic trains and every non-ride build preview. A default (uncoloured) art must still equal these. Phase 22 added the previews of Cactus Cooler, Cocoa Chalet and Lantern Maple (new entries; captured when they were added). Phase 16 added the previews of its two stalls and seven themed scenery pieces (the classic renderer's generic stall and flower-bed fallbacks; captured when they were added).",
+  "note": "Phase 28 step 2 baseline (taken before any step-2 change): sha16 of sceneFingerprint of every non-flat-ride object display of the colour test park per view rotation, the entrance, the classic trains and every non-ride build preview. A default (uncoloured) art must still equal these. Phase 22 added the previews of Cactus Cooler, Cocoa Chalet and Lantern Maple (new entries; captured when they were added). Phase 16 added the previews of its two stalls and seven themed scenery pieces (the classic renderer's generic stall and flower-bed fallbacks; captured when they were added). Phase 48 re-pinned the Skyline Serpent (#68): its loops step aside, the legs side by side.",
   "objects": {
     "picnic-pocket#13": {
       "v0": "41f8df626c1f5c63",
@@ -332,10 +332,10 @@
       "v3": "d58d1ba8e90fc31c"
     },
     "skyline-serpent#68": {
-      "v0": "1d45681cbfb60e1f",
-      "v1": "5e5281065c4eea51",
-      "v2": "c7181389eca4ad97",
-      "v3": "f63e35e63d4400fa"
+      "v0": "453864dc0d8b9872",
+      "v1": "53495fd52f68bee5",
+      "v2": "31ba0d832b71e694",
+      "v3": "d4fe0063b0a3a267"
     },
     "ripple-fountain#69": {
       "v0": "f29d9a61f1d7c580",

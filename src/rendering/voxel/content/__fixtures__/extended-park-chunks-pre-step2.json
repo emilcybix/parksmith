@@ -1,12 +1,12 @@
 {
- "_note": "Phase 28 step 2: the extended colour test park (dev park + Comet Trail + Skyline Serpent + Ripple Fountain, game/session/colourTestPark.ts) built with REGISTRY content and DEFAULT colours, BEFORE any step-2 change: per chunk box count and StaticWorld.chunkHash. Coaster chunk sets are pinned too.",
+ "_note": "Phase 28 step 2: the extended colour test park (dev park + Comet Trail + Skyline Serpent + Ripple Fountain, game/session/colourTestPark.ts) built with REGISTRY content and DEFAULT colours, BEFORE any step-2 change: per chunk box count and StaticWorld.chunkHash. Coaster chunk sets are pinned too. Phase 48 re-pinned the coaster chunks: 9-voxel coupling halves on every train, and the Skyline Serpent's loops swept with their legs side by side (chunk 3).",
  "chunkCount": 16,
- "totalBoxes": 18465,
+ "totalBoxes": 18728,
  "boxes": [
   1119,
   474,
   887,
-  573,
+  836,
   369,
   1505,
   2218,
@@ -21,11 +21,11 @@
   10
  ],
  "hashes": [
-  "e1fbf2ad17f8dac3",
+  "dc5d3aade0617db2",
   "db5f1ffd49d1a24a",
-  "f3ef9705727bc2ab",
-  "59a9d89df65a2cf8",
-  "71c396856b726e87",
+  "75356c85962b4dd3",
+  "2c1990bdfb41cc32",
+  "8bfca685a7729bc7",
   "d7a7ee917c8452af",
   "1b55e8f43a425b13",
   "4b22567d6ffe5fdc",

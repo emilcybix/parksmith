@@ -232,12 +232,13 @@ export const coasterCouplingFrame = (
  * A single fixed-length bar had to tuck its surplus past a hitch along the chord, and where the two
  * cars differ by about 90 degrees (out of a loop ring into a banked climb) that tucked end left the
  * car below its floor. Two halves of `COASTER_COUPLING_HALF_TILES` each never pass the far hitch (the
- * hitch distance stays above one half: measured 9.4 to 15.6 voxels against a half of 8) and close the
+ * hitch distance stays above one half: measured 9.45 to 16.5 voxels against a half of 9; Phase 48 lengthened the half
+ * from 8, because a loop piece's sideways step runs the cars up to 10% further apart than their arc) and close the
  * gap as long as the hitch distance is under two halves; where they overlap in the middle they lie on
  * the same line. `half` 0 is the ahead car's half (pivot on its rear hitch, +x toward the behind
  * car), 1 the behind car's (pivot on its front hitch, +x toward the ahead car). Allocation-free.
  */
-export const COASTER_COUPLING_HALF_TILES = 8 / 32;
+export const COASTER_COUPLING_HALF_TILES = 9 / 32;
 
 export const coasterCouplingHalfFrame = (
   coupling: CoasterCouplingFrame,
