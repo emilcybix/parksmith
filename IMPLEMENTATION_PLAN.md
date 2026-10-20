@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–56; 48 and 49 built, the rest not started)
+## Owner Feedback 2026-10-19 (Phases 48–57; 48 and 49 built, the rest not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3347,6 +3347,96 @@ ambience beds (crowd, machinery) are synthesised loops whose level follows the g
   - event detection on fixture layouts (a chain lift, a drop, a loop, a launch and the brakes each fire where
     expected, and nothing fires twice in a row);
   - the voice budget and the screen-position pan.
+
+### Phase 57 — Step-by-Step Tutorial (owner request 2026-10-20)
+
+The owner wants a real tutorial: a clear, step-by-step guide to how the game is played. **It is a scenario of its own,
+separate from everything else.** Starting the tutorial puts the player in a park that exists only for the tutorial.
+
+Today the only onboarding is the First Day progression (Phase 13). It is a one-line hint in the Park Pulse card, plus
+world pointers, inside the ordinary Sandbox park. It is easy to miss, and it says nothing about The Map, Scenarios,
+cards or the windows. First Day stays as it is in the Sandbox. The tutorial is the clear, guided way in.
+
+- [ ] **A tutorial park of its own.**
+  - A fixed, hand-made map (`maps/`): small, on the Meadow biome, with the gate and a little open land.
+  - Its own starting cash and its own unlocks: only what the steps teach is buildable, and the rest unlocks as the
+    steps reach it.
+  - No deadline and no way to lose. Bankruptcy, guests leaving and breakdowns are calm or switched off by the park's
+    ruleset until the step that teaches them.
+  - It is not one of the Scenarios in the browser, not a level on The Map, and not the Sandbox. It gives no rewards,
+    cards or profile progress beyond "tutorial done", and it is not counted in run or scenario statistics.
+  - In code: a tutorial scenario id (or a fourth `GameMode` 'tutorial'; decide in the design step), with its own
+    definition and ruleset. The save format can hold it, so a reload mid-tutorial continues where it was.
+- [ ] **The guide inside it.** A window (WindowFrame, like Staff and Buildings) that shows one step at a time: a
+  title, two or three short sentences, the UI element or tile the step is about highlighted, "Step n of N", and
+  **Back**, **Next** and **Leave tutorial** buttons.
+  - A step that asks for an action points at the right button or tile with the existing hint markers
+    (`RendererPort.setHintMarkers`, the menu bar outline).
+  - **Steps advance by themselves (owner, 2026-10-20):** an action step moves on as soon as the simulation shows the
+    action is done (the First Day engine's evidence functions). A step that only explains (the goal, the camera) has
+    a Next button. Back is always there, and an action step still has a quiet "Skip step", so the guide never blocks
+    play.
+  - Because the park is made for the tutorial, a step can also set up its own moment: drop litter for the cleaner
+    step, break a ride for the mechanic step, spawn guests for the needs step.
+- [ ] **What it teaches: the basics only (owner, 2026-10-20).** In order (open for the owner to change):
+  1. The goal: build a park that guests love and that earns money.
+  2. The camera: pan, zoom, rotate (Q/E) and pause or change speed.
+  3. Paths from the gate.
+  4. A ride beside the path, and its ticket price.
+  5. Guests and their needs: a food stall, a drink stall and a toilet.
+  6. Keeping it clean and running: bins and a cleaner, and a mechanic (Phase 49's "bins are the lever").
+  7. Money: the cash pill, and earning more than you spend.
+  8. Saving.
+  9. Done: what to play next, and that the Help section explains the rest.
+
+  Every step's text names the buttons and keys as the player sees them, read from the keybinding registry so that a
+  rebound key is shown correctly. The last step ends the tutorial and offers the start screen's modes. Research, scenery
+  and themes, Park Pulse and neighborhoods, coasters, Scenarios, The Map and cards are not in the tutorial. They go in
+  the Help section below.
+- [ ] **Starting it from the menu.** Add a "Tutorial" entry on the start screen (`buildStartMenu`) and in the in-game
+  pause menu (`buildPauseMenu`). It always starts the tutorial park from step 1. A tutorial in progress is offered as
+  "Continue tutorial (step n)". Leaving it goes back to the start screen; the player's own parks are never touched.
+- [ ] **Starting it automatically, once.** The first time a player tries to play (picks The Map, Scenario or Sandbox
+  on the start screen) and the profile does not say the tutorial was seen, the game **asks first (owner, 2026-10-20)**:
+  "Play the tutorial first?" with **Play tutorial** and **Skip**. Play tutorial starts the tutorial park. Skip goes on
+  to the mode they picked.
+  - Answering the question either way, leaving the tutorial or finishing it sets a profile flag (`ProfileUiFlags.tutorialSeen`, optional on disk;
+    absent means not seen). After that it never comes up by itself again, but the menu entries stay.
+  - The flag goes through the same profile storage as `tourOffered`. If storage fails, the tutorial may come up again
+    next time, which is the same rule `tourOffered` follows today.
+  - `?dev=1` and the test harnesses never start it.
+  - A brand-new profile no longer lands in the Sandbox First Day park by itself (the Phase 23 rule). It sees the start
+    screen, and the question comes when it first picks a mode.
+- [ ] **Accessibility and layout.** Keyboard: Next and Back as buttons with focus moved to the step title, and Esc
+  minimises the guide (it does not leave the tutorial). The window is an input context layer (`inputContext.ts`). It
+  respects reduced motion (no pulsing) and the text size setting. At ≤ 1240 px it fits next to the menu bar
+  (`layoutModel.ts` anchors). It moves aside so it never covers what a step points at.
+- [ ] **Help section in the main menu (later; owner, 2026-10-20).** A "Help" entry on the start screen and in the pause
+  menu. It opens a page with two parts:
+  - **Lessons:** short guided parks like the tutorial, one topic each (for example coasters, research, scenery and
+    themes, Park Pulse and neighborhoods, The Map and cards). Each uses the same guide window and step model, has its
+    own small park, and is separate from everything else. The basic tutorial is the first lesson in the list.
+  - **Text pages:** short articles on the rest of the game (what each window shows, needs and moods, staff, money and
+    land, research, scenery, Park Pulse, Scenarios, The Map and cards, keys). The keys page reads KEYBINDINGS from the
+    registry.
+  - The text pages can be built before any lesson. Which lessons, and in what order, is the owner's call when this part
+    is planned.
+- [x] **Owner's calls (2026-10-20):**
+  - On the first play, ask "Play the tutorial first?" (not start directly).
+  - Steps advance by themselves on the real action.
+  - The tutorial covers the basics only. The rest goes in a Help section in the main menu, with lessons and text.
+- [ ] Still open: the exact step list and texts, and the tutorial park's map.
+- [ ] Tests:
+  - The tutorial park: it is deterministic, it cannot be lost, the unlocks follow the steps, and save and restore
+    mid-tutorial continue at the same step.
+  - A pure step model (`tutorialModel.ts`): order, Back and Next bounds, the evidence that advances each step, and each
+    step's setup.
+  - The once-only rule: a fresh profile's first play asks, both answers and leaving or finishing set the flag, and a
+    set flag goes straight to the picked mode.
+  - The menu entries (start screen and pause menu) start it at step 1, or continue it.
+  - It stays out of the scenario browser, The Map, statistics and the Collection.
+  - Static checks that every key named in a step comes from the keybinding registry.
+  - A headless Chromium pass through the whole tutorial in a fresh profile at 1280×800 and 1100×690.
 
 ## Voxel Renderer (main renderer)
 
