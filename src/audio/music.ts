@@ -20,6 +20,8 @@ export interface MusicStem {
 
 export interface MusicTrack {
   readonly id: string;
+  /** What the music player shows: the manifest's `title`, or the first file's name with `_` read as spaces. */
+  readonly title: string;
   readonly context: MusicContext;
   readonly stems: readonly MusicStem[];
   /** Loudness trim for the whole track (0-2, default 1), so tracks mastered differently sit level. */
@@ -65,6 +67,11 @@ const parseStem = (raw: unknown, index: number, count: number): MusicStem | null
   return { files, from };
 };
 
+/** "Trio_Long_Queue_Blues.ogg" -> "Trio Long Queue Blues": the file's own name, folders and extension off. */
+export const titleFromFile = (file: string): string => (
+  (file.split('/').pop() ?? file).replace(/\.[^.]+$/, '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim()
+);
+
 const positive = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined);
 
 /**
@@ -87,8 +94,10 @@ export const parseMusicManifest = (raw: unknown): MusicManifest => {
     // loopEnd absent: the loop runs to the end of the file. One that is not after loopStart is dropped with it.
     const valid = loopEnd === undefined || loopEnd > (loopStart ?? 0);
     seen.add(entry.id);
+    const title = typeof entry.title === 'string' && entry.title.trim() !== '' ? entry.title.trim() : titleFromFile(stems[0].files[0]);
     tracks.push({
       id: entry.id,
+      title,
       context: entry.context as MusicContext,
       stems,
       gain,
@@ -113,6 +122,18 @@ export const pickTrack = (manifest: MusicManifest, context: MusicContext): Music
     if (track) return track;
   }
   return null;
+};
+
+/**
+ * The tracks a context plays, in manifest order: those of the first context in its fallback list that has any. One
+ * track loops; two or more are a playlist, each played through once and then the next (`MusicPlayer`).
+ */
+export const tracksFor = (manifest: MusicManifest, context: MusicContext): readonly MusicTrack[] => {
+  for (const wanted of FALLBACK[context]) {
+    const tracks = manifest.tracks.filter((candidate) => candidate.context === wanted);
+    if (tracks.length > 0) return tracks;
+  }
+  return [];
 };
 
 /** A layer's level at an intensity: full from its `from`, fading in over LAYER_RAMP below it. */

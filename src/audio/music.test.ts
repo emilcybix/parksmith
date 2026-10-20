@@ -8,8 +8,8 @@ import {
   type GainNodeLike,
 } from './AudioEngine';
 import { volumesOf } from './audioDirector';
-import { LAYER_RAMP, layerLevel, musicStateOf, parseMusicManifest, pickTrack, playableFile } from './music';
-import type { MusicSource } from './MusicPlayer';
+import { LAYER_RAMP, layerLevel, musicStateOf, parseMusicManifest, pickTrack, playableFile, titleFromFile, tracksFor } from './music';
+import { MusicPlayer, type MusicSource } from './MusicPlayer';
 import { DEFAULT_SETTINGS } from '../settings/schema';
 
 type FakeGain = GainNodeLike & { connections: AudioNodeLike[] };
@@ -232,5 +232,97 @@ describe('music player (Phase 47)', () => {
     expect(trackGain.gain.value).toBeGreaterThan(0);
     engine.setMusicPlaying(false);
     expect(trackGain.gain.value).toBe(0);
+  });
+});
+
+describe('music playlist and player (2026-10-20)', () => {
+  const PLAYLIST = {
+    tracks: [
+      { id: 'theme', context: 'menu', loopStart: 7.6, stems: [{ file: 'Parksmith_Main_Theme.ogg' }] },
+      { id: 'a', context: 'park', stems: [{ file: 'Rush_Hour.ogg' }] },
+      { id: 'b', context: 'park', stems: [{ file: 'Trio_Long_Queue_Blues.ogg' }] },
+      { id: 'c', context: 'park', title: 'Custom name', stems: [{ file: 'c.ogg' }] },
+    ],
+  };
+  const player = (random = 0) => {
+    const context = new MusicContext();
+    const decode = context.decodeAudioData.bind(context);
+    context.decodeAudioData = async (data) => ({ ...(await decode(data)), duration: 60 });
+    const bus = context.createGain();
+    const music = new MusicPlayer(context, bus, source(PLAYLIST), () => undefined, () => random);
+    return { context, music };
+  };
+  const named = (context: MusicContext, file: string) => context.sources.filter((candidate) => (candidate.buffer as unknown as { name?: string } | null)?.name === file);
+
+  it('titles come from the file name with underscores read as spaces, unless the manifest names the track', () => {
+    expect(titleFromFile('Trio_Long_Queue_Blues.ogg')).toBe('Trio Long Queue Blues');
+    expect(titleFromFile('sub/The__New_Bossa_Life.flac')).toBe('The New Bossa Life');
+    const manifest = parseMusicManifest(PLAYLIST);
+    expect(manifest.tracks.map((track) => track.title)).toEqual(['Parksmith Main Theme', 'Rush Hour', 'Trio Long Queue Blues', 'Custom name']);
+    expect(tracksFor(manifest, 'menu').map((track) => track.id)).toEqual(['theme']);
+    expect(tracksFor(manifest, 'night').map((track) => track.id), 'night falls back to the park playlist').toEqual(['a', 'b', 'c']);
+  });
+
+  it('the menu theme loops; the park plays its tracks once each and moves on to the next near the end', async () => {
+    const { context, music } = player(0.5);
+    await settle();
+    expect(music.trackId).toBe('theme');
+    expect(named(context, 'Parksmith_Main_Theme.ogg')[0].loop).toBe(true);
+    music.setState({ context: 'park', intensity: 0 }, true);
+    await settle();
+    expect(music.trackId, 'a random start: 0.5 of three is the second').toBe('b');
+    const b = named(context, 'Trio_Long_Queue_Blues.ogg')[0];
+    expect(b.loop, 'a playlist track plays once').toBe(false);
+    context.currentTime = 40;
+    music.setState({ context: 'park', intensity: 0 }, true);
+    await settle();
+    expect(music.trackId, 'still on b; the next one is fetched ahead').toBe('b');
+    context.currentTime = 59;
+    music.setState({ context: 'park', intensity: 0 }, true);
+    expect(music.trackId, 'c was decoded ahead, so it takes over at once').toBe('c');
+    context.currentTime = 120;
+    music.setState({ context: 'park', intensity: 0 }, true);
+    await settle();
+    expect(music.trackId, 'and after the last, the first').toBe('a');
+  });
+
+  it('next, previous and select move through the list; the view names the tracks and the one playing', async () => {
+    const { music } = player(0);
+    music.setState({ context: 'park', intensity: 0 }, true);
+    await settle();
+    expect(music.playlist()).toEqual({
+      context: 'park',
+      tracks: [{ id: 'a', title: 'Rush Hour' }, { id: 'b', title: 'Trio Long Queue Blues' }, { id: 'c', title: 'Custom name' }],
+      currentId: 'a',
+    });
+    music.next();
+    await settle();
+    expect(music.trackId).toBe('b');
+    music.previous();
+    music.previous();
+    await settle();
+    expect(music.trackId, 'previous from a wraps to the last').toBe('c');
+    music.select('b');
+    await settle();
+    expect(music.trackId).toBe('b');
+    music.select('nope');
+    expect(music.trackId).toBe('b');
+  });
+
+  it('the start screen and back: the park resumes the track it was on; next does nothing to a one-track menu', async () => {
+    const { music } = player(0);
+    music.setState({ context: 'park', intensity: 0 }, true);
+    await settle();
+    music.next();
+    await settle();
+    music.setState({ context: 'menu', intensity: 0 }, true);
+    await settle();
+    expect(music.trackId).toBe('theme');
+    music.next();
+    await settle();
+    expect(music.trackId).toBe('theme');
+    music.setState({ context: 'park', intensity: 0 }, true);
+    await settle();
+    expect(music.trackId).toBe('b');
   });
 });

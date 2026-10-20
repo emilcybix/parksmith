@@ -5,7 +5,7 @@ import type { ActionId } from '../settings/keybindings';
  * Finances, Research, Land, and the Run map or Parks), whether each is pressed (its panel is open), its attention badge
  * and the one live line that reads every badge out. No store, no DOM.
  */
-export type MenuBarButtonId = 'build' | 'staff' | 'buildings' | 'pulse' | 'finances' | 'research' | 'land' | 'runMap' | 'parks';
+export type MenuBarButtonId = 'build' | 'staff' | 'buildings' | 'pulse' | 'finances' | 'research' | 'land' | 'music' | 'runMap' | 'parks';
 
 export interface MenuBarInput {
   dockOpen: boolean;
@@ -27,6 +27,8 @@ export interface MenuBarInput {
   pulseWarnings: number;
   /** A First Day step asks the player to build while the dock is closed: the Build button is the way in. */
   buildHinted: boolean;
+  /** The music player: open or closed, or null while there is no produced music (the button is then left out). */
+  musicOpen?: boolean | null;
 }
 
 export interface MenuBarButton {
@@ -64,6 +66,7 @@ export const menuBarButtons = (input: MenuBarInput): MenuBarButton[] => {
       ...button('land', 'Land', '⬚', 'landTool', input.landTool),
       disabledReason: input.landRestricted ? null : 'This park owns all of its land',
     },
+    ...(input.musicOpen === undefined || input.musicOpen === null ? [] : [button('music', 'Music', '♪', null, input.musicOpen)]),
     input.runMode ? button('runMap', 'Run map', '⚑', null, false) : button('parks', 'Parks', '⚑', null, false),
   ];
   return buttons;

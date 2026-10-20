@@ -127,3 +127,25 @@
 .ride-along-bar button { padding: 5px 10px; border-radius: 9px; border: 1px solid rgba(19,58,51,.2); background: transparent; cursor: pointer; font-weight: 700; }
 .ride-along-bar .ride-along-exit { background: #183f3a; color: #fff; border-color: #183f3a; }
 .ride-along-button { margin: 4px 0 6px; padding: 5px 10px; border-radius: 9px; border: 1px solid rgba(55,189,145,.5); background: rgba(55,189,145,.12); cursor: pointer; font-weight: 700; }
+
+/* The music player (MusicPanel.tsx), above the menu bar on its right. */
+.music-panel {
+  position: absolute; z-index: 6; bottom: 66px; left: calc(50% + 120px); width: 260px; max-height: min(420px, calc(100% - 180px));
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 8px; padding: 10px 12px; border-radius: 14px;
+  background: var(--paper); box-shadow: 0 8px 24px rgba(23,63,59,.22); color: var(--ink);
+}
+.music-panel header { display: flex; align-items: center; gap: 8px; }
+.music-panel header > span { flex: 1; display: grid; min-width: 0; }
+.music-panel header small { font-size: 10px; letter-spacing: .06em; opacity: .7; }
+.music-panel header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-close { width: 28px; height: 28px; border: 0; border-radius: 9px; background: rgba(19,58,51,.06); cursor: pointer; }
+.music-controls { display: flex; gap: 6px; }
+.music-controls button { flex: 1; height: 32px; border: 1px solid rgba(19,58,51,.18); border-radius: 9px; background: transparent; cursor: pointer; font-size: 15px; }
+.music-controls button:disabled { opacity: .4; cursor: default; }
+.music-tracks { list-style: none; margin: 0; padding: 0; overflow: auto; display: grid; gap: 2px; }
+.music-tracks button { width: 100%; display: flex; gap: 6px; text-align: left; padding: 5px 8px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; font: inherit; font-size: 13px; }
+.music-tracks button span { width: 12px; }
+.music-tracks button:hover { background: rgba(55,189,145,.1); }
+.music-tracks button.playing { background: rgba(55,189,145,.2); font-weight: 700; }
+.music-note { margin: 0; font-size: 11px; opacity: .7; }
+@media (max-width: 1240px) { .music-panel { left: auto; right: 18px; } }

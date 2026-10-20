@@ -1,5 +1,5 @@
 import { LOOP_IDS, SOUND_IDS, renderLoop, renderSound, type LoopId, type SoundId } from './synth';
-import { MusicPlayer, type MusicSource } from './MusicPlayer';
+import { MusicPlayer, type MusicPlaylistView, type MusicSource } from './MusicPlayer';
 import type { MusicState } from './music';
 
 /**
@@ -123,6 +123,24 @@ export class AudioEngine {
   /** The produced track playing, or null (the synthesised loop, or silence). */
   get musicTrack(): string | null {
     return this.music?.trackId ?? null;
+  }
+
+  /** The music player's view: the tracks of the context playing and which one plays; null without produced music. */
+  musicPlaylist(): MusicPlaylistView | null {
+    return this.music?.playlist() ?? null;
+  }
+
+  /** The music player's controls (no-ops before unlock or without produced music). */
+  musicNext(): void {
+    this.music?.next();
+  }
+
+  musicPrevious(): void {
+    this.music?.previous();
+  }
+
+  musicSelect(id: string): void {
+    this.music?.select(id);
   }
 
   /** True once the first gesture created the context and every buffer is ready. */

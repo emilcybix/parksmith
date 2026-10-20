@@ -178,6 +178,21 @@ export interface SceneryNextStepUi {
   name: string | null;
 }
 
+/** The music player (`GameApp.publishMusic`): the tracks of the context playing, the one playing, and whether it is a playlist. */
+export interface MusicUi {
+  tracks: readonly { readonly id: string; readonly title: string }[];
+  /** Null while the chosen track is still loading (or none plays). */
+  currentId: string | null;
+  /** Two or more tracks: next, previous and the list work. */
+  playlist: boolean;
+}
+
+export const musicUiEqual = (left: MusicUi | null, right: MusicUi | null): boolean => {
+  if (left === null || right === null) return left === right;
+  return left.currentId === right.currentId && left.playlist === right.playlist && left.tracks.length === right.tracks.length
+    && left.tracks.every((track, index) => track.id === right.tracks[index].id && track.title === right.tracks[index].title);
+};
+
 export interface UiState {
   cash: number;
   pathCount: number;
@@ -423,6 +438,11 @@ export interface UiState {
   crowd: CrowdUi | null;
   /** Phase 49: how the cleaners coped over the last simulated minute (Staff window); null until published. */
   cleanerLoad: CleanerLoad | null;
+  /** The music player's list and current track; null before the audio starts or without produced music. */
+  music: MusicUi | null;
+  /** The music player panel is open. */
+  musicPlayerOpen: boolean;
+  setMusicPlayerOpen: (open: boolean) => void;
   /** Phase 49: the inspected ride's or stall's next scenery step (the inspector's "next step" line); null when none is inspected. */
   sceneryNextStep: SceneryNextStepUi | null;
   /** Written only by the SaveManager (through setSavesSnapshot); the UI reads it. */
@@ -628,6 +648,9 @@ export const useUiStore = create<UiState>((set) => ({
   crowdHeatmapSupported: true,
   crowd: null,
   cleanerLoad: null,
+  music: null,
+  musicPlayerOpen: false,
+  setMusicPlayerOpen: (open) => set({ musicPlayerOpen: open }),
   sceneryNextStep: null,
   saves: DEFAULT_SAVES_SNAPSHOT,
   savesDialogOpen: false,

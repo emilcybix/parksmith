@@ -150,6 +150,10 @@ export interface GameCommands extends UndoCommands {
   startSandboxMap(mapId: MapId): void;
   /** Esc with nothing to close, and the Menu button. */
   openPauseMenu(): void;
+  /** The music player: the next or previous track of the playlist, or one picked from the list. */
+  musicNext(): void;
+  musicPrevious(): void;
+  musicSelect(id: string): void;
   resumeFromMenu(): void;
   menuQuickSave(): void;
   requestQuitToMenu(): void;
@@ -242,6 +246,9 @@ export const gameBridge = {
   startGeneratedMap: (recipe: MapRecipe) => commands?.startGeneratedMap(recipe),
   startSandboxMap: (mapId: MapId) => commands?.startSandboxMap(mapId),
   openPauseMenu: () => commands?.openPauseMenu(),
+  musicNext: () => commands?.musicNext(),
+  musicPrevious: () => commands?.musicPrevious(),
+  musicSelect: (id: string) => commands?.musicSelect(id),
   resumeFromMenu: () => commands?.resumeFromMenu(),
   menuQuickSave: () => commands?.menuQuickSave(),
   requestQuitToMenu: () => commands?.requestQuitToMenu(),

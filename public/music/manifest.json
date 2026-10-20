@@ -1,10 +1,17 @@
 {
   "tracks": [
-    {
-      "id": "main-theme",
-      "context": "park",
-      "loopStart": 7.619048,
-      "stems": [{ "file": "Parksmith Main theme.ogg" }]
-    }
+    { "id": "main-theme", "context": "menu", "loopStart": 7.619048, "stems": [{ "file": "Parksmith_Main_Theme.ogg" }]},
+    { "id": "fluffy-clouds", "context": "park", "stems": [{ "file": "Fluffy_Clouds.ogg" }]},
+    { "id": "jazzcat", "context": "park", "stems": [{ "file": "Jazzcat.ogg" }]},
+    { "id": "morning-ride", "context": "park", "stems": [{ "file": "Morning_Ride.ogg" }]},
+    { "id": "reckless-murmur", "context": "park", "stems": [{ "file": "Reckless_Murmur.ogg" }]},
+    { "id": "rush-hour", "context": "park", "stems": [{ "file": "Rush_Hour.ogg" }]},
+    { "id": "the-new-bossa-life", "context": "park", "stems": [{ "file": "The_New_Bossa_Life.ogg" }]},
+    { "id": "trio-food-court-bossa", "context": "park", "stems": [{ "file": "Trio_Food_Court_Bossa.ogg" }]},
+    { "id": "trio-last-ride", "context": "park", "stems": [{ "file": "Trio_Last_Ride.ogg" }]},
+    { "id": "trio-long-queue-blues", "context": "park", "stems": [{ "file": "Trio_Long_Queue_Blues.ogg" }]},
+    { "id": "trio-midway-strut", "context": "park", "stems": [{ "file": "Trio_Midway_Strut.ogg" }]},
+    { "id": "trio-railways", "context": "park", "stems": [{ "file": "Trio_Railways.ogg" }]},
+    { "id": "trio-umbrella-stall-waltz", "context": "park", "stems": [{ "file": "Trio_Umbrella_Stall_Waltz.ogg" }]}
   ]
 }

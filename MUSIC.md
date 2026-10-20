@@ -11,7 +11,20 @@ them in `public/music/manifest.json`. While no track is listed, the built-in syn
 | `park` | in the park, from dawn to dusk | the built-in loop |
 | `night` | in the park at night (the park clock's Night) | `park` |
 
-A change of context cross-fades over about 3 seconds. The first track listed for a context is the one that plays.
+A change of context cross-fades over about 3 seconds.
+
+## Playlists and the music player
+
+- **One track** in a context loops (with its intro, see `loopStart`). The start screen plays `Parksmith_Main_Theme.ogg`
+  this way.
+- **Two or more tracks** in a context are a playlist. It starts at a random track, plays each one through once, and
+  cross-fades into the next a moment before the end (the next file is fetched about 30 seconds ahead). After the last
+  track comes the first. Each context keeps its place, so going to the start screen and back picks the park's playlist
+  up at the track it was on.
+- The **Music** button in the menu bar opens the music player: the track playing, previous and next, and the whole list
+  to pick from. Volume stays in Settings.
+- The player shows each track's `title`, or the file's name without the extension and with `_` read as spaces
+  (`Trio_Long_Queue_Blues.ogg` shows as "Trio Long Queue Blues").
 
 ## Stems and layers
 
@@ -36,7 +49,7 @@ When `from` is left out, the stems spread evenly (0, 1/n, 2/n …).
 ```json
 {
   "tracks": [
-    { "id": "menu-theme", "context": "menu", "stems": [{ "file": "menu.ogg" }] },
+    { "id": "menu-theme", "context": "menu", "title": "Main Theme", "stems": [{ "file": "menu.ogg" }] },
     {
       "id": "sunny-day",
       "context": "park",
@@ -55,6 +68,7 @@ When `from` is left out, the stems spread evenly (0, 1/n, 2/n …).
 
 - `file`: a name inside `public/music/` (subfolders are fine), or a list of the same audio in several formats, best
   first. The game uses the first one the browser can play.
+- `title` (optional): the name the music player shows; without it, the file name with `_` as spaces.
 - `gain`: loudness trim for the whole track, 0–2.
 - `loopStart` / `loopEnd` (seconds, optional): what comes before `loopStart` plays once as an intro, and the loop then
   runs from `loopStart` to `loopEnd`, or to the end of the file when `loopEnd` is left out. Without either, the whole file loops. An intro of n bars at b bpm in 4/4 lasts n × 4 × 60 / b seconds (4 bars at 126 bpm: 7.619048).

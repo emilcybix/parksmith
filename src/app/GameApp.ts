@@ -121,7 +121,7 @@ import { inwardOf, menuShot, type ShotScene } from './cinematicShots';
 import type { CinematicView } from '../rendering/RendererPort';
 import { START_MENU_DEFAULT } from './menuFlag';
 import { onReducedMotionChange, reducedMotion } from '../settings/motion';
-import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type CoasterDraftSnapshot, type LandUi, type LeaveRunPrompt, type SceneryNextStepUi, type ToolMode, type UiState } from '../ui/store';
+import { NO_MENU_PREVIEW, musicUiEqual, updateUiSnapshot, useUiStore, type CoasterDraftSnapshot, type LandUi, type LeaveRunPrompt, type MusicUi, type SceneryNextStepUi, type ToolMode, type UiState } from '../ui/store';
 import { parkTitleOf } from '../ui/modeLabels';
 import { placementThemeViewOf, researchCardFaces, samePlacementThemeView } from '../ui/themeCopy';
 import { createCalendarView, type TimeLock } from '../game/calendar/calendarMath';
@@ -4900,6 +4900,33 @@ export class GameApp implements GameCommands, RunCommands {
     this.audio.setAmbience(level.crowd, level.machinery);
     const night = this.session.calendar.viewInto(this.musicCalendar, this.world.tick).label === 'Night';
     this.audio.setMusicState(musicStateFor(this.session, this.menuHold, night));
+    this.publishMusic();
+  }
+
+  /** The music player's view (track list and the one playing), written only when it changed. */
+  private publishMusic(): void {
+    const view = this.audio.musicPlaylist();
+    const music: MusicUi | null = view === null ? null : {
+      tracks: view.tracks,
+      currentId: view.currentId,
+      playlist: view.tracks.length > 1,
+    };
+    if (!musicUiEqual(useUiStore.getState().music, music)) updateUiSnapshot({ music });
+  }
+
+  musicNext(): void {
+    this.audio.musicNext();
+    this.publishMusic();
+  }
+
+  musicPrevious(): void {
+    this.audio.musicPrevious();
+    this.publishMusic();
+  }
+
+  musicSelect(id: string): void {
+    this.audio.musicSelect(id);
+    this.publishMusic();
   }
 
   /**

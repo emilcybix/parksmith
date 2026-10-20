@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { menuBarButtons, menuBarLiveLine, type MenuBarInput } from './menuBarModel';
 import { MenuBar } from './MenuBar';
+import { MusicPanel } from './MusicPanel';
 import { useUiStore } from './store';
 
 /** Phase 43: the main menu bar: buttons, pressed states, badges, the live line and the markup. */
@@ -50,5 +51,40 @@ describe('Phase 43: menu bar model', () => {
     expect((html.match(/data-menu-bar=/g) ?? []).length).toBe(8);
     expect(html).toMatch(/title="Staff \(K\)/);
     expect(useUiStore.getState().dockOpen).toBe(true);
+  });
+});
+
+describe('the music player (2026-10-20)', () => {
+  it('a Music button before Parks once there is produced music, pressed while the player is open', () => {
+    expect(menuBarButtons({ ...base, musicOpen: null }).some((button) => button.id === 'music')).toBe(false);
+    const ids = menuBarButtons({ ...base, musicOpen: false }).map((button) => button.id);
+    expect(ids.slice(-2)).toEqual(['music', 'parks']);
+    expect(menuBarButtons({ ...base, musicOpen: true }).find((button) => button.id === 'music')!.pressed).toBe(true);
+  });
+
+  it('the panel names the track playing, offers previous and next, and lists every track', () => {
+    // Server rendering reads the store's initial state, so the test patches that and puts it back.
+    const seed = useUiStore.getInitialState() as unknown as Record<string, unknown>;
+    const saved = { music: seed.music, musicPlayerOpen: seed.musicPlayerOpen };
+    const render = (patch: Record<string, unknown>): string => {
+      Object.assign(seed, patch);
+      return renderToStaticMarkup(<MusicPanel />);
+    };
+    try {
+      const html = render({
+        musicPlayerOpen: true,
+        music: { tracks: [{ id: 'a', title: 'Rush Hour' }, { id: 'b', title: 'Trio Long Queue Blues' }], currentId: 'b', playlist: true },
+      });
+      expect(html).toMatch(/<strong aria-live="polite">Trio Long Queue Blues<\/strong>/);
+      expect(html).toMatch(/aria-label="Previous track"/);
+      expect(html).not.toMatch(/disabled=""/);
+      expect(html).toMatch(/<button class="">.*Rush Hour<\/button>/);
+      expect(html).toMatch(/<button class="playing" aria-current="true">.*Trio Long Queue Blues<\/button>/);
+      expect(render({ music: { tracks: [{ id: 't', title: 'Parksmith Main Theme' }], currentId: 't', playlist: false } }), 'one track: nothing to skip to')
+        .toMatch(/disabled=""/);
+      expect(render({ musicPlayerOpen: false })).toBe('');
+    } finally {
+      Object.assign(seed, saved);
+    }
   });
 });

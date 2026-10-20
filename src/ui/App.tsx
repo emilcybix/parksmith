@@ -3,6 +3,7 @@ import { GameApp } from '../app/GameApp';
 import { BuildDock, RideAlongBar, ViewControls, CoasterPanel, CursorReadout, GuestInspector, HelpHint, ParkPulse, PerformanceOverlay, RideInspector, ServiceInspector, Toast, TopBar, UtilityBar } from './Hud';
 import { MainMenu } from './MainMenu';
 import { MenuBar } from './MenuBar';
+import { MusicPanel } from './MusicPanel';
 import { ManagementDashboard, ManagementNotifications } from './ManagementDashboard';
 import { RecoveryPrompt } from './RecoveryPrompt';
 import { SaveBanner, SaveStatusStrip, useSaveBannerVisible } from './SaveBanner';
@@ -93,6 +94,7 @@ export const App = (): React.JSX.Element => {
             {dockOpen && <HelpHint />}
             {dockOpen && <BuildDock />}
             <MenuBar />
+            <MusicPanel />
           </div>
           {!riding && <ViewControls />}
           <RideAlongBar />

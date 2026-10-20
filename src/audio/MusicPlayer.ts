@@ -1,5 +1,7 @@
 import type { AudioBufferLike, AudioContextLike, BufferSourceLike, GainNodeLike } from './AudioEngine';
-import { layerLevel, parseMusicManifest, pickTrack, playableFile, type MusicManifest, type MusicState, type MusicTrack } from './music';
+import {
+  layerLevel, parseMusicManifest, playableFile, tracksFor, type MusicContext, type MusicManifest, type MusicState, type MusicTrack,
+} from './music';
 
 /**
  * Phase 47: plays the produced music on the music bus. Created at the audio unlock; it fetches the manifest then, and
@@ -10,6 +12,11 @@ import { layerLevel, parseMusicManifest, pickTrack, playableFile, type MusicMani
  *
  * Anything that goes wrong (no manifest, a 404, a format the browser cannot decode) leaves that track out for the
  * session and the synthesised loop plays instead; nothing throws into the game.
+ *
+ * A context with one track loops it. A context with two or more is a playlist: it starts at a random track, plays each
+ * through once (intro included, no loop) and cross-fades into the next a moment before the end, fetching the next one
+ * ahead of time. The music player (`next`, `previous`, `select`) moves through the same list. Each context keeps its own
+ * place, so the start screen and back resumes the park's playlist at the track it was on.
  */
 
 /** Where the music comes from (the browser's fetch in the game, a fake in tests). */
@@ -29,12 +36,25 @@ export const LAYER_TIME_CONSTANT = 1.5;
 export const TRACK_STOP_AFTER = 6;
 /** The music sits a little under the cues, like the synthesised loop. */
 export const MUSIC_SCALE = 0.55;
+/** A playlist track hands over to the next this many seconds before its end (the cross-fade covers the tail). */
+export const PLAYLIST_END_LEAD = 1.5;
+/** The next playlist track is fetched and decoded once the one playing has this little left. */
+export const PLAYLIST_PREFETCH = 30;
 
 interface Playing {
   readonly track: MusicTrack;
   readonly gain: GainNodeLike;
   readonly sources: readonly BufferSourceLike[];
   readonly layers: readonly GainNodeLike[];
+  /** Context time the track ends at when it plays once (a playlist); null while it loops. */
+  readonly endsAt: number | null;
+}
+
+/** What the music player shows: the tracks of the context playing, and which one plays. */
+export interface MusicPlaylistView {
+  readonly context: MusicContext;
+  readonly tracks: readonly { readonly id: string; readonly title: string }[];
+  readonly currentId: string | null;
 }
 
 export class MusicPlayer {
@@ -47,6 +67,8 @@ export class MusicPlayer {
   private readonly failed = new Set<string>();
   /** Tracks started since unlock (tests and the dev readout). */
   readonly started: string[] = [];
+  /** The playlist place per context (the context the tracks belong to, after the fallback). */
+  private readonly positions = new Map<MusicContext, number>();
 
   constructor(
     private readonly context: AudioContextLike,
@@ -54,6 +76,8 @@ export class MusicPlayer {
     private readonly source: MusicSource,
     /** Called when produced music starts or stops, so the engine can fade the synthesised loop the other way. */
     private readonly onActiveChange: () => void,
+    /** Where a playlist starts (0..1); the browser's random in the game, fixed in tests. */
+    private readonly random: () => number = Math.random,
   ) {
     void source.manifest().then((raw) => {
       this.manifest = parseMusicManifest(raw);
@@ -80,14 +104,85 @@ export class MusicPlayer {
     this.apply();
   }
 
+  /** The tracks of the context playing and the current one; null before the manifest is read or without tracks. */
+  playlist(): MusicPlaylistView | null {
+    const list = this.list();
+    if (list.length === 0) return null;
+    return {
+      context: list[0].context,
+      tracks: list.map((track) => ({ id: track.id, title: track.title })),
+      currentId: this.playing?.track.id ?? null,
+    };
+  }
+
+  /** The next track of the playlist (a one-track context just keeps playing it). */
+  next(): void {
+    this.step(1);
+  }
+
+  previous(): void {
+    this.step(-1);
+  }
+
+  /** Plays this track of the current context's list now (it cross-fades in once it is decoded). */
+  select(id: string): void {
+    const list = this.list();
+    const index = list.findIndex((track) => track.id === id);
+    if (index < 0) return;
+    this.positions.set(list[0].context, index);
+    this.apply();
+  }
+
+  private list(): readonly MusicTrack[] {
+    if (this.manifest === null) return [];
+    return tracksFor(this.manifest, this.state.context).filter((track) => !this.failed.has(track.id));
+  }
+
+  /** The list's current place: the stored one, or a random start for a playlist the first time. */
+  private position(list: readonly MusicTrack[]): number {
+    const key = list[0].context;
+    let index = this.positions.get(key);
+    if (index === undefined) {
+      index = list.length > 1 ? Math.min(list.length - 1, Math.floor(this.random() * list.length)) : 0;
+      this.positions.set(key, index);
+    }
+    return index % list.length;
+  }
+
+  private step(delta: number): void {
+    const list = this.list();
+    if (list.length < 2) return;
+    // From the track that plays (the stored place may already point at one still decoding).
+    const playingIndex = list.findIndex((track) => track.id === this.playing?.track.id);
+    const from = playingIndex >= 0 ? playingIndex : this.position(list);
+    this.positions.set(list[0].context, (from + delta + list.length) % list.length);
+    this.apply();
+  }
+
   private apply(): void {
     if (this.manifest === null) return;
-    const wanted = pickTrack(this.manifest, this.state.context);
-    const usable = wanted !== null && !this.failed.has(wanted.id) ? wanted : null;
-    if (usable?.id !== this.playing?.track.id) {
-      if (usable === null) this.switchTo(null);
-      else if (this.decoded.has(usable.id)) this.switchTo(usable);
-      else this.fetch(usable);
+    const list = this.list();
+    if (list.length === 0) {
+      if (this.playing !== null) this.switchTo(null);
+      return;
+    }
+    const key = list[0].context;
+    const now = this.context.currentTime;
+    const playing = this.playing;
+    const playingIndex = playing === null ? -1 : list.findIndex((track) => track.id === playing.track.id);
+    // A playlist track near its end hands over to the next one.
+    if (playing !== null && playingIndex >= 0 && playing.endsAt !== null && now >= playing.endsAt - PLAYLIST_END_LEAD
+      && this.position(list) === playingIndex) {
+      this.positions.set(key, (playingIndex + 1) % list.length);
+    }
+    const index = this.position(list);
+    const wanted = list[index];
+    if (wanted.id !== playing?.track.id) {
+      if (this.decoded.has(wanted.id)) this.switchTo(wanted, list.length === 1);
+      else this.fetch(wanted);
+    } else if (playing.endsAt !== null && playing.endsAt - now < PLAYLIST_PREFETCH) {
+      const following = list[(index + 1) % list.length];
+      if (following.id !== wanted.id && !this.decoded.has(following.id)) this.fetch(following);
     }
     this.applyGains();
   }
@@ -127,7 +222,7 @@ export class MusicPlayer {
     this.apply();
   }
 
-  private switchTo(track: MusicTrack | null): void {
+  private switchTo(track: MusicTrack | null, loop = true): void {
     const context = this.context;
     const now = context.currentTime;
     const outgoing = this.playing;
@@ -145,14 +240,17 @@ export class MusicPlayer {
       const when = now + 0.1;
       const layers: GainNodeLike[] = [];
       const sources: BufferSourceLike[] = [];
+      const length = Math.max(0, ...buffers.map((buffer) => buffer.duration ?? 0));
+      // A playlist track plays once; one whose length the browser does not report loops instead of ending unheard.
+      const once = !loop && length > 0;
       track.stems.forEach((stem, index) => {
         const layer = context.createGain();
         layer.gain.value = layerLevel(stem.from, this.state.intensity);
         layer.connect(gain);
         const source = context.createBufferSource();
         source.buffer = buffers[index];
-        source.loop = true;
-        if (track.loopStart !== undefined || track.loopEnd !== undefined) {
+        source.loop = !once;
+        if (!once && (track.loopStart !== undefined || track.loopEnd !== undefined)) {
           // Web Audio reads a loopEnd of 0 as "loop the whole buffer", so "to the end" is the buffer's own length.
           source.loopStart = track.loopStart ?? 0;
           source.loopEnd = track.loopEnd ?? buffers[index].duration ?? 0;
@@ -162,7 +260,7 @@ export class MusicPlayer {
         layers.push(layer);
         sources.push(source);
       });
-      this.playing = { track, gain, sources, layers };
+      this.playing = { track, gain, sources, layers, endsAt: once ? when + length : null };
       this.started.push(track.id);
     }
     // Decoded audio is large: keep only what is playing or fading out.

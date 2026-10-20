@@ -26,6 +26,8 @@ export const MenuBar = (): React.JSX.Element => {
   const noPathAccessIds = useUiStore((state) => state.noPathAccessIds);
   const progression = useUiStore((state) => state.progression);
   const onboarding = useUiStore((state) => state.onboarding);
+  const hasMusic = useUiStore((state) => state.music !== null);
+  const musicOpen = useUiStore((state) => state.musicPlayerOpen);
   const maintenance = management?.parkOperations.maintenance;
   const buttons = menuBarButtons({
     dockOpen,
@@ -41,6 +43,7 @@ export const MenuBar = (): React.JSX.Element => {
     researchReady: progression?.projects.filter((project) => project.status === 'affordable').length ?? 0,
     pulseWarnings: management?.notifications.length ?? 0,
     buildHinted: onboarding !== null && onboarding.active && onboarding.currentStepId !== null && BUILD_STEPS.has(onboarding.currentStepId),
+    musicOpen: hasMusic ? musicOpen : null,
   });
   const press = (id: MenuBarButtonId): void => {
     const ui = useUiStore.getState();
@@ -61,6 +64,7 @@ export const MenuBar = (): React.JSX.Element => {
         if (ui.tool === 'land') ui.selectPointer();
         else ui.selectLandTool();
         return;
+      case 'music': ui.setMusicPlayerOpen(!ui.musicPlayerOpen); return;
       case 'runMap': runBridge.openRunMap(); return;
       default: gameBridge.openParksChooser('modes');
     }
