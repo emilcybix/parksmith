@@ -154,21 +154,27 @@ describe('start menu', () => {
 });
 
 describe('pause menu', () => {
-  it('lists Resume, Save, Load, Settings, Parks, Collection, About and feedback (Phase 19) and Quit to menu with Resume focused', () => {
+  it('lists Resume, Save, Save as, Load, Settings, Parks, Collection, About and feedback (Phase 19) and Quit to menu with Resume focused', () => {
     const model = buildPauseMenu({ quickSaveSlotId: 'manual-2', persistence: 'ready', unsavedChanges: false });
-    expect(model.items.map((item) => item.id)).toEqual(['resume', 'save', 'load', 'settings', 'parks', 'collection', 'about', 'quit']);
-    expect(model.items.map((item) => item.label)).toEqual(['Resume', 'Save', 'Load', 'Settings', 'Parks', 'Collection', 'About and feedback', 'Quit to menu']);
+    expect(model.items.map((item) => item.id)).toEqual(['resume', 'save', 'save-as', 'load', 'settings', 'parks', 'collection', 'about', 'quit']);
+    expect(model.items.map((item) => item.label)).toEqual(['Resume', 'Save', 'Save as…', 'Load', 'Settings', 'Parks', 'Collection', 'About and feedback', 'Quit to menu']);
     expect(model.defaultFocus).toBe('resume');
-    expect(model.items[1].detail).toBe('Quick save to slot 2');
-    expect(model.items[4].detail).toBe('Sandbox, Scenario or The Map');
-    expect(model.items[6].detail).toMatch(/^v\d+\.\d+\.\d+/);
-    expect(model.items[7].detail).toBeNull();
+    expect(model.items[1].detail).toBe('Save to empty slot 2');
+    expect(model.items[2].detail).toBe('Pick a slot: a new one, or one to replace');
+    expect(model.items[5].detail).toBe('Sandbox, Scenario or The Map');
+    expect(model.items[7].detail).toMatch(/^v\d+\.\d+\.\d+/);
+    expect(model.items[8].detail).toBeNull();
+  });
+
+  it('Save names the park already in its slot', () => {
+    const model = buildPauseMenu({ quickSaveSlotId: 'manual-1', quickSaveSlotName: 'Meadow Garden', persistence: 'ready', unsavedChanges: false });
+    expect(model.items[1].detail).toBe('Save to slot 1 · Meadow Garden');
   });
 
   it('says what Save does when slots are full or storage is down, and flags unsaved changes on Quit', () => {
     const full = buildPauseMenu({ quickSaveSlotId: null, persistence: 'ready', unsavedChanges: true });
     expect(full.items[1].detail).toMatch(/slot is taken|Every slot/);
-    expect(full.items[7].detail).toBe('You have unsaved changes');
+    expect(full.items[8].detail).toBe('You have unsaved changes');
     expect(buildPauseMenu({ quickSaveSlotId: 'manual-1', persistence: 'unavailable', unsavedChanges: false }).items[1].detail).toMatch(/this session only/);
   });
 });

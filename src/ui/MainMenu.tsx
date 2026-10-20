@@ -100,6 +100,7 @@ const MenuBody = ({ kind }: { kind: MenuKind }): React.JSX.Element => {
   });
   const pause = buildPauseMenu({
     quickSaveSlotId: saves.quickSaveSlotId,
+    quickSaveSlotName: saves.slots.find((slot) => slot.id === saves.quickSaveSlotId && slot.status.state === 'ok')?.name ?? null,
     persistence: saves.persistence.state,
     unsavedChanges: saves.unsavedChanges,
     run: parkRun === null ? null : summaryOfSnapshot(parkRun),
@@ -218,6 +219,8 @@ const MenuBody = ({ kind }: { kind: MenuKind }): React.JSX.Element => {
         gameBridge.openParksChooser('modes');
         return;
       case 'load':
+      case 'save-as':
+        // The Save / Load dialog lists every slot with its own Save button (and asks before replacing a park).
         openSaveLoadDialog();
         return;
       case 'settings':

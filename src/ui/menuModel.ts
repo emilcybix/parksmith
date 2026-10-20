@@ -27,7 +27,7 @@ export type MenuKind = 'start' | 'pause';
 export type MenuPanel = 'main' | 'about' | 'quit' | 'new-park' | 'scenarios' | 'collection' | 'modes' | 'the-map';
 
 export type StartMenuItemId = 'continue' | 'the-map' | 'scenarios' | 'sandbox' | 'load' | 'collection' | 'settings' | 'about';
-export type PauseMenuItemId = 'resume' | 'run-map' | 'save' | 'load' | 'settings' | 'parks' | 'collection' | 'about' | 'quit';
+export type PauseMenuItemId = 'resume' | 'run-map' | 'save' | 'save-as' | 'load' | 'settings' | 'parks' | 'collection' | 'about' | 'quit';
 export type MenuItemId = StartMenuItemId | PauseMenuItemId;
 
 export interface MenuItem<Id extends MenuItemId = MenuItemId> {
@@ -295,16 +295,20 @@ export interface PauseMenuInput {
   run?: RunSummary | null;
   /** The manual slot a quick save writes to next; null when every slot is taken. */
   quickSaveSlotId: ManualSaveSlotId | null;
+  /** The name of the save already in that slot (the park Save replaces), or null when the slot is empty. */
+  quickSaveSlotName?: string | null;
   persistence: SavesSnapshot['persistence']['state'];
   unsavedChanges: boolean;
 }
 
 export const buildPauseMenu = (input: PauseMenuInput): { items: MenuItem<PauseMenuItemId>[]; defaultFocus: PauseMenuItemId } => {
-  const saveDetail = input.quickSaveSlotId === null
+  const slot = input.quickSaveSlotId === null ? null : input.quickSaveSlotId.replace('manual-', '');
+  // Save names its target, and the park already in it, so a save never replaces another park unseen.
+  const saveDetail = slot === null
     ? 'Every slot is taken: choose one to replace'
     : input.persistence === 'unavailable'
       ? 'Saving is unavailable: this session only'
-      : `Quick save to slot ${input.quickSaveSlotId.replace('manual-', '')}`;
+      : input.quickSaveSlotName ? `Save to slot ${slot} · ${input.quickSaveSlotName}` : `Save to empty slot ${slot}`;
   return {
     items: [
       { id: 'resume', label: 'Resume', detail: 'Back to the park at the speed you had', unavailable: null, primary: true },
@@ -312,6 +316,7 @@ export const buildPauseMenu = (input: PauseMenuInput): { items: MenuItem<PauseMe
         ? [{ id: 'run-map' as const, label: 'Run map', detail: `${runPositionText(input.run)} · levels, deck and offer`, unavailable: null, primary: false }]
         : []),
       { id: 'save', label: 'Save', detail: saveDetail, unavailable: null, primary: false },
+      { id: 'save-as', label: 'Save as…', detail: 'Pick a slot: a new one, or one to replace', unavailable: null, primary: false },
       { id: 'load', label: 'Load', detail: null, unavailable: null, primary: false },
       { id: 'settings', label: 'Settings', detail: null, unavailable: null, primary: false },
       { id: 'parks', label: 'Parks', detail: 'Sandbox, Scenario or The Map', unavailable: null, primary: false },
