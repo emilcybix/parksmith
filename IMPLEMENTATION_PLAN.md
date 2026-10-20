@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–57; 48 and 49 built, the rest not started)
+## Owner Feedback 2026-10-19 (Phases 48–58; 48 and 49 built, the rest not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3437,6 +3437,78 @@ cards or the windows. First Day stays as it is in the Sandbox. The tutorial is t
   - It stays out of the scenario browser, The Map, statistics and the Collection.
   - Static checks that every key named in a step comes from the keybinding registry.
   - A headless Chromium pass through the whole tutorial in a fresh profile at 1280×800 and 1100×690.
+
+### Phase 58 — Gentler Coasters Possible (owner request 2026-10-20)
+
+The owner finds it very hard to build a gentle coaster. A layout with two small drops (3 levels in all, highest point
+2) and some turns is intensity 60, well above the nausea floor of 45 (`guestLife.nausea.minimumIntensity`). The
+intensity formula (`deriveCoasterStats`, `coaster/design.ts`) is the cause. Estimated for that layout:
+
+| part | contribution |
+|---|---|
+| base | 8 |
+| biggest drop: 2 levels × 10 | 20 |
+| descent: 3 levels × 2.5 | 7.5 |
+| tight turns: about 7–8 pairs × 2.2 | 15–18 |
+| top speed: 5.4 × 1.2 | 6.5 |
+| free run | 1–2 |
+
+- The biggest drop weighs the most: even a 1-level drop costs 10 points.
+- Every S-bend and every short straight between two turns counts as a "steep turn pair" (two turns at most 2 pieces
+  apart).
+- The base and the speed alone are about 15, which leaves little room under 45.
+
+**Decision (owner, 2026-10-20): rebalance the formula, with no new guidance in the designer.** The player should find
+gentle and wild layouts by building them freely, not by following a breakdown or hints. The designer keeps showing
+only excitement and intensity, as today.
+
+- [ ] **Measure first.** Write a review harness, like Phase 49's (`COASTER_INTENSITY_REPORT=1`).
+  - It derives the stats of a set of fixture layouts: family coasters (one or two 1-level drops, wide turns, S-bends),
+    the owner's layout above, typical mid layouts, and the existing thrill layouts (tall drops, loops and elements).
+  - It records each one's excitement, intensity, the part each term adds, and what a guest's nausea does on it (one
+    ride, two rides back to back, a full stomach).
+  - The numbers go in BALANCE_NOTES.md before anything changes.
+- [ ] **Targets.**
+  - A family coaster (low, small drops, wide or gentle S-curves) can be built at about 30–45, so it makes almost no
+    one sick.
+  - A mid layout like the owner's lands around 45–55.
+  - Thrill layouts keep their place at the top (70–100), and excitement keeps rewarding them.
+  - Wild mouse keeps its tight-turn character, and the families keep their order.
+- [ ] **Levers, in this order.**
+  - `biggestDrop` per level for small drops: a gentler curve that grows past 2 or 3 levels instead of 10 per level
+    from the first.
+  - Steep turns: count only a turn that follows another within 1 piece, or weigh an S-bend less than two turns the
+    same way. Wild mouse keeps a higher weight.
+  - The base of 8, and the speed term.
+  - No change to the nausea side (`guestLife.nausea`) unless the formula alone cannot reach the targets.
+- [ ] **Allow a coaster that only climbs to height 1 (owner, 2026-10-20).**
+  - Today validation refuses any circuit whose highest point is below 2: 'no-drop', "Add a hill of height 2+ and a
+    drop so the train can run" (`validateCoasterLayout`, `coaster/design.ts`).
+  - That is a rule from the first coaster phase, not physics. The speed model runs a height-1 layout: flats settle at
+    cruise speed (2.4) and a 1-level drop adds 1.9.
+  - Lower the rule to "a hill of height 1+ and a drop" for circuits, so a kiddie or family coaster can stay at ground
+    level plus one. The shuttle's 'shuttle-no-climb' (a 2+ climb to turn on) stays.
+  - Check that a height-1 layout has no special pieces it cannot carry (loops and elements need speed and height; they
+    keep their own rules), that the train never stalls (`free-climb-stalls`), that the supports, track art and ride
+    camera look right one level up, and how path crossings behave: the path clearance is 2, so height-1 track
+    cannot pass over a path.
+  - Measure its excitement and intensity with the fixtures above. It should be the gentlest ride a coaster type can
+    give.
+- [ ] **What this touches.**
+  - Every existing coaster's intensity changes. Coaster stats are derived, but check whether any are saved, pinned or
+    used in content signatures (`coasterStats`, the save format, `content-mismatch`).
+  - Re-pin what pins them: designer tests, the classic Skyline Serpent, the dev park coaster and the colour test park.
+  - Re-run the bot proofs, sweeps and card matrices that read guest happiness and sickness. Record moves over the
+    usual margins in BALANCE_NOTES.md.
+  - Excitement is not part of this phase. If a gentler intensity makes a gentle coaster a dull one, note it and leave
+    the change to the owner.
+- [ ] Tests:
+  - `deriveCoasterStats` on the fixture layouts lands inside the target bands.
+  - A height-1 circuit validates, runs a full lap in the speed model and draws.
+  - A flat circuit (no hill at all) is still refused.
+  - The family order holds.
+  - A gentle fixture's riders reach the vomit level only with a full stomach and back-to-back rides.
+  - The re-pinned baselines.
 
 ## Voxel Renderer (main renderer)
 
