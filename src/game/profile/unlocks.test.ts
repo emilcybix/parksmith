@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { BUILD_BY_ID, BUILD_CATALOG } from '../content/catalog';
-import { COLOURABLE_DEFINITION_IDS } from '../content/colours';
+import { COLOURABLE_DEFINITION_IDS, COLOUR_SWATCHES } from '../content/colours';
 import { GAME_CONFIG } from '../config';
 import { PROJECT_BY_BUILD_ID, scaledResearchPoints } from '../progression/content';
 import { researchCostScaleOf } from '../scenarios/rules';
 import { hashState } from '../save/hash';
 import { gamePalette } from '../../rendering/voxel/gamePalette';
+import { buildPalette } from '../../rendering/voxel/palette';
+import { BIOME_MATERIALS } from '../../rendering/voxel/content/biomeMaterials';
+import { LITTER_EFFECT_MATERIALS } from '../../rendering/voxel/content/litter';
+import { GUEST_ACCENTS, GUEST_COLORS } from '../guests/GuestSimulation';
 import { SCENARIOS, SCENARIO_BY_ID } from '../scenarios/content';
 import { testStageSession } from '../run/testSupport';
 import { entranceFrame } from '../maps/frame';
@@ -58,9 +62,13 @@ describe('the four profile-gated catalog entries', () => {
 
 describe('the palette costs nothing: the new entries reuse existing catalog colours', () => {
   it('the voxel palette is the one it was before the entries existed (count pinned from the schema-9 code; the texture digest is hashState of its bytes, equal to the sha256 captured before the entries existed)', () => {
-    const palette = gamePalette();
+    // Phase 49 appends the sick splat's two greens after everything else; the palette before them is the pinned one.
+    const palette = buildPalette(BUILD_CATALOG, GUEST_COLORS, GUEST_ACCENTS, COLOUR_SWATCHES.map((swatch) => swatch.rgb), BIOME_MATERIALS);
     expect(palette.count).toBe(162);
     expect(hashState(Array.from(palette.textureData()))).toBe('f432d9c53824dca8');
+    const game = gamePalette();
+    expect(game.count).toBe(162 + LITTER_EFFECT_MATERIALS.length);
+    for (let material = 1; material < palette.count; material += 1) expect(game.baseColor(material)).toBe(palette.baseColor(material));
   });
 
   it('each entry colour and accent is an existing catalog colour or accent', () => {

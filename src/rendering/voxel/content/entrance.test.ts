@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { BIOMES } from '../../../game/biomes/content';
+import { GAME_CONFIG } from '../../../game/config';
 import { BUILD_CATALOG } from '../../../game/content/catalog';
 import { GUEST_ACCENTS, GUEST_COLORS } from '../../../game/guests/GuestSimulation';
 import { compileBlueprint, flattenAtRest, rotateModel } from '../blueprint/compile';
@@ -12,6 +14,7 @@ import { MAT, MAT_COLOR, PATTERN } from '../contracts/palette';
 import type { Palette } from '../contracts/palette';
 import { PATH_TOP_Z, projectX, projectY, rotateBoxInFootprint, VOXELS_PER_TILE } from '../contracts/space';
 import type { QuarterTurn, SingleTurn } from '../contracts/space';
+import { gamePalette as fullGamePalette } from '../gamePalette';
 import { buildPalette } from '../palette';
 import {
   ENTRANCE_BLUEPRINT_ID,
@@ -43,6 +46,7 @@ import {
   LITTER_WRAPPER_SIZE,
   litterEmitter,
   SICK_COLOUR,
+  SICK_LUMP_COLOUR,
   litterPieceCount,
   litterScale,
 } from './litter';
@@ -345,27 +349,44 @@ const groundGap = (first: Box, second: Box): number => Math.max(
 );
 
 describe('litter emitter', () => {
-  const palette = gamePalette();
+  // The game's own palette: the sick splat's greens are appended after the biomes (Phase 49).
+  const palette = fullGamePalette();
   const MAP_SIZE = 32;
 
-  it('Phase 29: lays a sick puddle in the middle of a sick pile, which every piece keeps its gap from', () => {
-    const sickWord = packBoxWord(palette.material(SICK_COLOUR), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0);
+  it('Phase 49: draws a sick pile as a green splat with lumps, the pieces only for the units on top of it', () => {
+    const splatWords = new Set([SICK_COLOUR, SICK_LUMP_COLOUR].map((rgb) => packBoxWord(palette.material(rgb), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0)));
+    const sickUnits = GAME_CONFIG.operations.litter.sickUnits;
     for (const [cellX, cellY] of [[0, 0], [15, 30], [7, 21], [31, 31]]) {
-      for (const units of [1, 3, 9, 40]) {
+      for (const units of [1, sickUnits, sickUnits + 1, 9, 40]) {
         const out = new BoxWriter(4);
         litterEmitter(cellX, cellY, units, palette, out, true);
         const boxes = boxesOf(out.data, out.count);
-        const puddle = boxes.filter((box) => box.word === sickWord);
-        const pieces = boxes.filter((box) => box.word !== sickWord);
-        expect(puddle.length, `cell (${cellX}, ${cellY}) x${units}: two flat patches`).toBe(2);
-        for (const box of puddle) {
-          expect([box.z, box.sizeZ], 'flat on the path').toEqual([PATH_TOP_Z, 1]);
+        const splat = boxes.filter((box) => splatWords.has(box.word));
+        const pieces = boxes.filter((box) => !splatWords.has(box.word));
+        const where = `cell (${cellX}, ${cellY}) x${units}`;
+        expect(splat.length, `${where}: the whole splat`).toBe(9);
+        for (const box of splat) {
+          expect(box.sizeZ, 'one voxel thick').toBe(1);
+          expect([PATH_TOP_Z, PATH_TOP_Z + 1], 'on the path, lumps on the splat').toContain(box.z);
           expect(box.x - cellX * TILE).toBeGreaterThanOrEqual(LITTER_AREA_MIN);
-          expect(box.y + box.sizeY - cellY * TILE).toBeLessThanOrEqual(LITTER_AREA_MAX);
+          expect(box.y - cellY * TILE).toBeGreaterThanOrEqual(LITTER_AREA_MIN);
+          expect(box.x + box.sizeX - cellX * TILE).toBeLessThanOrEqual(LITTER_AREA_MAX + 1);
+          expect(box.y + box.sizeY - cellY * TILE).toBeLessThanOrEqual(LITTER_AREA_MAX + 1);
         }
-        expect(pieces.length, 'most pieces still find room').toBeGreaterThanOrEqual(Math.min(litterPieceCount(units), 6));
+        for (let first = 0; first < splat.length; first += 1) {
+          for (let second = first + 1; second < splat.length; second += 1) {
+            const a = splat[first];
+            const b = splat[second];
+            const overlaps = a.x < b.x + b.sizeX && b.x < a.x + a.sizeX && a.y < b.y + b.sizeY && b.y < a.y + a.sizeY
+              && a.z < b.z + b.sizeZ && b.z < a.z + a.sizeZ;
+            expect(overlaps, `${where}: splat boxes ${first} and ${second} overlap`).toBe(false);
+          }
+        }
+        if (units <= sickUnits) expect(pieces, `${where}: the sick units are the splat alone`).toEqual([]);
+        expect(pieces.length, `${where}: no more pieces than the units on top`).toBeLessThanOrEqual(litterPieceCount(units - sickUnits));
+        if (units > sickUnits) expect(pieces.length, `${where}: litter on top still shows`).toBeGreaterThan(0);
         for (const piece of pieces) {
-          for (const patch of puddle) expect(groundGap(piece, patch), 'no piece lies in the puddle').toBeGreaterThanOrEqual(LITTER_PIECE_GAP);
+          for (const patch of splat) expect(groundGap(piece, patch), 'no piece lies in the splat').toBeGreaterThanOrEqual(LITTER_PIECE_GAP);
         }
       }
     }
@@ -374,6 +395,26 @@ describe('litter emitter', () => {
       litterEmitter(7, 21, 9, palette, out, false);
       return boxesOf(out.data, out.count);
     })());
+  });
+
+  it('Phase 49: keeps the splat apart from every path, curb and litter colour (CIE76 distance)', () => {
+    const toLinear = (channel: number): number => {
+      const c = channel / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const lab = (rgb: number): [number, number, number] => {
+      const [r, g, b] = [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255].map(toLinear);
+      const f = (t: number): number => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      const x = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047);
+      const y = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
+      const z = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883);
+      return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+    };
+    const distance = (left: number, right: number): number => Math.hypot(...lab(left).map((value, index) => value - lab(right)[index]));
+    const grounds = BIOMES.flatMap((biome) => [biome.ground.paving, biome.ground.curb]).flatMap((colour) => [colour.rgb, colour.secondary]);
+    for (const other of [...grounds, MAT_COLOR.PAVING, MAT_COLOR.CURB, MAT_COLOR.LITTER_CUP, MAT_COLOR.LITTER_WRAPPER]) {
+      expect(distance(SICK_COLOUR, other), `splat against ${other.toString(16)}`).toBeGreaterThanOrEqual(35);
+    }
   });
 
   it('grows along the legacy pile scale, two pieces at one unit up to eight', () => {

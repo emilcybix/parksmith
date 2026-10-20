@@ -53,6 +53,18 @@ export interface StaffRuntime {
   payrollRemainingSeconds: number;
 }
 
+/**
+ * Phase 49: running totals of where waste went since the simulation was built: purchase waste made, how much of it a
+ * bin took, units that landed on a path (purchase waste with no bin in reach, a full bin's overflow, sick piles) and
+ * units cleaners swept up. Not saved and never read by the simulation; a reader differences two samples.
+ */
+export interface WasteTally {
+  made: number;
+  binned: number;
+  dropped: number;
+  cleared: number;
+}
+
 export interface LitterPileRuntime {
   cell: Cell;
   units: number;

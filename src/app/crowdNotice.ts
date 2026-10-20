@@ -10,6 +10,8 @@ import type { CrowdView, NeighborhoodView } from '../game/crowd/types';
  *
  * - A condition (design Q4) turns ON after it has held for `holdSeconds` (10 s: bottleneck, crowded, coverage) or
  *   `slowHoldSeconds` (20 s: unhappy, litter) without a break.
+ * - Phase 49: litter in a neighborhood while the cleaners are swamped is `litterOutpaces` instead of `litter`; the
+ *   switch between the two starts the new kind's hold afresh.
  * - It turns OFF after `releaseSeconds` (20 s) without the condition; a return inside that window keeps it on.
  * - A neighborhood that is gone from the view (a removed leader ride) drops its lines at once; a tick that ran
  *   backwards (a rewind with a stale tracker) restarts every stretch.
@@ -17,19 +19,24 @@ import type { CrowdView, NeighborhoodView } from '../game/crowd/types';
  * The words are `ui/neighborhoodModel.ts` (`crowdNoticeText`); this file only decides which lines are on.
  */
 
-export type CrowdNoticeKind = 'bottleneck' | 'crowded' | 'noToilet' | 'noFood' | 'noDrink' | 'unhappy' | 'litter';
+export type CrowdNoticeKind = 'bottleneck' | 'crowded' | 'noToilet' | 'noFood' | 'noDrink' | 'unhappy' | 'litterOutpaces' | 'litter';
 
-/** Park Pulse priority (design Q4): bottleneck > crowded > coverage > unhappy > litter. */
+/**
+ * Park Pulse priority (design Q4): bottleneck > crowded > coverage > unhappy > litter. Phase 49: `litterOutpaces` is the
+ * litter line while the cleaners are swamped (`cleanerLoad.ts`), so a neighborhood has one of the two, never both.
+ */
 export const CROWD_NOTICE_PRIORITY: readonly CrowdNoticeKind[] = Object.freeze([
-  'bottleneck', 'crowded', 'noToilet', 'noFood', 'noDrink', 'unhappy', 'litter',
+  'bottleneck', 'crowded', 'noToilet', 'noFood', 'noDrink', 'unhappy', 'litterOutpaces', 'litter',
 ]);
+
+const SLOW_KINDS: ReadonlySet<CrowdNoticeKind> = new Set(['unhappy', 'litterOutpaces', 'litter']);
 
 const TICKS_PER_SECOND = 1_000 / GAME_CONFIG.fixedStepMs;
 
 /** Ticks a condition must hold before its line turns on. */
 export const crowdHoldTicks = (kind: CrowdNoticeKind): number => {
   const pulse = GAME_CONFIG.crowd.pulse;
-  return (kind === 'unhappy' || kind === 'litter' ? pulse.slowHoldSeconds : pulse.holdSeconds) * TICKS_PER_SECOND;
+  return (SLOW_KINDS.has(kind) ? pulse.slowHoldSeconds : pulse.holdSeconds) * TICKS_PER_SECOND;
 };
 
 /** Ticks without the condition before a line that is on turns off. */
@@ -71,6 +78,8 @@ export interface CrowdNoticeInput {
    * neighborhood has a share above 0 of it.
    */
   openServices?: Readonly<{ food: number; drink: number; toilet: number }> | null;
+  /** Phase 49: the cleaners are swamped (`CleanerLoad.swamped`): litter lines say bins would help. Default false. */
+  cleanersSwamped?: boolean;
 }
 
 export interface CrowdNoticeStep {
@@ -90,6 +99,7 @@ export const crowdConditionsOf = (
   neighborhood: Readonly<NeighborhoodView>,
   view: Readonly<CrowdView>,
   openElsewhere: Readonly<{ food: boolean; drink: boolean; toilet: boolean }>,
+  cleanersSwamped = false,
 ): CrowdNoticeKind[] => {
   const pulse = GAME_CONFIG.crowd.pulse;
   const { metrics } = neighborhood;
@@ -105,7 +115,7 @@ export const crowdConditionsOf = (
     }
   }
   if (metrics.happiness !== null && metrics.happiness < pulse.unhappyBelow && metrics.guests >= pulse.unhappyGuests) kinds.push('unhappy');
-  if (metrics.litter >= pulse.litterItems) kinds.push('litter');
+  if (metrics.litter >= pulse.litterItems) kinds.push(cleanersSwamped ? 'litterOutpaces' : 'litter');
   return kinds;
 };
 
@@ -126,7 +136,7 @@ export const stepCrowdNotice = (state: CrowdNoticeState, input: CrowdNoticeInput
   const order = new Map<number, number>();
   view.neighborhoods.forEach((neighborhood, index) => {
     order.set(neighborhood.key, index);
-    const now = new Set(crowdConditionsOf(neighborhood, view, openElsewhere));
+    const now = new Set(crowdConditionsOf(neighborhood, view, openElsewhere, input.cleanersSwamped === true));
     for (const kind of CROWD_NOTICE_PRIORITY) {
       const id = `${neighborhood.key}:${kind}`;
       const old = previous.get(id);

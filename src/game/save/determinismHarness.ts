@@ -90,6 +90,8 @@ const LIVE_GRAPH_IGNORED_KEYS: ReadonlySet<string> = new Set([
   'latestOperations', 'latestParkOperations', 'latestScenery', 'connectivityWorldVersion', 'connectivityPathVersion',
   'batchDepth', 'batchedChange', 'connectedObjectIds', 'entranceConnectedPathCount', 'entranceConnectedTip', 'completedExperiences',
   'lockedDefinitionIds', 'completedProjectIds', 'completedMilestoneIds',
+  // Phase 49: the operations' running waste tally for the Staff window and Pulse; never saved, a restore starts it at 0.
+  'wasteCounts',
   // Phase 28: a transient edit counter for the app's undo stamp; restore bumps it, a never-restored twin does not.
   'appearanceCounter',
   // Phase 29: the guests' bench and landmark lists (derived per world version, dropped on restore) and the bench seat

@@ -6,6 +6,7 @@
  * (`ADVICE_WORDS` is the banned list a test checks every string of this file against).
  */
 import type { CrowdNoticeKind, CrowdNoticeLine } from '../app/crowdNotice';
+import { GAME_CONFIG } from '../game/config';
 import type { CrowdBand, CrowdView, NeighborhoodView } from '../game/crowd/types';
 import type { Cell } from '../game/types';
 import type { CrowdUi, NeighborhoodRow } from './neighborhoodTypes';
@@ -53,6 +54,7 @@ export const crowdNoticeText = (kind: CrowdNoticeKind, name: string): string => 
     case 'noFood': return `${name} has no food within reach`;
     case 'noDrink': return `${name} has nothing to drink within reach`;
     case 'unhappy': return `Guests in ${name} are unhappy`;
+    case 'litterOutpaces': return `Litter outpaces your cleaners: bins near ${name} would help`;
     case 'litter': return `Litter is piling up in ${name}`;
   }
 };
@@ -78,6 +80,7 @@ export const groupedNoticeText = (kind: CrowdNoticeKind, names: readonly string[
     case 'noFood': return `${list} have no food within reach`;
     case 'noDrink': return `${list} have nothing to drink within reach`;
     case 'unhappy': return `Guests in ${list} are unhappy`;
+    case 'litterOutpaces': return `Litter outpaces your cleaners: bins near ${list} would help`;
     case 'litter': return `Litter is piling up in ${list}`;
   }
 };
@@ -85,7 +88,7 @@ export const groupedNoticeText = (kind: CrowdNoticeKind, names: readonly string[
 /**
  * The dashboard's "What Park Pulse noticed" list: one line per kind, in Pulse priority, naming every neighborhood
  * with it in dashboard order (Wave 4 audit: the dev park at 1,000 guests had 8 to 13 single lines, which pushed every
- * row below the fold; grouped, it is at most seven lines, one per kind).
+ * row below the fold; grouped, it is at most eight lines, one per kind).
  */
 export const groupNoticeLines = (active: readonly CrowdNoticeLine[]): string[] => {
   const byKind = new Map<CrowdNoticeKind, string[]>();
@@ -116,10 +119,25 @@ export const crowdHoverLine = (tile: { band: CrowdBand; perMinute: number; bottl
   return [`${word} path`, perMinuteText(tile.perMinute), ...(neighborhoodName ? [neighborhoodName] : [])].join(' · ');
 };
 
-/** The same from `ParkSession.crowdHoverAt(cell)`; null (off the path network) stays null. */
+/** Phase 49: what lies on a hovered path tile: "vomit and 2 litter", "vomit", "4 litter"; null when it is clean. */
+export const hoverLitterText = (litterUnits: number, sick: boolean): string | null => {
+  if (litterUnits <= 0) return null;
+  if (!sick) return `${litterUnits} litter`;
+  const onTop = litterUnits - GAME_CONFIG.operations.litter.sickUnits;
+  return onTop > 0 ? `vomit and ${onTop} litter` : 'vomit';
+};
+
+/** The same from `ParkSession.crowdHoverAt(cell)`; null (off the path network) stays null. Phase 49: litter last. */
 export const crowdHoverText = (
-  hover: Readonly<{ band: CrowdBand; perMinute: number; bottleneck: boolean; neighborhoodName: string | null }> | null,
-): string | null => (hover === null ? null : crowdHoverLine(hover, hover.neighborhoodName));
+  hover: Readonly<{
+    band: CrowdBand; perMinute: number; bottleneck: boolean; neighborhoodName: string | null; litterUnits?: number; sick?: boolean;
+  }> | null,
+): string | null => {
+  if (hover === null) return null;
+  const litter = hoverLitterText(hover.litterUnits ?? 0, hover.sick === true);
+  const line = crowdHoverLine(hover, hover.neighborhoodName);
+  return litter === null ? line : `${line} · ${litter}`;
+};
 
 const plural = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
 

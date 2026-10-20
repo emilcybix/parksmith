@@ -1,3 +1,5 @@
+import { GAME_CONFIG } from '../../../game/config';
+import type { BiomeMaterial } from './biomeMaterials';
 import { BOX_FLOATS, OUTLINE_GROUP_LIMIT, packBoxWord } from '../contracts/boxes';
 import type { BoxWriter } from '../contracts/boxes';
 import type { LitterEmitter } from '../contracts/content';
@@ -156,28 +158,51 @@ const findCorner = (out: BoxWriter, firstBox: number, seed: number, piece: numbe
  * wrapper that finds no room in a crowded pile drops as a cup instead, which needs a smaller gap.
  */
 /**
- * Phase 29: what someone being sick leaves — a flat, lumpy puddle in the middle of the litter square, a bigger and a
- * smaller patch, laid down before the pieces so they scatter around it.
+ * Phase 29: what someone being sick leaves. Phase 49 gave it a look of its own: it was a lemon puddle the colour of the
+ * wrappers (0xffd166 against 0xe8d44d) under the same cups and wrappers, so it read as more litter. Now it is a sickly
+ * green splat filling the middle of the litter square, a cross of three flat boxes with darker lumps on top and two
+ * splashes beside it, in colours no path, curb or other litter has (the litter emitter tests in `entrance.test.ts`
+ * hold the colour distance). A sick pile's own units are the splat: only the units on top add cups and wrappers.
  */
-export const SICK_COLOUR = 0xe8d44d;
+export const SICK_COLOUR = 0x6f8f1f;
+export const SICK_LUMP_COLOUR = 0x4f6814;
 
-const sickPuddle = (minX: number, minY: number, palette: Palette, out: BoxWriter): void => {
-  const word = packBoxWord(palette.material(SICK_COLOUR), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0);
-  out.push(minX + 4, minY + 5, PATH_TOP_Z, 6, 4, 1, word);
-  out.push(minX + 6, minY + 9, PATH_TOP_Z, 3, 2, 1, word);
+/** The splat in litter-square voxels: [x, y, z above the path, sizeX, sizeY, lump]. Nothing overlaps. */
+const SICK_SPLAT: readonly (readonly [number, number, number, number, number, boolean])[] = [
+  [3, 6, 0, 10, 4, false],
+  [5, 3, 0, 6, 3, false],
+  [5, 10, 0, 6, 3, false],
+  [1, 4, 0, 1, 1, false],
+  [14, 11, 0, 1, 1, false],
+  [6, 7, 1, 2, 2, true],
+  [10, 6, 1, 1, 2, true],
+  [7, 4, 1, 1, 1, true],
+  [8, 11, 1, 2, 1, true],
+];
+
+const sickSplat = (minX: number, minY: number, palette: Palette, out: BoxWriter): void => {
+  const splat = packBoxWord(palette.material(SICK_COLOUR), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0);
+  const lump = packBoxWord(palette.material(SICK_LUMP_COLOUR), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0);
+  for (const [x, y, z, sizeX, sizeY, isLump] of SICK_SPLAT) out.push(minX + x, minY + y, PATH_TOP_Z + z, sizeX, sizeY, 1, isLump ? lump : splat);
 };
 
+/** The palette materials the splat needs; `gamePalette` appends them after the biomes, so no earlier id moves. */
+export const LITTER_EFFECT_MATERIALS: readonly BiomeMaterial[] = [
+  { rgb: SICK_COLOUR, variation: 'default', what: 'sick splat' },
+  { rgb: SICK_LUMP_COLOUR, variation: 'default', what: 'sick splat lumps' },
+];
+
 export const litterEmitter: LitterEmitter = (cellX, cellY, units, palette, out, sick = false) => {
-  const count = litterPieceCount(units);
-  if (count === 0) return;
+  if (units <= 0) return;
+  const count = litterPieceCount(sick ? units - GAME_CONFIG.operations.litter.sickUnits : units);
   const cupWord = packBoxWord(palette.material(MAT_COLOR.LITTER_CUP), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0);
   const wrapperWord = packBoxWord(palette.material(MAT_COLOR.LITTER_WRAPPER), LITTER_OUTLINE_GROUP, PATTERN.PLAIN, 0);
   const minX = cellX * VOXELS_PER_TILE + LITTER_AREA_MIN;
   const minY = cellY * VOXELS_PER_TILE + LITTER_AREA_MIN;
   const seed = cellSeed(cellX, cellY);
   const firstBox = out.count;
-  // The puddle goes in first, inside the pile's own boxes, so every piece keeps its gap from it.
-  if (sick) sickPuddle(minX, minY, palette, out);
+  // The splat goes in first, inside the pile's own boxes, so every piece keeps its gap from it.
+  if (sick) sickSplat(minX, minY, palette, out);
   for (let piece = 0; piece < count; piece += 1) {
     let cup = isCup(seed, piece);
     let corner = findCorner(out, firstBox, seed, piece, cup ? LITTER_CUP_SIZE[0] : LITTER_WRAPPER_SIZE[0], minX, minY);

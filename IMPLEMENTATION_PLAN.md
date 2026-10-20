@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–56; 48 built, the rest not started)
+## Owner Feedback 2026-10-19 (Phases 48–56; 48 and 49 built, the rest not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3190,21 +3190,49 @@ intended?"). Each gets an answer measured from the simulation before any tuning,
 - [ ] Not done: thinning the swept loop's box count (rectangles merge poorly along the step). Supports under the
   step stand where the plain piece put them.
 
-### Phase 49 — Litter, Vomit and Scenery Readability and Balance (questions first)
+### Phase 49 — Litter, Vomit and Scenery Readability and Balance (built 2026-10-20)
 
-- [ ] **Litter against cleaners.** Over time a park reaches a point where litter spawns faster than the maximum
-  number of cleaners can clear. Answer first: is the intended answer more bins and toilets (litter per guest falls),
-  or is the cleaner cap too low? Measure litter units per minute against cleaner throughput at 250, 500 and 1,000
-  guests, with and without bins in reach. If bins and toilets are the lever, the game must say so: a Park Pulse
-  insight ("Litter outpaces your cleaners: bins near X would help") and a cleaner-capacity read in the Staff window.
-  If not, raise the cap or the cleaner speed. Record the numbers in BALANCE_NOTES.md.
-- [ ] **Vomit is hard to see on paths.** The owner sees no vomit, or cannot tell it apart from other litter. Check
-  that vomit is drawn at all (the guest has a vomit keyframe since Phase 29; check the path decal). Give it its own
-  distinct look in the voxel renderer: shape and colour, readable at the default zoom and against every path and
-  biome colour. Add it to the litter overlay and the inspector.
-- [ ] **Scenery appeal is hard to max.** Is that intended? Measure what a "fully decorated" ride needs to reach 100
-  (pieces, radius, theme bonus). Then decide: either a reachable maximum with diminishing returns, or a stated soft
-  cap with the factor line saying how far away the next step is. Record the decision in BALANCE_NOTES.md.
+All three questions were answered from the simulation first (BALANCE_NOTES "Phase 49"). No `GAME_CONFIG` balance number
+changed, so the bot proofs, sweeps, card matrices and saves are untouched.
+
+- [x] **Litter against cleaners.** Measured at 250, 500 and 1,000 guests with no bins, a bin per path row and a bin
+  every fourth path tile (`balance/litterThroughput.review.test.ts`, `LITTER_REPORT=1`). Answer: bins are the lever. A
+  sweeping-only crew at the cap is 97 to 99 % busy and falls behind from 500 guests (cleanliness 25 to 30). The same
+  crew with dense bins is 40 to 60 % busy, with clean paths. The cap stays.
+  - The operations simulation keeps a transient waste tally (`wasteTally()`: made, binned, dropped, cleared). It is
+    not saved and never read by the simulation.
+  - `app/cleanerLoad.ts` turns the tally into rates over the last simulated minute and decides when the crew is
+    swamped (≥ 90 % busy, `crowd.pulse.cleanersSwampedShare`). Like the crowd notice, it is transient and reset on
+    every swap.
+  - Park Pulse: litter in a neighborhood while the crew is swamped reads "Litter outpaces your cleaners: bins near X
+    would help" (`litterOutpaces`, held like `litter`).
+  - Staff window: a cleaner capacity read (waste a minute, the share into bins, onto the paths, swept up, and keeping
+    up or falling behind). A swamped crew's hint says bins instead of more cleaners.
+- [x] **Vomit is hard to see.** It was drawn, but as a lemon puddle beside the wrappers' yellow, under the same pieces.
+  It is also rare by design, because only rides above intensity 45 make guests queasy. Now it is a green splat with
+  darker lumps that fills the litter square. Its own units show no cups or wrappers. Its colours are new palette
+  materials appended after the biomes (164 of 256), at least 35 CIE76 from every paving, curb and litter colour. The
+  flow overlay's tile readout names it ("vomit and 2 litter"), and the Staff window counts sick piles.
+  - Not done: the plan's "litter overlay" does not exist; the flow overlay's tile readout stands in for it. There is
+    no path-tile inspector either.
+- [x] **Scenery appeal is hard to max.** Measured per scenery type (`balance/sceneryReach.review.test.ts`,
+  `SCENERY_REPORT=1`). Decision: 100 stays reachable with diminishing returns, with no number changes (appeal and
+  radius are frozen by saves). Confetti Trees reach 50 with 6, 75 with 9 and 100 with 18. Small pieces stop short
+  (lamps near 38, flowers near 56). The ride and stall inspector now says how far the next step is: "Next step: one more
+  Confetti Tree within reach adds about +6 (to 68)" (`ScenerySimulation.nextStepFor`), or "Fully decorated for the
+  scenery you have".
+  - Owner's call: a stated soft cap instead (a lower `maximumScore`), which needs a content version bump.
+- [x] Tests:
+  - `OperationsSimulation.phase49.test.ts`: the tally, and that it is never saved.
+  - `cleanerLoad.test.ts`.
+  - `crowdNotice.test.ts`: the outpaces line.
+  - `neighborhoodModel.test.ts`: the copy and the hover litter.
+  - `staffWindowModel.phase49.test.ts`.
+  - `ScenerySimulation.phase49.test.ts`: the step's gain equals what building it adds; lamps run out below 75; trees
+    reach 100.
+  - `sceneryNextStep.test.ts`.
+  - The litter emitter's splat, overlap and colour-distance tests in `entrance.test.ts`.
+  - Not checked in a browser.
 
 ### Phase 50 — Difficulty, Angry Guests and Security
 

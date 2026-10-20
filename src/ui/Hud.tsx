@@ -55,7 +55,7 @@ import { CoasterLiftRows } from './CoasterLiftRows';
 import { chainCostLine } from './coasterSpeedStripModel';
 import { liftSummary } from './coasterLiftRowsModel';
 import { describeUndoButton } from './undoModel';
-import { THEME_LABELS, inspectorThemeLine, isLocalStyle, placementThemeLine, themeChipText } from './themeCopy';
+import { THEME_LABELS, inspectorThemeLine, isLocalStyle, placementThemeLine, sceneryNextStepLine, themeChipText } from './themeCopy';
 import { cashDeltaText, tweenedCash } from './cashPillModel';
 import { reducedMotion } from '../settings/motion';
 import { CAPACITY_INSIGHT_GLYPH, describeCapacity } from './capacityModel';
@@ -1108,7 +1108,15 @@ interface SceneryImpactProps {
   satisfactionBonus: number;
   /** Phase 16: the theme line ("Theme · Carnival: ＋6 from 2 carnival pieces (max ＋10)"); null for a themeless one. */
   themeLine: string | null;
+  /** Phase 49: the next step line (`sceneryNextStepLine`); null at the top or before it is published. */
+  nextLine: string | null;
 }
+
+/** Phase 49: the inspector's next scenery step for one ride or stall. */
+const useSceneryNextLine = (objectId: number, score: number): string | null => {
+  const next = useUiStore((state) => state.sceneryNextStep);
+  return sceneryNextStepLine(score, next, objectId);
+};
 
 /** Phase 16: the inspector's theme line for one ride or stall, from the park's scenery snapshot. */
 const useThemeLine = (objectId: number, definitionId: string): string | null => {
@@ -1119,12 +1127,13 @@ const useThemeLine = (objectId: number, definitionId: string): string | null => 
   return inspectorThemeLine(theme, matchingSources === undefined ? undefined : { themeBonus: themeBonus ?? 0, matchingSources }, affinity);
 };
 
-const SceneryImpact = ({ score, choiceBonus, satisfactionBonus, themeLine }: SceneryImpactProps): React.JSX.Element => (
+const SceneryImpact = ({ score, choiceBonus, satisfactionBonus, themeLine, nextLine }: SceneryImpactProps): React.JSX.Element => (
   <section className="scenery-impact" aria-label={`Area scenery score ${Math.round(score)}`}>
     <header><span><small>AREA SCENERY</small><strong>{score > 0 ? 'A more inviting setting' : 'No nearby scenery influence'}</strong></span><b>{Math.round(score)}</b></header>
     <div className="scenery-meter" aria-hidden="true"><i style={{ width: `${Math.min(100, Math.max(0, score))}%` }} /></div>
     {/* Before the bonus grid, which stays the last child (a11y.css darkens its small print through that selector). */}
     {themeLine !== null && <p className="scenery-theme-line">{themeLine}</p>}
+    {nextLine !== null && <p className="scenery-theme-line scenery-next-line">{nextLine}</p>}
     <div>
       <span><small>CHOICE BONUS</small><strong>+{choiceBonus.toFixed(1)}</strong></span>
       <span><small>SATISFACTION</small><strong>+{satisfactionBonus.toFixed(1)}</strong></span>
@@ -1205,6 +1214,7 @@ export const RideInspector = (): React.JSX.Element | null => {
   const besidePulse = useUiStore((state) => inspectorBesidePulse(state.onboarding, state.mapOfferPending));
   useFocusReturn(ride !== null);
   const themeLine = useThemeLine(ride?.objectId ?? -1, ride?.definitionId ?? '');
+  const nextLine = useSceneryNextLine(ride?.objectId ?? -1, ride?.sceneryScore ?? 0);
   if (!ride) return null;
   const definition = BUILD_BY_ID.get(ride.definitionId);
   const satisfaction = ride.satisfaction === null ? '—' : `${Math.round(ride.satisfaction)}%`;
@@ -1313,6 +1323,7 @@ export const RideInspector = (): React.JSX.Element | null => {
         choiceBonus={ride.sceneryChoiceBonus}
         satisfactionBonus={ride.scenerySatisfactionBonus}
         themeLine={themeLine}
+        nextLine={nextLine}
       />
       <div className="ride-metrics">
         <span><small>QUEUE</small><strong>{ride.queueLength}</strong></span>
@@ -1356,6 +1367,7 @@ export const ServiceInspector = (): React.JSX.Element | null => {
   const weatherUi = useUiStore((state) => state.weatherUi);
   useFocusReturn(service !== null);
   const themeLine = useThemeLine(service?.objectId ?? -1, service?.definitionId ?? '');
+  const nextLine = useSceneryNextLine(service?.objectId ?? -1, service?.sceneryScore ?? 0);
   if (!service) return null;
   const definition = BUILD_BY_ID.get(service.definitionId);
   const satisfaction = service.satisfaction === null ? '—' : `${Math.round(service.satisfaction)}%`;
@@ -1388,6 +1400,7 @@ export const ServiceInspector = (): React.JSX.Element | null => {
         choiceBonus={service.sceneryChoiceBonus}
         satisfactionBonus={service.scenerySatisfactionBonus}
         themeLine={themeLine}
+        nextLine={nextLine}
       />
       <div className="ride-metrics">
         <span><small>QUEUE</small><strong>{service.queueLength}</strong></span>

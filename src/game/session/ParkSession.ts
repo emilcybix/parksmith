@@ -415,6 +415,9 @@ export interface CrowdHover {
   perMinute: number;
   bottleneck: boolean;
   neighborhoodName: string | null;
+  /** Phase 49: the litter lying on the tile (units), and whether someone was sick there. */
+  litterUnits?: number;
+  sick?: boolean;
 }
 
 /**
@@ -1249,11 +1252,14 @@ export class ParkSession {
     const shape = this.crowd.shape();
     if (!(shape.laneWidth[index] > 0)) return null;
     const band = this.crowdDisplay.bandAt(index);
+    const pile = this.operations.litter.get(`${cell.x},${cell.y}`);
     return {
       band,
       perMinute: flowPerMinute(this.crowd.pressureAt(index)),
       bottleneck: isBottleneck(band, shape, index),
       neighborhoodName: neighborhoodAt(neighborhoodsOf(this.world), cell)?.name ?? null,
+      litterUnits: pile?.units ?? 0,
+      sick: pile?.sick === true,
     };
   }
 

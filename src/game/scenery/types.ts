@@ -77,3 +77,15 @@ export interface ScenerySnapshot {
   sources: ScenerySourceSnapshot[];
   destinations: SceneryDestinationSnapshot[];
 }
+
+/**
+ * Phase 49: the one piece of scenery that would lift a ride's or stall's area score the most (`ScenerySimulation.nextStepFor`):
+ * which piece, where, and the base score before and after (the theme bonus is left out, it only ever adds).
+ */
+export interface SceneryNextStep {
+  definitionId: string;
+  anchor: Cell;
+  gain: number;
+  scoreBefore: number;
+  scoreAfter: number;
+}

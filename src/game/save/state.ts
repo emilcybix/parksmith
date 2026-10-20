@@ -507,6 +507,7 @@ export interface BinState {
 
 /**
  * DERIVED and reset on restore: `navigation` (invalidated), bin `capacity`, the litter Map key.
+ * TRANSIENT: `wasteCounts` (Phase 49: the running waste tally behind `wasteTally()`; never saved, a restore starts at 0).
  * CONFIG: `world`, `rides`, `shops`, `rules`. snapshot() is a lossy UI projection and is not the
  * save.
  */

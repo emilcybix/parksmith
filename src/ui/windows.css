@@ -33,6 +33,9 @@
 .window-section { display: grid; gap: 6px; }
 .window-section header { display: grid; }
 .window-section header small { opacity: .75; }
+.staff-capacity-read { margin: 0; padding: 5px 8px; border-radius: 9px; background: rgba(19,58,51,.05); font-size: 12px; display: grid; gap: 2px; }
+.staff-capacity-read small { opacity: .75; }
+.staff-capacity-read.warning { background: rgba(240,173,62,.16); }
 .worker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .worker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
 .worker-focus { display: grid; text-align: left; padding: 5px 8px; border: 0; border-radius: 9px; background: rgba(19,58,51,.05); cursor: pointer; }

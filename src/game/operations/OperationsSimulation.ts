@@ -29,6 +29,7 @@ import type {
   RideMaintenanceKind,
   StaffRole,
   StaffRuntime,
+  WasteTally,
   WorkerSnapshot,
   StaffState,
   StaffTaskKind,
@@ -108,6 +109,8 @@ export class OperationsSimulation implements Serializable<OperationsState> {
   /** Last observed crowd size; the crew cap scales with it. */
   private guestPopulation = 0;
   private readonly trainingLevel: Record<StaffRole, number> = { cleaner: 0, mechanic: 0 };
+  /** Phase 49: where waste went (`WasteTally`); transient, so a save and a restore never see it. */
+  private readonly wasteCounts: WasteTally = { made: 0, binned: 0, dropped: 0, cleared: 0 };
 
   constructor(
     private readonly world: GameWorld,
@@ -660,7 +663,13 @@ export class OperationsSimulation implements Serializable<OperationsState> {
     const pile = this.litter.get(key);
     if (pile) pile.units += accepted;
     else this.litter.set(key, { cell: target, units: accepted, assignedCleanerId: null, sick: false });
+    this.wasteCounts.dropped += accepted;
     return accepted;
+  }
+
+  /** Phase 49: a copy of the running waste totals (`WasteTally`). */
+  wasteTally(): WasteTally {
+    return { ...this.wasteCounts };
   }
 
   snapshot(): OperationsSnapshot {
@@ -759,9 +768,12 @@ export class OperationsSimulation implements Serializable<OperationsState> {
   private consumeWasteEvents(): void {
     const events = this.shops.drainCompletionEvents().sort((left, right) => left.id - right.id);
     for (const event of events) {
+      this.wasteCounts.made += 1;
       const bin = this.nearestAvailableBin(event.cell);
-      if (bin) bin.fill = Math.min(bin.capacity, bin.fill + 1);
-      else this.addLitter(event.cell, 1);
+      if (bin) {
+        bin.fill = Math.min(bin.capacity, bin.fill + 1);
+        this.wasteCounts.binned += 1;
+      } else this.addLitter(event.cell, 1);
     }
   }
 
@@ -1064,6 +1076,7 @@ export class OperationsSimulation implements Serializable<OperationsState> {
         return;
       }
       pile.units -= 1;
+      this.wasteCounts.cleared += 1;
       if (pile.units > 0) {
         const unitSeconds = this.workSeconds('cleaner', GAME_CONFIG.operations.cleaner.litterSecondsPerUnit);
         task.workRemainingSeconds = unitSeconds;

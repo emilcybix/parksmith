@@ -23,7 +23,7 @@ import { GUEST_ACCENTS, GUEST_COLORS } from '../../../game/guests/GuestSimulatio
 /**
  * Phase 24 props: every kind has authored content (not the stand-in), compiles at both quarter turns inside its box
  * budget, stands on the ground inside its own footprint (so a forest never overlaps or z-fights), uses only colours the
- * palette registers for it, and is a single static body. The palette count (162 of 256) and the guarantee that no
+ * palette registers for it, and is a single static body. The palette count (164 of 256 since Phase 49) and the guarantee that no
  * material id of the pre-biome palette moved are pinned here too.
  */
 
@@ -52,8 +52,8 @@ const recording = (): { palette: Palette; asked: Set<number> } => {
 };
 
 describe('palette (Phase 24)', () => {
-  it('holds 162 of 256 materials: 131 before the biomes plus 31 new plain ones', () => {
-    expect(palette.count).toBe(162);
+  it('holds 164 of 256 materials: 131 before the biomes, 31 new plain ones and the sick splat\'s two (Phase 49)', () => {
+    expect(palette.count).toBe(164);
     const before = buildPalette(BUILD_CATALOG, GUEST_COLORS, GUEST_ACCENTS, COLOUR_SWATCHES.map((swatch) => swatch.rgb));
     expect(before.count).toBe(131);
     const per = BIOMES.map((biome) => buildPalette(BUILD_CATALOG, GUEST_COLORS, GUEST_ACCENTS, COLOUR_SWATCHES.map((swatch) => swatch.rgb), collectBiomeMaterials([biome], PROP_KINDS.filter((kind) => kind.biome === biome.id))).count - 131);

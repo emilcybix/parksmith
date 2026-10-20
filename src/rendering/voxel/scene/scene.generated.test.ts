@@ -77,8 +77,8 @@ const propBoxesPerChunk = (map: GeneratedMap): number[] => {
 };
 
 describe('the Seaside refresh keeps the palette stable', () => {
-  it('has 162 materials and only slots 131 and 132 (Seaside grass and sand) changed rgb against the step-1 palette', () => {
-    expect(palette.count).toBe(162);
+  it('has 164 materials (162 and the Phase 49 sick splat) and only slots 131 and 132 (Seaside grass and sand) changed rgb against the step-1 palette', () => {
+    expect(palette.count).toBe(164);
     expect(palette.baseColor(131)).toBe(0x5ed6a4);
     expect(palette.baseColor(132)).toBe(0xf8d384);
     expect(palette.material(0x5ed6a4)).toBe(131);

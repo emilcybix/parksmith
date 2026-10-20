@@ -12,6 +12,7 @@ import type {
   ScenerySnapshot,
   ScenerySourceSnapshot,
   ThemeBonusPreview,
+  SceneryNextStep,
   ThemeBonusPreviewEntry,
 } from './types';
 
@@ -284,6 +285,65 @@ export class ScenerySimulation implements SceneryInfluenceReader, Serializable<S
     }
     destinations.sort((left, right) => right.gain - left.gain || left.objectId - right.objectId);
     return { ...empty, destinations, reachedDestinations };
+  }
+
+  /**
+   * Phase 49: the next step for an object's area score, so the inspector can say how far it is. Among `candidateIds`
+   * (the scenery the player may build), the piece and free spot within its reach that lifts the object's base score
+   * (the footprint mean of the clamped field, without the theme bonus) the most; ties go to the cheaper piece, then
+   * the first spot in row order. `canPlace` says whether a piece may stand at an anchor. Null when nothing within
+   * reach adds at least `minimumGain`, which is what a fully decorated ride (or one boxed in) reads as. Pure: reads
+   * the field, changes nothing.
+   */
+  nextStepFor(
+    objectId: number,
+    candidateIds: readonly string[],
+    canPlace: (definitionId: string, anchor: Cell) => boolean,
+    minimumGain = 0.5,
+  ): SceneryNextStep | null {
+    this.syncWithWorld();
+    const object = this.world.objects.get(objectId);
+    if (!object) return null;
+    const footprint = this.world.objectFootprint(object);
+    if (footprint.length === 0) return null;
+    const values = footprint.map((cell) => this.scores[this.indexOf(cell)]);
+    const before = values.reduce((sum, value) => sum + clamp(value), 0) / footprint.length;
+    let best: (SceneryNextStep & { cost: number }) | null = null;
+    for (const definitionId of candidateIds) {
+      const definition = BUILD_BY_ID.get(definitionId);
+      if (definition?.kind !== 'scenery') continue;
+      const appeal = this.appealOf(definition.stats?.sceneryAppeal);
+      const radius = this.radiusOf(definition.stats?.sceneryRadius);
+      if (appeal <= 0) continue;
+      const [width, height] = footprintSize(definition);
+      const minimumX = Math.min(...footprint.map((cell) => cell.x)) - radius - width + 1;
+      const maximumX = Math.max(...footprint.map((cell) => cell.x)) + radius;
+      const minimumY = Math.min(...footprint.map((cell) => cell.y)) - radius - height + 1;
+      const maximumY = Math.max(...footprint.map((cell) => cell.y)) + radius;
+      for (let y = Math.max(0, minimumY); y <= Math.min(this.world.height - height, maximumY); y += 1) {
+        for (let x = Math.max(0, minimumX); x <= Math.min(this.world.width - width, maximumX); x += 1) {
+          let total = 0;
+          for (let index = 0; index < footprint.length; index += 1) {
+            const distance = reachDistance({ anchor: { x, y }, footprint: [width, height] }, footprint[index]);
+            const contribution = distance > radius ? 0 : appeal * (radius + 1 - distance) / (radius + 1);
+            total += clamp(values[index] + contribution);
+          }
+          const gain = total / footprint.length - before;
+          if (gain < minimumGain || (best && (gain < best.gain || (gain === best.gain && definition.buildCost >= best.cost)))) continue;
+          if (!canPlace(definitionId, { x, y })) continue;
+          best = {
+            definitionId,
+            anchor: { x, y },
+            gain: round(gain),
+            scoreBefore: round(before),
+            scoreAfter: round(before + gain),
+            cost: definition.buildCost,
+          };
+        }
+      }
+    }
+    if (!best) return null;
+    return { definitionId: best.definitionId, anchor: best.anchor, gain: best.gain, scoreBefore: best.scoreBefore, scoreAfter: best.scoreAfter };
   }
 
   /** A source's appeal as the field uses it: the catalog appeal after `sceneryAppealMultiplier`, clamped to 0..100. */

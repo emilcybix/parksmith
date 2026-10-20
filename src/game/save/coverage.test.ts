@@ -118,7 +118,8 @@ describe('own-property accounting of every owner', () => {
       serialized: ['bins', 'litter', 'staff', 'elapsedSeconds', 'happinessAccumulatorSeconds', 'nextStaffId', 'guestPopulation', 'trainingLevel'],
       derived: ['navigation'],
       config: ['world', 'rides', 'shops', 'rules'],
-      transient: [],
+      // Phase 49: the running waste tally (the Staff window's capacity read); never read by the simulation.
+      transient: ['wasteCounts'],
     });
   });
 

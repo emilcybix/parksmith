@@ -2,7 +2,7 @@ import { gameBridge } from '../app/gameBridge';
 import { GAME_CONFIG } from '../game/config';
 import type { StaffRole } from '../game/operations/types';
 import { formatMoney } from './format';
-import { roleLabel, staffOverview, workerActivity, workerName } from './staffWindowModel';
+import { cleanerCapacityRead, roleLabel, staffOverview, workerActivity, workerName } from './staffWindowModel';
 import { useUiStore } from './store';
 import { WindowFrame } from './WindowFrame';
 
@@ -16,10 +16,12 @@ export const StaffWindowBody = (): React.JSX.Element | null => {
   const workers = useUiStore((state) => state.workers);
   const buildings = useUiStore((state) => state.buildings);
   const cash = useUiStore((state) => state.cash);
+  const cleanerLoad = useUiStore((state) => state.cleanerLoad);
   const close = (): void => useUiStore.getState().closeWindow('staff');
   if (!management) return null;
   const operations = management.parkOperations;
-  const overview = staffOverview(operations);
+  const overview = staffOverview(operations, cleanerLoad);
+  const cleanerRead = cleanerCapacityRead(cleanerLoad);
   const names = new Map(buildings.map((row) => [row.objectId, row.name]));
   const nameOf = (objectId: number): string | null => names.get(objectId) ?? null;
   const crewOf = (role: StaffRole) => (role === 'cleaner' ? operations.staff.cleaners : operations.staff.mechanics);
@@ -28,7 +30,7 @@ export const StaffWindowBody = (): React.JSX.Element | null => {
   return (
     <WindowFrame id="staff" title="Staff" onClose={close}>
       <div className="window-kpis">
-        <span className={overview.litterUnits > 0 ? 'warning' : ''}><small>LITTER</small><strong>{overview.litterUnits}</strong><em>{overview.dirtyPathTiles} tiles</em></span>
+        <span className={overview.litterUnits > 0 ? 'warning' : ''}><small>LITTER</small><strong>{overview.litterUnits}</strong><em>{overview.dirtyPathTiles} tiles{overview.sickPiles > 0 ? ` · ${overview.sickPiles} sick` : ''}</em></span>
         <span className={overview.awaitingMechanic > 0 ? 'critical' : ''}><small>WAITING FOR A MECHANIC</small><strong>{overview.awaitingMechanic}</strong><em>{overview.brokenRides} broken</em></span>
         <span><small>CLEANLINESS</small><strong>{Math.round(operations.cleanliness.score)}%</strong></span>
       </div>
@@ -54,6 +56,11 @@ export const StaffWindowBody = (): React.JSX.Element | null => {
                 {crew.trainingCost === null ? `★ Trained ${crew.trainingLevel}/${operations.staff.maximumTrainingLevel}` : `★ Train ${formatMoney(crew.trainingCost)}`}
               </button>
             </div>
+            {role === 'cleaner' && cleanerRead !== null && (
+              <p className={cleanerRead.behind ? 'staff-capacity-read warning' : 'staff-capacity-read'} aria-label="Cleaner capacity, last minute">
+                <strong>{cleanerRead.status}</strong> <small>{cleanerRead.line}</small>
+              </p>
+            )}
             {roleWorkers.length === 0
               ? <p className="empty-copy">No {role}s hired.</p>
               : (

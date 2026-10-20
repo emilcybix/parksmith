@@ -4,7 +4,7 @@ import type { CrowdTile, CrowdView, NeighborhoodMetrics, NeighborhoodView } from
 import * as model from './neighborhoodModel';
 import {
   ADVICE_WORDS, BAND_WORDS, bandWord, buildCrowdUi, buildNeighborhoodRows, coverageChips, crowdHoverLine, crowdNoticeText,
-  crowdHoverText, crowdUiEqual, groupedNoticeText, groupNoticeLines, neighborhoodKpis, neighborhoodMetricCells, neighborhoodSubtitle, overviewLineOf, perMinuteText, unreachedLine,
+  crowdHoverText, crowdUiEqual, groupedNoticeText, hoverLitterText, groupNoticeLines, neighborhoodKpis, neighborhoodMetricCells, neighborhoodSubtitle, overviewLineOf, perMinuteText, unreachedLine,
 } from './neighborhoodModel';
 
 const metrics = (patch: Partial<NeighborhoodMetrics> = {}): NeighborhoodMetrics => ({
@@ -61,8 +61,10 @@ describe('copy: Park Pulse describes, never prescribes', () => {
       'Clover Corner has no food within reach',
       'Clover Corner has nothing to drink within reach',
       'Guests in Clover Corner are unhappy',
+      'Litter outpaces your cleaners: bins near Clover Corner would help',
       'Litter is piling up in Clover Corner',
     ]);
+    expect(groupedNoticeText('litterOutpaces', ['Clover Corner', 'Oak Row'])).toBe('Litter outpaces your cleaners: bins near Clover Corner and Oak Row would help');
     expect(overviewLineOf('Clover Corner has a bottleneck')).toBe('Clover Corner has a bottleneck · see Neighborhoods');
     expect(overviewLineOf(null)).toBeNull();
     expect(BAND_WORDS).toEqual(['Quiet', 'Normal', 'Busy', 'Severe bottleneck']);
@@ -80,6 +82,15 @@ describe('copy: Park Pulse describes, never prescribes', () => {
     expect(crowdHoverText({ band: 2, perMinute: 380, bottleneck: false, neighborhoodName: 'Clover Corner' })).toBe('Busy path · 380 guests a minute · Clover Corner');
     expect(crowdHoverText({ band: 1, perMinute: 90, bottleneck: false, neighborhoodName: null })).toBe('Normal path · 90 guests a minute');
     expect(crowdHoverText(null)).toBeNull();
+  });
+
+  it('Phase 49: the hover readout ends with what lies on the tile, vomit by name', () => {
+    const tileAt = { band: 1 as const, perMinute: 90, bottleneck: false, neighborhoodName: null };
+    expect(crowdHoverText({ ...tileAt, litterUnits: 0, sick: false })).toBe('Normal path · 90 guests a minute');
+    expect(crowdHoverText({ ...tileAt, litterUnits: 4, sick: false })).toBe('Normal path · 90 guests a minute · 4 litter');
+    expect(crowdHoverText({ ...tileAt, litterUnits: 3, sick: true })).toBe('Normal path · 90 guests a minute · vomit');
+    expect(crowdHoverText({ ...tileAt, litterUnits: 5, sick: true })).toBe('Normal path · 90 guests a minute · vomit and 2 litter');
+    expect(hoverLitterText(1, true), 'a sick pile half swept is still vomit').toBe('vomit');
   });
 });
 

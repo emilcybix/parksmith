@@ -1,3 +1,4 @@
+import type { CleanerLoad } from '../app/cleanerLoad';
 import type { OperationsSnapshot, StaffRole, WorkerSnapshot } from '../game/operations/types';
 
 /**
@@ -40,17 +41,26 @@ export const workerActivity = (worker: Pick<WorkerSnapshot, 'state' | 'task'>, n
 export interface StaffOverview {
   litterUnits: number;
   dirtyPathTiles: number;
+  /** Phase 49: piles someone was sick on. */
+  sickPiles: number;
   awaitingMechanic: number;
   brokenRides: number;
   /** Plain advice lines, most urgent first; empty when the crew keeps up. */
   hints: string[];
 }
 
+const percent = (share: number): string => `${Math.round(share * 100)}%`;
+
 /**
  * The window's overview figures and hints. "More cleaners" when the park is getting dirty while every cleaner is busy
- * (the same picture the Operations tab's advice reads); "another mechanic" when a breakdown waits for one.
+ * (the same picture the Operations tab's advice reads); "another mechanic" when a breakdown waits for one. Phase 49:
+ * with the cleaner load and the crew swamped, the cleaner hint says bins instead: a bin takes waste before it lands and
+ * is emptied in one stop, where a cleaner sweeps litter one unit at a time (BALANCE_NOTES "Phase 49").
  */
-export const staffOverview = (operations: Pick<OperationsSnapshot, 'cleanliness' | 'maintenance' | 'staff'>): StaffOverview => {
+export const staffOverview = (
+  operations: Pick<OperationsSnapshot, 'cleanliness' | 'maintenance' | 'staff'> & Partial<Pick<OperationsSnapshot, 'litter'>>,
+  load: Readonly<CleanerLoad> | null = null,
+): StaffOverview => {
   const { cleanliness, maintenance, staff } = operations;
   const hints: string[] = [];
   if (maintenance.awaitingMechanic > 0) {
@@ -59,7 +69,10 @@ export const staffOverview = (operations: Pick<OperationsSnapshot, 'cleanliness'
       : `${maintenance.awaitingMechanic} breakdown${maintenance.awaitingMechanic === 1 ? '' : 's'} waiting: train the mechanics to work faster.`);
   }
   const cleanersStretched = staff.cleaners.total === 0 || staff.cleaners.busy >= staff.cleaners.total;
-  if (cleanliness.score < 75 && cleanersStretched) {
+  if (load?.swamped) {
+    hints.push(`Litter outpaces your cleaners (busy ${percent(load.busyShare ?? 1)} of the last minute): bins near the stalls `
+      + `would help${load.binShare === null ? '' : `, they catch ${percent(load.binShare)} of the waste now`}.`);
+  } else if (cleanliness.score < 75 && cleanersStretched) {
     hints.push(staff.cleaners.total < staff.capacityPerRole
       ? 'The paths are getting dirty and every cleaner is busy: more cleaners needed.'
       : 'The paths are getting dirty at the crew cap: train the cleaners or add bins.');
@@ -67,8 +80,26 @@ export const staffOverview = (operations: Pick<OperationsSnapshot, 'cleanliness'
   return {
     litterUnits: cleanliness.litterUnits,
     dirtyPathTiles: cleanliness.dirtyPathTiles,
+    sickPiles: (operations.litter ?? []).filter((pile) => pile.sick === true).length,
     awaitingMechanic: maintenance.awaitingMechanic,
     brokenRides: maintenance.brokenRides,
     hints,
   };
+};
+
+/**
+ * Phase 49: the cleaner crew's capacity read for the Staff window: what the last minute's waste did and whether the crew
+ * kept up. Null until the load covers a few seconds.
+ */
+export const cleanerCapacityRead = (load: Readonly<CleanerLoad> | null): { line: string; status: string; behind: boolean } | null => {
+  if (load === null || load.seconds < 5) return null;
+  const parts = [`${load.wastePerMinute} waste a minute`];
+  if (load.binShare !== null) parts.push(`${percent(load.binShare)} into bins`);
+  parts.push(`${load.droppedPerMinute} onto the paths`, `${load.clearedPerMinute} swept up`);
+  if (load.cleaners === 0) {
+    return { line: parts.join(' · '), status: load.droppedPerMinute > 0 ? 'No cleaners: litter stays where it lands' : 'No cleaners', behind: load.droppedPerMinute > 0 };
+  }
+  const busy = `crew busy ${percent(load.busyShare ?? 0)}`;
+  if (load.swamped) return { line: parts.join(' · '), status: `Falling behind: ${busy}`, behind: true };
+  return { line: parts.join(' · '), status: `Keeping up: ${busy}`, behind: false };
 };

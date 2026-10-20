@@ -899,6 +899,105 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 49: litter, vomit and scenery (2026-10-20) · **PROVISIONAL**
+
+Three questions from the owner's 2026-10-19 playtest, answered from the simulation before any tuning. No number in
+`GAME_CONFIG` changed, so every bot proof, sweep, card matrix and save is unchanged.
+
+### Litter against cleaners
+
+**Question.** A park reaches a point where litter lands faster than the largest cleaner crew clears it. Is the answer
+more bins and toilets, or is the cleaner cap too low?
+
+**Measured** with `LITTER_REPORT=1 yarn vitest run src/game/balance/litterThroughput.review.test.ts`: the scale park
+(32 x 32, seven path rows, ten roundabouts, 24 stalls), the crowd held at 250, 500 and 1,000 guests, every cleaner the cap
+allows (6 + 1 per 100 guests), two warm-up minutes, then ten measured minutes. Bins: none, one per path row (7), or one
+beside every fourth path tile (54).
+
+| guests | bins | cleaners | waste/min | into bins/min | sick units/min | onto paths/min | swept/min | standing (start -> end) | cleaners busy | swamped | cleanliness |
+|--------|------|----------|-----------|---------------|----------------|----------------|-----------|-------------------------|---------------|---------|-------------|
+| 250 | none (0) | 8 | 159.6 | 0 | 0 | 159.6 | 163.4 | 52 -> 14 | 97% | 91% | 84.6 |
+| 250 | few (7) | 8 | 162 | 68 | 0 | 94 | 97.1 | 44 -> 13 | 89% | 58% | 82.9 |
+| 250 | dense (54) | 8 | 167.5 | 167.3 | 0 | 0.2 | 0.2 | 0 -> 0 | 41% | 0% | 100 |
+| 500 | none (0) | 11 | 278.8 | 0 | 0 | 278.8 | 280.2 | 78 -> 64 | 99% | 100% | 29.8 |
+| 500 | few (7) | 11 | 278.8 | 86.2 | 0 | 192.6 | 195.2 | 65 -> 39 | 99% | 100% | 54.4 |
+| 500 | dense (54) | 11 | 278.8 | 278.4 | 0 | 0.4 | 0.4 | 0 -> 0 | 52% | 0% | 99.6 |
+| 1000 | none (0) | 16 | 424.1 | 0 | 0 | 424.1 | 422.7 | 86 -> 100 | 99% | 100% | 25 |
+| 1000 | few (7) | 16 | 424.1 | 89.8 | 0 | 334.3 | 333.9 | 59 -> 63 | 99% | 100% | 25.2 |
+| 1000 | dense (54) | 16 | 424.1 | 422.3 | 0 | 1.8 | 1.8 | 0 -> 0 | 58% | 0% | 98.5 |
+
+("swamped" is the share of the window the new Pulse rule below called the crew swamped.)
+
+**Answer: bins are the lever, not the cap.** A cleaner sweeps litter one unit at a time (1.25 s a unit plus the walk
+between piles), so a crew that only sweeps tops out near 26 units a minute per cleaner and sits at 97 to 99 % busy. A bin
+takes waste before it lands (within 6 path steps of the purchase) and a cleaner empties ten units in one 3-second stop, so
+the same crew with a bin every few tiles is busy 40 to 60 % of the time and the paths stay clean at every crowd size.
+Raising the cap would not change the picture: without bins, 16 cleaners at 1,000 guests barely hold the pile still
+while cleanliness sits at 25. A bin per row is not enough (it catches about a fifth of the waste); a bin within reach of
+every stall is. Toilets do not change the litter (they make no waste); they matter for the guests who would otherwise
+leave.
+
+**What the game now says.**
+- Park Pulse: while litter piles up in a neighborhood and the cleaners were busy at least 90 % of the last simulated
+  minute (`crowd.pulse.cleanersSwampedShare`, over `cleanerWindowSeconds` 60, after at least `cleanerMinimumSeconds`
+  20), the litter line reads "Litter outpaces your cleaners: bins near X would help" instead of "Litter is piling up
+  in X". In the table that is every row without enough bins at 500 and 1,000 guests and none with dense bins.
+- Staff window: a capacity read under the cleaners (waste a minute, the share into bins, onto the paths, swept up, and
+  "Keeping up" or "Falling behind" with the crew's busy share), and a swamped crew's hint says bins instead of more
+  cleaners. The figures come from a transient waste tally in the operations simulation (`wasteTally`), never saved.
+
+**What would change this:** a playtest where bins near every stall still leave the crew swamped (then the cap or the
+sweep time moves), or a card or research project that speeds sweeping.
+
+### Vomit on paths
+
+**Question.** The owner sees no vomit, or cannot tell it from litter.
+
+**Answer: both were true.** Vomit was drawn (since Phase 29) but as a lemon puddle (0xe8d44d) next to the wrappers'
+sunflower yellow (0xffd166), under the same cups and wrappers, so it read as more litter. It is also rare by design:
+only rides above intensity 45 make guests queasy (`guestLife.nausea`), so a park of gentle rides never has any (the
+table above: no sick units at all). Phase 49 gives it its own look: a green splat (0x6f8f1f, darker lumps 0x4f6814)
+filling the litter square, with no cups or wrappers for its own three units, at least 35 CIE76 from every biome paving,
+curb and litter colour (pinned in the litter emitter tests). The flow overlay's tile readout names it ("vomit and 2
+litter"), and the Staff window's litter figure counts sick piles.
+
+### Scenery appeal
+
+**Question.** A ride's area scenery score is hard to max. Is that intended?
+
+**Measured** with `SCENERY_REPORT=1 yarn vitest run src/game/balance/sceneryReach.review.test.ts`: a 3 x 3 garden ride
+(Petal Roundabout) with a path along one side, one scenery type at a time on the nearest free cells within its reach.
+
+| scenery | appeal / radius | 50 | 75 | 100 | best (pieces) |
+|---|---|---|---|---|---|
+| lollipop-lamp | 8 / 3 | not reached | not reached | not reached | 37.56 (40) |
+| confetti-tree | 18 / 4 | 6 ($420) | 9 ($630) | 18 ($1260) | 100 (18) |
+| sunburst-flowers | 10 / 3 | 22 ($616) | not reached | not reached | 56.33 (40) |
+| ripple-fountain | 35 / 5 | 3 ($1140) | 4 ($1520) | 5 ($1900) | 100 (5) |
+| lantern-maple | 22 / 4 | 6 ($570) | 9 ($855) | 20 ($1900) | 100 (20) |
+| bunting-mast | 7 / 4 | 26 ($832) | not reached | not reached | 63 (62) |
+| shell-planter | 12 / 3 | 22 ($990) | not reached | not reached | 56.33 (40) |
+| harbor-lighthouse | 30 / 7 | 3 ($1560) | 4 ($2080) | 6 ($3120) | 100 (6) |
+| tiki-torch | 9 / 4 | 17 ($646) | 39 ($1482) | not reached | 81 (62) |
+| jungle-idol | 20 / 3 | 9 ($720) | 19 ($1520) | not reached | 87.22 (40) |
+| neon-pylon | 6 / 6 | 16 ($880) | 28 ($1540) | 57 ($3135) | 100 (57) |
+| orbit-globe | 40 / 5 | 3 ($1800) | 4 ($2400) | 6 ($3600) | 100 (6) |
+
+(Garden pieces include the ride's theme bonus, up to +10.)
+
+**Answer: it is reachable, with diminishing returns, and that stays.** Every cell of the ride is capped at 100, so
+pieces right beside the ride stop adding once their cells are full and the far side of the footprint decides the last
+points: with Confetti Trees, 50 takes 6, 75 takes 9 and 100 takes 18. Small pieces have a hard ceiling (lamps alone stop
+near 38, flowers near 56) because their reach falls off before the far cells. The big and the long-reach pieces get there.
+The numbers stay as they are: scenery appeal and radius are frozen by saved parks (a change refuses the load,
+`content-mismatch`), and what is missing is that the game never said how far the next step was. The ride and stall
+inspector now does: under the meter, "Next step: one more Confetti Tree within reach adds about +6 (to 68)" (the best
+piece and free spot among the scenery the player may build, `ScenerySimulation.nextStepFor`), or "Fully decorated for
+the scenery you have" when nothing within reach adds more.
+
+**What would change this:** the owner preferring a stated soft cap (a lower `maximumScore` that small pieces can reach),
+which needs a content version bump and a re-run of the bot proofs; or players never reaching for the bigger pieces.
+
 ## Phase 46: coaster elements · **PROVISIONAL**
 
 Not played. `coaster.specials` / `coaster.elements` / `coaster.helix`:

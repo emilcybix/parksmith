@@ -625,7 +625,8 @@ describe('OperationsSimulation field coverage guard', () => {
     // navigation: invalidated and re-synced by restore (BFS fields are rebuilt lazily).
     derived: ['navigation'],
     config: ['world', 'rides', 'shops', 'rules'],
-    transient: [] as string[],
+    // Phase 49: the running waste tally (the Staff window's capacity read); never read by the simulation, never saved.
+    transient: ['wasteCounts'] as string[],
   };
 
   /** Fields of the runtime records that serialize() deliberately does not write, and why. */

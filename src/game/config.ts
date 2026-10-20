@@ -481,6 +481,16 @@ export const GAME_CONFIG = {
       unhappyBelow: 50,
       unhappyGuests: 10,
       litterItems: 5,
+      /**
+       * Phase 49: the litter line becomes "Litter outpaces your cleaners: bins near X would help" when the cleaners were
+       * busy at least this share of the last `cleanerWindowSeconds` (BALANCE_NOTES "Phase 49: litter against
+       * cleaners": a crew that cannot keep up sits at 96 to 99 %, one that keeps up with bins at 40 to 60 %).
+       */
+      cleanersSwampedShare: 0.9,
+      /** Simulated seconds the cleaner load is averaged over (the Staff window's "last minute"). */
+      cleanerWindowSeconds: 60,
+      /** The load needs at least this much of its window before it may call the crew swamped. */
+      cleanerMinimumSeconds: 20,
     },
   },
   /**

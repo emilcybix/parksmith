@@ -21,7 +21,7 @@ import type { ActiveBonusSnapshot } from '../game/profile/bonuses';
 import type { ProfileSnapshot, RunRewardResult, ScenarioRewardResult } from '../game/profile/types';
 import type { PulseCardId } from '../game/cards/types';
 import type { RunSnapshot, RunSummary } from '../game/run/types';
-import type { ScenerySnapshot } from '../game/scenery/types';
+import type { SceneryNextStep, ScenerySnapshot } from '../game/scenery/types';
 import type { BuildingSnapshot } from '../game/session/types';
 import type { WorkerSnapshot } from '../game/operations/types';
 import type { BuildingsView } from './buildingsWindowModel';
@@ -40,6 +40,7 @@ import type { RunView } from './runViewModel';
 import { toggleLoadoutCard as toggleRunLoadoutCard } from './runLoadoutModel';
 import type { PlacementThemeView } from './themeCopy';
 import type { CrowdUi } from './neighborhoodTypes';
+import type { CleanerLoad } from '../app/cleanerLoad';
 
 /**
  * Exactly one tool is armed at all times, and only the player disarms it. `pointer` is the
@@ -169,6 +170,13 @@ export interface LeaveRunPrompt {
 }
 
 export const NO_MENU_PREVIEW: MenuPreview = { phase: 'checking', slotId: null, revision: null };
+
+/** Phase 49: `GameApp.sceneryNextStepUi`: the inspected object, its best next piece (null: nothing within reach adds more) and its name. */
+export interface SceneryNextStepUi {
+  objectId: number;
+  step: SceneryNextStep | null;
+  name: string | null;
+}
 
 export interface UiState {
   cash: number;
@@ -413,6 +421,10 @@ export interface UiState {
   crowdHeatmapSupported: boolean;
   /** Phase 14: neighborhood Pulse line, dashboard rows, Overview line and hover readout; null until published. */
   crowd: CrowdUi | null;
+  /** Phase 49: how the cleaners coped over the last simulated minute (Staff window); null until published. */
+  cleanerLoad: CleanerLoad | null;
+  /** Phase 49: the inspected ride's or stall's next scenery step (the inspector's "next step" line); null when none is inspected. */
+  sceneryNextStep: SceneryNextStepUi | null;
   /** Written only by the SaveManager (through setSavesSnapshot); the UI reads it. */
   saves: SavesSnapshot;
   /** Save/Load dialog visibility; it is an input context layer (see inputContext.ts). */
@@ -615,6 +627,8 @@ export const useUiStore = create<UiState>((set) => ({
   showCrowdHeatmap: false,
   crowdHeatmapSupported: true,
   crowd: null,
+  cleanerLoad: null,
+  sceneryNextStep: null,
   saves: DEFAULT_SAVES_SNAPSHOT,
   savesDialogOpen: false,
   settingsOpen: false,

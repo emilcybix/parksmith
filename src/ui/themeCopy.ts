@@ -110,6 +110,25 @@ export const inspectorThemeLine = (
   return `Theme · ${label}: add ${word} scenery within reach for up to ${maximum}`;
 };
 
+/**
+ * Phase 49: the inspector's "next step" line under the area scenery meter, so a score that is hard to max says how far
+ * the next step is: "Next step: one more Confetti Tree within reach adds about ＋6 (to 68)". A score already at the top
+ * says nothing; one that nothing within reach can lift says so (small pieces stop adding long before 100: a ride ringed
+ * with lamps tops out near 38, with flowers near 56; BALANCE_NOTES "Phase 49: scenery").
+ */
+export const sceneryNextStepLine = (
+  score: number,
+  next: Readonly<{ objectId: number; step: Readonly<{ gain: number }> | null; name: string | null }> | null,
+  objectId: number,
+): string | null => {
+  if (next === null || next.objectId !== objectId || score >= 99.5) return null;
+  if (next.step === null || next.name === null) {
+    return 'Fully decorated for the scenery you have: no free spot within reach lifts it further';
+  }
+  const gain = Math.max(1, Math.round(next.step.gain));
+  return `Next step: one more ${next.name} within reach adds about ＋${gain} (to ${Math.min(100, Math.round(score) + gain)})`;
+};
+
 // --- Research (design 5) ---
 
 export const RESEARCH_TIER_LABELS: Readonly<Record<ResearchTier, string>> = {

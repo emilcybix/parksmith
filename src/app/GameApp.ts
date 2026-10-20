@@ -34,7 +34,7 @@ import { rewardEligible } from '../game/profile/eligibility';
 import { colourCostModeOf, type GameMode } from '../game/modes/types';
 import type { RunRewardResult, ScenarioRewardResult } from '../game/profile/types';
 import { SaveError, createParkSave, type ParkSave } from '../game/save/version';
-import { BUILD_BY_ID } from '../game/content/catalog';
+import { BUILD_BY_ID, BUILD_CATALOG } from '../game/content/catalog';
 import type { GuestCapacityView, GuestSimulation } from '../game/guests/GuestSimulation';
 import type { GuestSnapshot } from '../game/guests/types';
 import { souvenirSellsNow } from '../game/guests/life';
@@ -121,7 +121,7 @@ import { inwardOf, menuShot, type ShotScene } from './cinematicShots';
 import type { CinematicView } from '../rendering/RendererPort';
 import { START_MENU_DEFAULT } from './menuFlag';
 import { onReducedMotionChange, reducedMotion } from '../settings/motion';
-import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type CoasterDraftSnapshot, type LandUi, type LeaveRunPrompt, type ToolMode, type UiState } from '../ui/store';
+import { NO_MENU_PREVIEW, updateUiSnapshot, useUiStore, type CoasterDraftSnapshot, type LandUi, type LeaveRunPrompt, type SceneryNextStepUi, type ToolMode, type UiState } from '../ui/store';
 import { parkTitleOf } from '../ui/modeLabels';
 import { placementThemeViewOf, researchCardFaces, samePlacementThemeView } from '../ui/themeCopy';
 import { createCalendarView, type TimeLock } from '../game/calendar/calendarMath';
@@ -135,6 +135,7 @@ import { registerGameCommands, registerRecoveryCommands, registerSaveCommands, t
 import { INITIAL_CAPACITY_NOTICE, stepCapacityNotice, type CapacityNoticeState } from './capacityNotice';
 import { capacityToast } from '../ui/capacityModel';
 import { INITIAL_CROWD_NOTICE, stepCrowdNotice, type CrowdNoticeState } from './crowdNotice';
+import { INITIAL_CLEANER_LOAD, cleanerLoadEqual, displayedCleanerLoad, stepCleanerLoad, type CleanerLoadState } from './cleanerLoad';
 import { buildCrowdUi, crowdHoverText, crowdUiEqual, CROWD_CLASSIC_TOAST } from '../ui/neighborhoodModel';
 import type { CrowdHeatmapView } from '../game/crowd/types';
 import {
@@ -506,6 +507,10 @@ export class GameApp implements GameCommands, RunCommands {
    * never saved, reset on every session swap.
    */
   private crowdNotice: CrowdNoticeState = INITIAL_CROWD_NOTICE;
+  /** Phase 49: the cleaner load over the last simulated minute (`cleanerLoad.ts`); never saved, reset on every swap. */
+  private cleanerLoad: CleanerLoadState = INITIAL_CLEANER_LOAD;
+  /** Phase 49: `${objectId}:${world version}:${path version}` of the published scenery next step. */
+  private sceneryNextStepKey: string | null = null;
   /** Phase 14: the crowd heatmap view last handed to the renderer (null: hidden, or not pushed since a swap/mount). */
   private crowdHeatmapShown: Readonly<CrowdHeatmapView> | null = null;
   /**
@@ -1136,6 +1141,28 @@ export class GameApp implements GameCommands, RunCommands {
     return this.selectedRideId ?? this.selectedServiceId;
   }
 
+  /**
+   * Phase 49: the inspected ride's or stall's next scenery step (`ScenerySimulation.nextStepFor`) over the scenery the
+   * player may build now, money aside. Memoised per object and world and path version, so a steady park reuses the
+   * published object; null with nothing inspected.
+   */
+  private sceneryNextStepUi(): SceneryNextStepUi | null {
+    const objectId = this.selectedObjectId();
+    if (objectId === null) return null;
+    const world = this.world;
+    const key = `${objectId}:${world.version}:${world.pathVersion}`;
+    const previous = useUiStore.getState().sceneryNextStep;
+    if (this.sceneryNextStepKey === key && previous?.objectId === objectId) return previous;
+    this.sceneryNextStepKey = key;
+    const candidates = BUILD_CATALOG.filter((definition) => definition.kind === 'scenery' && world.isDefinitionUnlocked(definition.id))
+      .map((definition) => definition.id);
+    const step = this.scenery.nextStepFor(objectId, candidates, (definitionId, anchor) => {
+      const check = world.checkObjectBuild(definitionId, anchor);
+      return check.ok || check.reason === 'funds';
+    });
+    return { objectId, step, name: step === null ? null : BUILD_BY_ID.get(step.definitionId)?.name ?? null };
+  }
+
   /** Phase 28: one swatch (or null for the default) into one slot of the inspected ride, coaster, stall or facility. */
   setSelectedObjectColour(slot: number, swatch: number | null): void {
     const objectId = this.selectedObjectId();
@@ -1705,7 +1732,19 @@ export class GameApp implements GameCommands, RunCommands {
   private publishCrowd(): void {
     const state = useUiStore.getState();
     const view = this.session.crowdView();
-    const step = stepCrowdNotice(this.crowdNotice, { tick: this.world.tick, view });
+    const operations = this.session.operations;
+    let cleaners = 0;
+    let busy = 0;
+    for (const worker of operations.staff.values()) {
+      if (worker.role !== 'cleaner') continue;
+      cleaners += 1;
+      if (worker.task) busy += 1;
+    }
+    const load = stepCleanerLoad(this.cleanerLoad, { tick: this.world.tick, tally: operations.wasteTally(), cleaners, busy });
+    this.cleanerLoad = load.state;
+    const shownLoad = displayedCleanerLoad(load.load);
+    if (!cleanerLoadEqual(state.cleanerLoad, shownLoad)) updateUiSnapshot({ cleanerLoad: shownLoad });
+    const step = stepCrowdNotice(this.crowdNotice, { tick: this.world.tick, view, cleanersSwamped: load.load.swamped });
     this.crowdNotice = step.state;
     const ui = buildCrowdUi({
       view,
@@ -1851,6 +1890,8 @@ export class GameApp implements GameCommands, RunCommands {
     if (useUiStore.getState().atCapacity) updateUiSnapshot({ atCapacity: false });
     // Phase 14: the neighborhood lines belong to the park on screen too, and the renderer forgets the crowd layer with it.
     this.crowdNotice = INITIAL_CROWD_NOTICE;
+    this.cleanerLoad = INITIAL_CLEANER_LOAD;
+    if (useUiStore.getState().cleanerLoad !== null) updateUiSnapshot({ cleanerLoad: null });
     this.crowdHeatmapShown = null;
     this.closeInspector();
     if (mode === 'rewind') this.resetGestureState();
@@ -2805,6 +2846,7 @@ export class GameApp implements GameCommands, RunCommands {
         selectedCoasterLift: this.selectedCoasterLift(),
         selectedService: this.selectedServiceId === null ? null : this.shops.snapshot(this.selectedServiceId),
         selectedGuest: this.selectedGuestUi(),
+        sceneryNextStep: this.sceneryNextStepUi(),
         ...this.parkReadsUi(),
         pulseInsights: this.guests.thoughtInsights(),
         management: this.management.snapshot(),
@@ -4069,6 +4111,7 @@ export class GameApp implements GameCommands, RunCommands {
       selectedCoasterLift: this.selectedCoasterLift(),
       selectedService: this.selectedServiceId === null ? null : this.shops.snapshot(this.selectedServiceId),
       selectedGuest: this.selectedGuestUi(),
+      sceneryNextStep: this.sceneryNextStepUi(),
       ...this.parkReadsUi(),
       pulseInsights: this.guests.thoughtInsights(),
       management: this.management.snapshot(),

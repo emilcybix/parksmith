@@ -55,6 +55,19 @@ describe('crowd notice conditions (design Q4 thresholds)', () => {
     expect(crowdConditionsOf(hood(3, 'A', {}, { litter: 5 }), view([]), open)).toEqual(['litter']);
     expect(crowdConditionsOf(hood(3, 'A', {}, { litter: 4 }), view([]), open)).toEqual([]);
   });
+
+  it('Phase 49: litter while the cleaners are swamped is the "outpaces" line instead, held as long as litter', () => {
+    expect(crowdConditionsOf(hood(3, 'A', {}, { litter: 5 }), view([]), open, true)).toEqual(['litterOutpaces']);
+    expect(crowdConditionsOf(hood(3, 'A', {}, { litter: 4 }), view([]), open, true)).toEqual([]);
+    expect(crowdHoldTicks('litterOutpaces')).toBe(crowdHoldTicks('litter'));
+    const v = view([hood(3, 'Garden Loop', {}, { litter: 9 })]);
+    let step = stepCrowdNotice(INITIAL_CROWD_NOTICE, { tick: 0, view: v, cleanersSwamped: true });
+    for (let tick = TPS; tick <= crowdHoldTicks('litterOutpaces'); tick += TPS) {
+      step = stepCrowdNotice(step.state, { tick, view: v, cleanersSwamped: true });
+    }
+    expect(step.active).toEqual([{ key: 3, name: 'Garden Loop', kind: 'litterOutpaces' }]);
+    expect(CROWD_NOTICE_PRIORITY.indexOf('litterOutpaces')).toBe(CROWD_NOTICE_PRIORITY.indexOf('litter') - 1);
+  });
 });
 
 describe('stepCrowdNotice: hold and release in simulation time', () => {
