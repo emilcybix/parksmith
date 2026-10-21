@@ -2,7 +2,7 @@ import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from
 import { lowPassCamera, orbitCamera } from './cameraOrbit';
 import { flatRideView, trainRideView } from './rideCamera';
 import { VIEW_TURN_MS, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
-import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
+import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, VOXEL_TIMING, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
 import type { CinematicView } from '../RendererPort';
 import type { CoasterPiece } from '../../game/coaster/design';
 import { BUILD_BY_ID } from '../../game/content/catalog';
@@ -28,6 +28,7 @@ import type { CompositeVariant } from './gpu/shaders/composite';
 import type { WeatherTier } from './gpu/shaders/compositeWeather';
 import { createSeeThroughFrame, createSeeThroughValues, seeThroughValuesFor, type SeeThroughFrame } from './gpu/seeThroughView';
 import { createVoxelGpu, type VoxelFrameInput, type VoxelGpu, type VoxelGpuOptions } from './gpu/VoxelGpu';
+import { PASS_COMPOSITE, PASS_GBUFFER, PASS_LIGHT, PASS_UPSCALE } from './gpu/timing';
 import { createDayWeights, dayWeights, type DayWeights } from '../dayCycle';
 import { createWeatherEffects, presentationFlags, WeatherLook, type WeatherEffects } from '../weatherLook';
 import { getPresentation, onPresentationChange, reducedMotion } from '../../settings/motion';
@@ -905,6 +906,20 @@ export class VoxelRenderer implements RendererPort {
       fps: this.fps,
       renderMs: this.renderMs,
       entities: world.objects.size + world.paths.size + guests.guests.size + operations.staff.size + operations.litter.size,
+      ...(VOXEL_TIMING ? { gpu: this.gpuPerformance() } : {}),
+    };
+  }
+
+  /** Phase 55: what `&voxelTiming=1` shows (the GPU passes, the zoom and the low-res target). */
+  private gpuPerformance(): NonNullable<RendererPerformance['gpu']> {
+    const snap = this.camera.snapped();
+    const timings = this.gpu?.timings ?? null;
+    const ms = timings?.milliseconds;
+    return {
+      passes: ms === undefined ? null : { gbuffer: ms[PASS_GBUFFER], light: ms[PASS_LIGHT], composite: ms[PASS_COMPOSITE], upscale: ms[PASS_UPSCALE] },
+      zoom: snap.zoom,
+      lowWidth: snap.lowWidth,
+      lowHeight: snap.lowHeight,
     };
   }
 
@@ -1229,6 +1244,7 @@ export class VoxelRenderer implements RendererPort {
     const gpu = createVoxelGpu(renderer, {
       ...degrade,
       gpuMin: VOXEL_GPU_MIN,
+      timing: VOXEL_TIMING,
       viewTurn: this.viewTurnRequested,
       compositeVariant,
       weatherTier: rung.tier,

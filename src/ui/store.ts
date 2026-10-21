@@ -18,6 +18,7 @@ import type { ParkRuleset } from '../game/scenarios/rules';
 import type { ScenarioSnapshot } from '../game/scenarios/types';
 import type { GameMode } from '../game/modes/types';
 import type { ActiveBonusSnapshot } from '../game/profile/bonuses';
+import type { RendererPerformance } from '../rendering/RendererPort';
 import type { ProfileSnapshot, RunRewardResult, ScenarioRewardResult } from '../game/profile/types';
 import type { PulseCardId } from '../game/cards/types';
 import type { RunSnapshot, RunSummary } from '../game/run/types';
@@ -124,6 +125,8 @@ export interface PerformanceStats {
   /** Total simulated entities. Not a visible count — nothing is culled yet. */
   entities: number;
   pathfindingRequests: number;
+  /** Phase 55 (`&voxelTiming=1`): the voxel GPU passes and the low-res target (see RendererPerformance). */
+  gpu?: RendererPerformance['gpu'];
 }
 
 /**

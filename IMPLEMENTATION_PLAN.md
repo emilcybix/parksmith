@@ -3300,6 +3300,101 @@ Replaces "Terrain elevation" and "Water as buildable terrain" under Future Candi
   `CLASSIC_MIN_ZOOM` if it is cheap (classic is frozen, so optional). Tests: the zoom levels in `camera.test.ts`
   and the frame-cost budget.
 
+**Design step (2026-10-21).** This step settles the method; nothing visible changes yet.
+
+*The numbers.*
+- A 64 × 64 map is about 4,096 × 2,150 texels in the iso view (`projectX` spans ±2,048, `projectY` 0 to 2,048 plus
+  what stands on it).
+- At 1920 × 1080, DPR 1, the furthest level today is N = 1. The target is 1,933 × 1,093 texels (2.1 M of the 2.2 M
+  budget) and shows about 47 % of the map's width.
+- Fitting the whole map needs about 0.47 device px per texel.
+
+*The two ways.*
+- **A. Raise the budget and downsample.** The target would be about 4,110 × 2,170 = 8.9 M texels, about 4.2 times
+  today's furthest level. The G-buffer and composite costs grow with that: the composite (lights, outlines, contact
+  shadow, weather) per texel, and the G-buffer per texel covered. That happens exactly when the whole map and every
+  guest are on screen. It also needs a fractional upscale, while the upscale pass is integer-only (`int(uUpscale.x)`).
+- **B. Half and quarter scale.** A factor k (2 or 4) is the number of world texels per low-res texel. The target
+  stays the size it is today (under the 2.2 M budget), and the scene is drawn at 1/k.
+  - At 1920 × 1080: k = 2 shows 3,840 world texels (94 % of the width), and k = 4 shows 7,680 (the whole map with
+    room around it).
+  - The fill cost stays at today's furthest level. Only the vertex work grows: more chunks and figures are in view.
+
+**Chosen: B**, with k = 2 and k = 4. Powers of two keep every `/k` exact, so the camera's bit-exact turn round trips
+still hold. B can never cost more than A: both draw the same part of the world (the same chunks, figures and
+vertices), and A fills about 4.2 times the texels. So the measurement does not choose between them. It tells how much
+headroom B has for the extra vertex work of a whole map in view.
+
+*How to measure.* `&voxelTiming=1` (built in this step) shows the GPU milliseconds per pass, the zoom and the target
+size in the performance overlay (the ⌁ button). It uses `EXT_disjoint_timer_query_webgl2`, which most desktop
+browsers offer.
+- Run the dev park (`?dev=1`) at 1,000 guests on the owner's machine.
+- Read the overlay at `&zoom=1` and `&zoom=2`. N = 2 has a quarter of the texels, so the difference per pass gives
+  the cost per texel.
+- A's furthest level then costs about 4.2 × the N = 1 G-buffer and composite. B's costs about the N = 1 numbers,
+  plus the vertex work of a whole map.
+- **Measured (owner, 2026-10-21):** dev park with about 1,000 guests, night, cloudy, 1920 × 958 canvas, DPR 1, at
+  today's furthest level (N = 1, target 1,933 × 958 = 1.85 M texels). Both runs show ZOOM 1: the `&zoom=2` run
+  had been zoomed out again.
+
+  | run | GPU total | G-buffer | light | composite | upscale |
+  | --- | --- | --- | --- | --- | --- |
+  | 1 | 4.91 ms | 3.71 | 0.27 | 0.49 | 0.45 |
+  | 2 | 4.14 ms | 2.71 | 0.47 | 0.78 | 0.19 |
+
+  - The G-buffer is most of the frame; light and composite are about 1 ms together.
+  - If the G-buffer is mostly fill, A's furthest level would cost about 4.2 × (G + light + composite), roughly
+    15-20 ms of GPU time: over a 60 fps frame on this machine before the CPU has done anything.
+  - B keeps the fill and adds the vertex work of a larger area: the map itself (a diamond) is about 2.3 times what
+    today's furthest level shows, its bounding box 4.8 times. That is measured in step 2, at k = 2 and
+    k = 4, with the same overlay.
+- The repo has no headless frame-time harness: `tools/frametime.mjs` named in ARCHITECTURE.md is not in the tree.
+  SwiftShader would not say anything about a real GPU anyway.
+
+*What B touches* (mapped 2026-10-21):
+1. **Levels become a list.** Each level is a pair (k, N):
+   - (4, Nmin), then (2, Nmin), then (1, Nmin … max).
+   - The wheel, `setZoomAtCss`, `RendererPort.cameraZoom`/`setCameraZoom`, `&zoom=`, the menu sweep's `ZOOM_STEPS`
+     and `readViewInfo().zoom` (the audio zoom mix) step through a level index instead of N.
+   - Device px per world texel is N / k.
+2. **Camera.**
+   - The origin snaps to multiples of k world texels; the sub-texel offset is in low-res texels.
+   - Every `/ currentZoom` becomes `· k / N`.
+   - `cameraTexel = texel − GUARD · k`.
+   - Picking goes through `cssToWorld`, so it follows by itself.
+3. **Projection.**
+   - A uniform k: `vxClip` divides by it.
+   - Everything that turns a low-res texel back into the world uses `camera + k · (texel + ½)`: `vxPositionAt`, the
+     light pass, the see-through cut.
+   - Figures snap to multiples of k.
+   - The sub-texel snap is 1/16 of a low-res texel.
+4. **Composite.**
+   - **Bayer anchors** become low-res texel + camera / k (16 sites). Otherwise the dithers collapse to 4 or 1
+     threshold.
+   - **Outlines:** the outline plane gradients are scaled by k, and the silhouette thresholds are checked again.
+   - **Contact shadow:** its taps stay in low-res texels.
+   - **Rain:** anchored per low-res texel.
+   - **Top-face patterns** (cobbles, boards) are flat at k ≥ 2, where they would alias.
+5. **Culling and the rest.**
+   - Chunk culling (`viewOfTarget`), figure culling and the view-turn camera multiply the target size by k.
+   - The see-through front rectangle (`frontRectFor`) converts the hole from world to target texels.
+6. **Overlays.** They are pixel art at one world texel per texel:
+   - At k ≥ 2 their positions scale by 1/k, and their art keeps one low-res texel per texel (strokes stay 1 texel).
+   - Money pops and badges are hidden at k ≥ 2: it is an overview.
+7. **Classic.** `CLASSIC_MIN_ZOOM` stays (classic is frozen).
+
+*Steps.*
+1. Levels and camera (CPU only, k = 1 everywhere, so nothing changes on screen). Tests: the level list per screen,
+   the snapped invariants with k, picking, bit-exact turn round trips at every level.
+2. Projection and culling with k (the far levels draw).
+3. Composite: Bayer anchors, outlines, patterns, contact shadow, weather.
+4. Overlays and figures.
+5. The owner looks in the browser at k = 2 and 4: panning without shimmer, outlines, the dev park at 1,000 guests,
+   and the overlay numbers.
+
+Steps 2-4 change shaders whose output only a browser shows. Node tests cover the math and the GLSL source, not the
+picture, so step 5 is the owner's.
+
 ### Phase 56 — Atmosphere by Zoom and Coaster Sounds (owner request 2026-10-19; built 2026-10-21)
 
 The owner produced the sounds: park ambience recordings, ride and coaster sounds, UI cues and thunder, all in

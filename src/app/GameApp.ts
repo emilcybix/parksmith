@@ -2885,6 +2885,7 @@ export class GameApp implements GameCommands, RunCommands {
           renderMs: performance.now() - renderStart,
           entities: performanceStats.entities,
           pathfindingRequests: this.pathfindingRequestsPerSecond,
+          ...(performanceStats.gpu ? { gpu: performanceStats.gpu } : {}),
         },
       });
       this.stepCapacityNotice();

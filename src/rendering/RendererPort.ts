@@ -59,6 +59,16 @@ export interface RendererPerformance {
   renderMs: number;
   /** Objects, path tiles, guests, workers and litter piles: a total, not a visible count. */
   entities: number;
+  /**
+   * Phase 55 (`&voxelTiming=1`, voxel only): smoothed GPU milliseconds per pass, the zoom (device px per texel) and the
+   * low-res target in texels. Absent without the flag; the passes are null where the browser has no timer queries.
+   */
+  gpu?: {
+    passes: { gbuffer: number; light: number; composite: number; upscale: number } | null;
+    zoom: number;
+    lowWidth: number;
+    lowHeight: number;
+  };
 }
 
 /**
