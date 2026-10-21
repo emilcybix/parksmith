@@ -7,6 +7,12 @@ import { version } from '../../package.json';
  */
 export const GAME_VERSION: string = version;
 
+/**
+ * Phase 56: the credits the sounds' licences ask for (CC-BY and the like), one line each, shown under About. Every
+ * file's source and licence is listed in SOUND.md; a file that asks for attribution gets its line here.
+ */
+export const SOUND_CREDITS: readonly string[] = [];
+
 export interface ChangelogEntry {
   version: string;
   date: string;

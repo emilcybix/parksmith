@@ -20,7 +20,7 @@ import {
   type GainNodeLike,
 } from './AudioEngine';
 import {
-  TOAST_SOUND, ambienceFor, cueVoice, panFor, proximity, soundForCue, thunderBetween, volumesOf, wholeMapView, zoomMix, type CueVoice,
+  TOAST_SOUND, ambienceFor, atmosphereFor, cueVoice, panFor, proximity, soundForCue, thunderBetween, volumesOf, wholeMapView, zoomMix, type CueVoice,
 } from './audioDirector';
 import { stormFlashAt } from '../game/weather/flash';
 import { LOOP_IDS, SOUND_IDS, renderLoop, renderSound } from './synth';
@@ -114,14 +114,14 @@ describe('AudioEngine (Phase 15)', () => {
     expect(engine.ready).toBe(false);
   });
 
-  it('the gesture builds master and five buses, every buffer once, and three silent looping beds', () => {
+  it('the gesture builds master and five buses, every buffer once, and the silent looping beds', () => {
     const { context, engine } = unlocked();
     expect(engine.ready).toBe(true);
-    // master + 5 buses + 3 loop gains
+    // master + 5 buses + a gain per loop
     expect(context.gains.length).toBe(1 + BUS_IDS.length + LOOP_IDS.length);
     expect(context.buffers.length).toBe(SOUND_IDS.length + LOOP_IDS.length);
     const loops = context.sources.filter((source) => source.loop);
-    expect(loops.length).toBe(3);
+    expect(loops.length).toBe(LOOP_IDS.length);
     expect(loops.every((source) => source.started === 1)).toBe(true);
     engine.unlock();
     expect(context.buffers.length, 'idempotent').toBe(SOUND_IDS.length + LOOP_IDS.length);
@@ -184,7 +184,7 @@ describe('AudioEngine (Phase 15)', () => {
       },
     });
     engine.unlock();
-    expect(asked.sort()).toEqual([...Object.values(SOUND_FILES), ...Object.values(EMITTER_FILES), ...Object.values(BED_FILES)].sort());
+    expect(asked.sort()).toEqual([...Object.values(SOUND_FILES).flat(), ...Object.values(EMITTER_FILES), ...Object.values(BED_FILES)].sort());
     expect(engine.play('click')).toBe(true);
     expect(context.sources.at(-1)!.buffer, 'synthesised before the decode').not.toBe(decoded);
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -197,6 +197,67 @@ describe('AudioEngine (Phase 15)', () => {
     expect(error, 'the failed file keeps the synthesised cue').not.toBe(decoded);
     expect(engine.play('coin')).toBe(true);
     expect(context.sources.at(-1)!.buffer, 'a cue with no file stays synthesised').not.toBe(decoded);
+  });
+
+  it('a cue with several recorded variants plays them in turn', async () => {
+    const context = new FakeContext();
+    const decoded: AudioBufferLike[] = [];
+    (context as unknown as { decodeAudioData: () => Promise<AudioBufferLike> }).decodeAudioData = () => {
+      const buffer = { copyToChannel: () => undefined };
+      decoded.push(buffer);
+      return Promise.resolve(buffer);
+    };
+    const files = SOUND_FILES as Record<string, string | readonly string[]>;
+    const scream = files.scream;
+    files.scream = ['coasters/a.ogg', 'coasters/b.ogg'];
+    try {
+      const engine = new AudioEngine(() => context, volumes, null, { load: () => Promise.resolve(new ArrayBuffer(8)) });
+      engine.unlock();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const heard = new Set<AudioBufferLike | null>();
+      for (let play = 0; play < 4; play += 1) {
+        context.currentTime += 1;
+        expect(engine.play('scream')).toBe(true);
+        heard.add(context.sources.at(-1)!.buffer);
+      }
+      expect(heard.size).toBe(2);
+    } finally {
+      files.scream = scream!;
+    }
+  });
+
+  it('the pitch of a positional loop follows its rate', async () => {
+    const context = new FakeContext();
+    const rates: number[] = [];
+    const create = context.createBufferSource.bind(context);
+    context.createBufferSource = () => {
+      const source = create();
+      Object.assign(source, { playbackRate: { value: 1, setTargetAtTime: (rate: number) => { rates.push(rate); } } });
+      return source;
+    };
+    (context as unknown as { decodeAudioData: () => Promise<AudioBufferLike> }).decodeAudioData = () => Promise.resolve({ copyToChannel: () => undefined });
+    const engine = new AudioEngine(() => context, volumes, null, { load: () => Promise.resolve(new ArrayBuffer(8)) });
+    engine.unlock();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    engine.setEmitters([{ key: 1, loop: 'roll', gain: 0.5, pan: 0, rate: 1.2 }, { key: 2, loop: 'motor', gain: 0.5, pan: 0 }]);
+    expect(rates.sort()).toEqual([1, 1.2]);
+  });
+
+  it('rain falls in rain and storms, the crickets sing at night, the day bed by day; the start screen has none', () => {
+    const out = { day: 0, rain: 0, night: 0 };
+    expect(atmosphereFor(false, false, 'sunny', 0, out)).toEqual({ day: 1, rain: 0, night: 0 });
+    expect(atmosphereFor(false, true, 'cloudy', 0.5, out)).toEqual({ day: 0, rain: 0, night: 1 });
+    const shower = { ...atmosphereFor(false, false, 'rain', 0, out) };
+    const storm = { ...atmosphereFor(false, true, 'storm', 1, out) };
+    expect(shower.rain).toBe(0.5);
+    expect(shower.day).toBeLessThan(1);
+    expect(storm.rain).toBe(1);
+    expect(storm.night).toBeCloseTo(0.3);
+    expect(atmosphereFor(true, false, 'storm', 1, out)).toEqual({ day: 0, rain: 0, night: 0 });
+    const { engine } = unlocked();
+    engine.setAmbience(0, 0, 0, 0.7, 0.4);
+    expect(engine.loopLevel('rain')).toBe(0.7);
+    expect(engine.loopLevel('night')).toBe(0.4);
   });
 
   it('the zoom mix scales the park buses and the music, never the UI; a muted park refuses its cues', () => {

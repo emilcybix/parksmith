@@ -98,7 +98,7 @@ import { AudioEngine } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/synth';
 import { createBrowserAudioContext, createBrowserMusicSource, createBrowserSampleSource } from '../audio/browserContext';
 import {
-  TOAST_SOUND, ambienceFor, cueVoice, musicStateFor, thunderBetween, thunderIsNear, volumesOf, wholeMapView, zoomMix, type CueVoice,
+  TOAST_SOUND, ambienceFor, atmosphereFor, cueVoice, musicStateFor, thunderBetween, thunderIsNear, volumesOf, wholeMapView, zoomMix, type CueVoice,
 } from '../audio/audioDirector';
 import { RideSounds } from '../audio/rideSounds';
 import { describeLoadResult, planQuickSaveShortcut } from '../ui/saveLoadModel';
@@ -487,6 +487,7 @@ export class GameApp implements GameCommands, RunCommands {
     this.audio.play(sound, gain, pan);
   };
   private readonly mixScratch = { park: 1, music: 1 };
+  private readonly atmosphereScratch = { day: 0, rain: 0, night: 0 };
   /** The storm slot and the second into it the thunder was last checked at. */
   private thunderSeed = 0;
   private thunderSeconds = 0;
@@ -4923,7 +4924,9 @@ export class GameApp implements GameCommands, RunCommands {
     if (!this.audio.ready) return;
     const level = ambienceFor(this.viewInfo, this.session, this.clock.speed === 0);
     const night = this.session.calendar.viewInto(this.musicCalendar, this.world.tick).label === 'Night';
-    this.audio.setAmbience(level.crowd, level.machinery, this.menuHold || night ? 0 : 1);
+    const weather = this.session.weatherViewInto(this.frameWeather, this.world.tick);
+    const sky = atmosphereFor(this.menuHold, night, weather.kind, weather.intensity, this.atmosphereScratch);
+    this.audio.setAmbience(level.crowd, level.machinery, sky.day, sky.rain, sky.night);
     const mix = zoomMix(this.viewInfo.zoom, this.menuHold, this.mixScratch);
     this.audio.setMix(mix.park, mix.music);
     const paused = this.clock.speed === 0;

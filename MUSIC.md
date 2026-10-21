@@ -114,42 +114,4 @@ Settings and the mute key (M) control the music.
 
 ## Sound effects
 
-Recorded effects live in `public/sfx/`. Unlike the music they have no manifest: the cue each file plays is set in
-`src/audio/AudioEngine.ts` (`SOUND_FILES`, `EMITTER_FILES`, `BED_FILES`). A cue that also has a built-in synthesised
-version falls back to it when its file is missing; a recorded-only cue (marked *) is then not heard.
-
-| File | Plays when |
-|---|---|
-| `ui/ui_click.ogg` | a button in the interface is pressed |
-| `ui/build_land.ogg` | something is built |
-| `ui/build_water.ogg` | a water ride or water scenery is built (Splash Rings, Ripple Fountain) |
-| `ui/purchase_cash.ogg` | the player spends money (a build, paths, land) |
-| `ui/repair_hammer.ogg` | a mechanic finishes a repair |
-| `ui/notify_message.ogg` | an important message appears (objective, level, capacity …) |
-| `ui/ui_error.ogg` | an action is refused, or another alert appears |
-| `ui/facility_toilet_flush.ogg` * | a guest uses a toilet |
-| `ui/water_splash_big.ogg` * | a Splash Rings cycle ends |
-| `ui/water_splash_small.ogg` * | a Puddle Jumpers cycle ends |
-| `ui/water_splash_crackle.ogg` * | loops at every Ripple Fountain |
-| `coasters/ride_track_roll.ogg` * | loops where a coaster train rolls, louder the faster it goes |
-| `coasters/ride_lift_chain.ogg` * | loops while a train climbs a chain lift |
-| `coasters/ride_launch_long.ogg` * | a shuttle (Thunder Launch) fires from its station; a launch piece |
-| `coasters/ride_launch_short.ogg` * | a train passes a boost piece |
-| `coasters/scream.mp3` * | riders over a coaster's highest crest (a drop of 2 levels or more), and a shuttle launch |
-| `coasters/ride_crash.ogg` * | a coaster breaks down |
-| `coasters/ride_lift_motor.ogg` * | loops at every other running flat ride (its motor) |
-| `coasters/ride_train_steam.ogg` * | loops while the Bumble Coach runs |
-| `coasters/ride_steam.ogg` * | the Bumble Coach leaves the station |
-| `coasters/ride_train_engine.ogg` * | loops while Temple Trek's carts run |
-| `coasters/ride_gokart.ogg` | not used yet (there is no go-kart ride) |
-| `ambience/park_ambience1.mp3` * | the daytime park bed |
-| `ambience/park_ambience3.mp3` * | the crowd bed, with the guests near the middle of the screen |
-| `ambience/park_ambience4.mp3` * | the chatter layer, only when it is busy |
-| `ambience/park_ambience2.mp3` * | the rides bed, with the running rides near the middle of the screen |
-| `ambience/weather_thunder_near.ogg` * | thunder from a near bolt in a storm (stronger storms are nearer) |
-| `ambience/weather_thunder_far.ogg` * | thunder from a far bolt |
-
-Every park sound is heard by where it is: full in the middle of the screen, about half at the edge, faint just beyond
-and silent a screen away, panned left or right by where it is on screen. The zoom mixes park and music: zoomed all the
-way in only the park is heard, all the way out only the music. Loops should loop seamlessly; keep one-shots short,
-mono, and peaking around -6 dBFS.
+The recorded sound effects, the park beds and the coaster sounds have their own guide: SOUND.md.

@@ -3,6 +3,7 @@ import type { ViewInfo, WorldEffect, WorldEffectKind } from '../rendering/Render
 import type { AudioVolumes } from './AudioEngine';
 import type { NotificationClass } from '../settings/notify';
 import type { SoundId } from './synth';
+import type { WeatherKind } from '../game/weather/types';
 import { BUILD_BY_ID } from '../game/content/catalog';
 import { footprintSize } from '../game/types';
 import { GAME_CONFIG } from '../game/config';
@@ -205,6 +206,25 @@ export const ambienceFor = (
     crowd: Math.min(1, guests / fullCrowd) * (paused ? 0.5 : 1),
     machinery: Math.min(1, rides / FULL_MACHINERY_RIDES),
   };
+};
+
+/**
+ * The beds that follow the time of day and the sky, in [0, 1]: rain in rain and storms (fuller the harder it rains),
+ * the daytime park bed by day and the crickets by night, each pushed down by the rain. The start screen has none.
+ */
+export const atmosphereFor = (
+  menu: boolean,
+  night: boolean,
+  weather: WeatherKind,
+  intensity: number,
+  out: { day: number; rain: number; night: number },
+): { day: number; rain: number; night: number } => {
+  const strength = Math.min(1, Math.max(0, intensity));
+  const rain = menu ? 0 : weather === 'storm' ? 0.8 + 0.2 * strength : weather === 'rain' ? 0.5 + 0.5 * strength : 0;
+  out.rain = rain;
+  out.day = menu || night ? 0 : 1 - 0.6 * rain;
+  out.night = menu || !night ? 0 : 1 - 0.7 * rain;
+  return out;
 };
 
 /** A view of the whole map at the default zoom (before the renderer answers, or for the classic renderer). */

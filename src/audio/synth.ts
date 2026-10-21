@@ -4,24 +4,24 @@
  * noise is a fixed-seed xorshift), so tests can pin a sound by its hash and the game never sounds different twice.
  *
  * Short cues are small envelopes over sines, squares and noise in a friendly major-pentatonic palette; the beds
- * (crowd murmur, ride machinery) and the music are seamless loops (their length is a whole number of cycles of every
- * component, and the noise bed is cross-faded at the seam).
+ * (crowd murmur, ride machinery, rain, crickets at night) and the music are seamless loops (their length is a whole
+ * number of cycles of every component, and the noise beds are cross-faded at the seam).
  */
 
 export type SynthSoundId =
   | 'coin' | 'spend' | 'build' | 'chime' | 'clank' | 'ratchet' | 'happy' | 'unhappy' | 'sale'
-  | 'fanfare' | 'research' | 'fail' | 'click' | 'splash' | 'notify' | 'error';
+  | 'fanfare' | 'research' | 'fail' | 'click' | 'splash' | 'notify' | 'error' | 'whoosh' | 'brake' | 'bell';
 /** Cues that exist only as recorded files (public/sfx/): without the file they are not heard. */
 export type RecordedSoundId =
   | 'launch' | 'boost' | 'scream' | 'crash' | 'puff' | 'flush' | 'splash-big' | 'splash-small' | 'thunder-near' | 'thunder-far';
 export type SoundId = SynthSoundId | RecordedSoundId;
-export type LoopId = 'music' | 'crowd' | 'machinery';
+export type LoopId = 'music' | 'crowd' | 'machinery' | 'rain' | 'night';
 
 export const SOUND_IDS: readonly SynthSoundId[] = [
   'coin', 'spend', 'build', 'chime', 'clank', 'ratchet', 'happy', 'unhappy', 'sale', 'fanfare', 'research', 'fail', 'click',
-  'splash', 'notify', 'error',
+  'splash', 'notify', 'error', 'whoosh', 'brake', 'bell',
 ];
-export const LOOP_IDS: readonly LoopId[] = ['music', 'crowd', 'machinery'];
+export const LOOP_IDS: readonly LoopId[] = ['music', 'crowd', 'machinery', 'rain', 'night'];
 
 const TAU = Math.PI * 2;
 
@@ -141,7 +141,34 @@ export const renderSound = (id: SynthSoundId, rate: number): Float32Array => {
     case 'splash': return finish(mix(noiseBurst(rate, 0.5, 1200, 0.12, 0.8, 37), tones(rate, 0.3, [{ at: 0.02, note: 72, length: 0.2, glide: 12, decay: 0.05 }], 0.25)));
     case 'notify': return finish(tones(rate, 0.6, [{ at: 0, note: 81, length: 0.3, decay: 0.1 }, { at: 0.12, note: 88, length: 0.45, decay: 0.18 }], 0.3));
     case 'error': return finish(tones(rate, 0.35, [{ at: 0, note: 50, length: 0.12, wave: 'square', gain: 0.5 }, { at: 0.14, note: 50, length: 0.18, wave: 'square', gain: 0.5 }], 0.35));
+    case 'whoosh': return finish(sweptNoise(rate, 1.1, 41));
+    case 'brake': return finish(mix(
+      noiseBurst(rate, 0.8, 7000, 0.3, 0.5, 43),
+      negate(noiseBurst(rate, 0.8, 900, 0.3, 0.5, 43)),
+      tones(rate, 0.8, [{ at: 0.02, note: 96, length: 0.6, glide: -2, decay: 0.2, gain: 0.25 }], 0.3),
+    ));
+    case 'bell': return finish(tones(rate, 0.9, [
+      { at: 0, note: 88, length: 0.4, decay: 0.12 }, { at: 0, note: 95, length: 0.3, decay: 0.08, gain: 0.4 },
+      { at: 0.2, note: 88, length: 0.7, decay: 0.2 }, { at: 0.2, note: 95, length: 0.5, decay: 0.1, gain: 0.4 },
+    ], 0.3));
   }
+};
+
+const negate = (samples: Float32Array): Float32Array => samples.map((value) => -value);
+
+/** A rush of air: noise whose low-pass opens and closes over `seconds`, swelling to the middle (a train over a crest). */
+const sweptNoise = (rate: number, seconds: number, seed: number): Float32Array => {
+  const out = new Float32Array(Math.ceil(rate * seconds));
+  const next = noiseSource(seed);
+  let low = 0;
+  for (let i = 0; i < out.length; i += 1) {
+    const t = i / out.length;
+    const swell = Math.sin(Math.PI * t) ** 2;
+    const alpha = 1 - Math.exp((-TAU * (300 + 2_400 * swell)) / rate);
+    low += alpha * (next() - low);
+    out[i] = low * swell * 1.6;
+  }
+  return out;
 };
 
 /** Cross-fades the last `fade` samples into the first, so a looped noise bed has no seam. */
@@ -172,6 +199,43 @@ export const renderLoop = (id: LoopId, rate: number): Float32Array => {
       raw[i] = (a - b) * 0.9 * (0.75 + 0.15 * Math.sin(TAU * t / 2.7) + 0.1 * Math.sin(TAU * t / 1.3));
     }
     return seamless(raw, Math.floor(rate * 0.5));
+  }
+  if (id === 'rain') {
+    // Rain: a hiss of high noise (the low part taken out) with a sprinkle of drops (4 s, cross-faded at the seam).
+    const raw = new Float32Array(Math.ceil(rate * 4) + Math.floor(rate * 0.5));
+    const next = noiseSource(47);
+    const highA = 1 - Math.exp((-TAU * 6_000) / rate);
+    const lowB = 1 - Math.exp((-TAU * 500) / rate);
+    let a = 0;
+    let b = 0;
+    let drop = 0;
+    for (let i = 0; i < raw.length; i += 1) {
+      const n = next();
+      a += highA * (n - a);
+      b += lowB * (a - b);
+      if (n > 0.9993) drop = 0.5;
+      drop *= 0.995;
+      raw[i] = (a - b) * 0.8 + drop * Math.sin(TAU * 2_200 * (i / rate));
+    }
+    return finish(seamless(raw, Math.floor(rate * 0.5)));
+  }
+  if (id === 'night') {
+    // Crickets: two of them chirping three quick pulses of a high sine, out of step (4 s, whole cycles of each).
+    const seconds = 4;
+    const out = new Float32Array(Math.round(rate * seconds));
+    const crickets = [{ note: 4_400, every: 0.8, offset: 0, gain: 0.18 }, { note: 4_000, every: 1, offset: 0.37, gain: 0.12 }];
+    for (let i = 0; i < out.length; i += 1) {
+      const t = i / rate;
+      for (const cricket of crickets) {
+        const into = (t - cricket.offset + seconds) % cricket.every;
+        const pulse = Math.floor(into / 0.045);
+        if (pulse > 2) continue;
+        const within = (into - pulse * 0.045) / 0.03;
+        if (within > 1) continue;
+        out[i] += Math.sin(TAU * cricket.note * t) * Math.sin(Math.PI * within) * cricket.gain;
+      }
+    }
+    return out;
   }
   if (id === 'machinery') {
     // A low, regular hum with a soft clatter every half second (2 s, whole cycles of 55 Hz and 110 Hz).

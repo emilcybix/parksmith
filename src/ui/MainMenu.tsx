@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { gameBridge } from '../app/gameBridge';
 import { runBridge } from './runBridge';
 import type { ProfileSnapshot } from '../game/profile/types';
-import { CHANGELOG, GAME_VERSION } from './aboutModel';
+import { CHANGELOG, GAME_VERSION, SOUND_CREDITS } from './aboutModel';
 import { FeedbackForm } from './FeedbackForm';
 import {
   QUIT_CHOICES,
@@ -381,6 +381,12 @@ const AboutPanel = ({ onBack }: { onBack: () => void }): React.JSX.Element => (
           <ul>{entry.changes.map((change) => <li key={change}>{change}</li>)}</ul>
         </article>
       ))}
+      {SOUND_CREDITS.length > 0 && (
+        <article>
+          <h3>Sound credits</h3>
+          <ul>{SOUND_CREDITS.map((credit) => <li key={credit}>{credit}</li>)}</ul>
+        </article>
+      )}
     </div>
     <FeedbackForm />
     <button type="button" className="menu-back" data-menu-item="back" onClick={onBack}>Back</button>

@@ -7,7 +7,7 @@ import type { MusicState } from './music';
  * the player sets in Settings (0-100, mapped to gain as (v / 100)^2 so the steps sound even). Nothing exists and
  * nothing plays before the first user gesture (`unlock`, called by GameApp on the first pointer or key press): the
  * AudioContext is created there, every sound and loop is synthesised into buffers once (synth.ts; nothing is decoded
- * or rendered later), the three loops start silent, and from then on:
+ * or rendered later), the loops start silent, and from then on:
  *
  * - `play(sound)` starts one buffer on its bus (rate-limited per sound, so a burst of cues is one sound, and refused
  *   while the bus or master is silent). A one-shot source node per play is the Web Audio API's design and the only
@@ -34,7 +34,7 @@ import type { MusicState } from './music';
  * it becomes audible and stopped after it fades out.
  *
  * Beds: the recorded park ambience (BED_FILES) loops on the ambience bus once decoded and replaces the synthesised
- * crowd and machinery beds.
+ * crowd and machinery beds. Rain (in rain and storms) and the night's crickets are synthesised beds of their own.
  */
 
 export type BusId = 'music' | 'ambience' | 'rides' | 'guests' | 'ui';
@@ -55,6 +55,7 @@ export const SOUND_BUS: Readonly<Record<SoundId, BusId>> = {
   chime: 'rides', clank: 'rides', ratchet: 'rides',
   happy: 'guests', unhappy: 'guests', sale: 'guests',
   launch: 'rides', boost: 'rides', scream: 'rides', crash: 'rides', puff: 'rides', 'splash-big': 'rides', 'splash-small': 'rides',
+  whoosh: 'rides', brake: 'rides', bell: 'rides',
   flush: 'guests',
   'thunder-near': 'ambience', 'thunder-far': 'ambience',
 };
@@ -64,11 +65,14 @@ export const SOUND_GAP_MS: Readonly<Record<SoundId, number>> = {
   coin: 90, spend: 90, build: 120, click: 40, fanfare: 1_500, research: 800, fail: 1_500,
   chime: 400, clank: 600, ratchet: 600, happy: 300, unhappy: 300, sale: 250, splash: 120, notify: 800, error: 300,
   launch: 300, boost: 150, scream: 400, crash: 1_000, puff: 300, 'splash-big': 300, 'splash-small': 200, flush: 400,
-  'thunder-near': 1_500, 'thunder-far': 1_500,
+  'thunder-near': 1_500, 'thunder-far': 1_500, whoosh: 200, brake: 300, bell: 500,
 };
 
-/** The recorded file of a cue (a path inside `public/sfx/`); a cue left out is only ever synthesised. */
-export const SOUND_FILES: Readonly<Partial<Record<SoundId, string>>> = {
+/**
+ * The recorded file of a cue (a path inside `public/sfx/`), or its variants: a list plays its files in turn, so a
+ * repeated cue does not sound looped. A cue left out is only ever synthesised.
+ */
+export const SOUND_FILES: Readonly<Partial<Record<SoundId, string | readonly string[]>>> = {
   click: 'ui/ui_click.ogg',
   build: 'ui/build_land.ogg',
   splash: 'ui/build_water.ogg',
@@ -104,13 +108,15 @@ export const EMITTER_BUS: Readonly<Record<EmitterLoopId, BusId>> = {
 
 /**
  * One looping positional sound for `setEmitters`. `key` names the source across updates (a ride and its sound), so a
- * sound that keeps playing keeps its voice; `gain` is its level after proximity, `pan` its place in [-1, 1].
+ * sound that keeps playing keeps its voice; `gain` is its level after proximity, `pan` its place in [-1, 1], `rate`
+ * its playback rate (a rolling train's pitch follows its speed; 1 when absent).
  */
 export interface Emitter {
   key: number;
   loop: EmitterLoopId;
   gain: number;
   pan: number;
+  rate?: number;
 }
 
 /** At most this many positional loops at once (the loudest win). */
@@ -164,6 +170,8 @@ export interface AudioBufferLike {
 }
 export interface BufferSourceLike extends AudioNodeLike {
   buffer: AudioBufferLike | null;
+  /** Absent: positional loops play at their own pitch. */
+  readonly playbackRate?: AudioParamLike;
   loop: boolean;
   loopStart?: number;
   loopEnd?: number;
@@ -188,6 +196,11 @@ export interface AudioContextLike {
   decodeAudioData?(data: ArrayBuffer): Promise<AudioBufferLike>;
 }
 
+/** The bus each synthesised loop plays on. */
+const LOOP_BUS: Readonly<Record<LoopId, BusId>> = { music: 'music', crowd: 'ambience', machinery: 'rides', rain: 'ambience', night: 'ambience' };
+/** Each loop's level at full: the music sits a little under the cues; the beds are quiet by design (texture, not signal). */
+const LOOP_SCALE: Readonly<Record<LoopId, number>> = { music: 0.55, crowd: 0.5, machinery: 0.35, rain: 0.5, night: 0.3 };
+
 /** Volume 0-100 to gain: a square law, so the ten steps sound evenly spaced. */
 export const gainOf = (volume: number): number => {
   const v = Math.min(100, Math.max(0, Number.isFinite(volume) ? volume : 0)) / 100;
@@ -207,6 +220,8 @@ export class AudioEngine {
   private master: GainNodeLike | null = null;
   private readonly buses = new Map<BusId, GainNodeLike>();
   private readonly buffers = new Map<SoundId, AudioBufferLike>();
+  /** The decoded variants of a recorded cue (they replace its synthesised buffer). */
+  private readonly recorded = new Map<SoundId, AudioBufferLike[]>();
   private readonly loopGains = new Map<LoopId, GainNodeLike>();
   private readonly lastPlayed = new Map<SoundId, number>();
   private volumes: AudioVolumes;
@@ -215,6 +230,8 @@ export class AudioEngine {
   private machinery = 0;
   private musicOn = true;
   private day = 0;
+  private rain = 0;
+  private night = 0;
   /** The zoom mix on top of the volumes, per bus (1 = as the player set it). */
   private readonly busMix: Record<BusId, number> = { music: 1, ambience: 1, rides: 1, guests: 1, ui: 1 };
   private readonly emitterBuffers = new Map<EmitterLoopId, AudioBufferLike>();
@@ -265,7 +282,7 @@ export class AudioEngine {
   }
 
   /**
-   * The first user gesture: creates the context, the bus graph, every buffer and the three silent loops. Idempotent;
+   * The first user gesture: creates the context, the bus graph, every buffer and the silent loops. Idempotent;
    * a context that cannot be created (no Web Audio, or it throws) leaves the engine silent for good.
    */
   unlock(): void {
@@ -297,7 +314,7 @@ export class AudioEngine {
     for (const loop of LOOP_IDS) {
       const gain = context.createGain();
       gain.gain.value = 0;
-      gain.connect(this.buses.get(loop === 'music' ? 'music' : loop === 'crowd' ? 'ambience' : 'rides') as GainNodeLike);
+      gain.connect(this.buses.get(LOOP_BUS[loop]) as GainNodeLike);
       const source = context.createBufferSource();
       source.buffer = toBuffer(renderLoop(loop, SYNTH_RATE));
       source.loop = true;
@@ -332,7 +349,8 @@ export class AudioEngine {
     if (context === null) return false;
     const bus = SOUND_BUS[sound];
     if (gainOf(this.volumes.master) === 0 || gainOf(this.volumes[bus]) === 0 || gain * this.busMix[bus] < AUDIBLE) return false;
-    const buffer = this.buffers.get(sound);
+    const variants = this.recorded.get(sound);
+    const buffer = variants === undefined ? this.buffers.get(sound) : variants[(this.plays.get(sound) ?? 0) % variants.length];
     if (buffer === undefined) return false;
     const nowMs = context.currentTime * 1_000;
     const last = this.lastPlayed.get(sound);
@@ -364,10 +382,14 @@ export class AudioEngine {
     const source = this.sampleSource;
     const decode = context.decodeAudioData?.bind(context);
     if (source === null || decode === undefined) return;
-    for (const [sound, file] of Object.entries(SOUND_FILES) as Array<[SoundId, string]>) {
-      void source.load(file).then(decode).then((buffer) => {
-        this.buffers.set(sound, buffer);
-      }).catch(() => undefined);
+    for (const [sound, files] of Object.entries(SOUND_FILES) as Array<[SoundId, string | readonly string[]]>) {
+      for (const file of typeof files === 'string' ? [files] : files) {
+        void source.load(file).then(decode).then((buffer) => {
+          const variants = this.recorded.get(sound);
+          if (variants === undefined) this.recorded.set(sound, [buffer]);
+          else variants.push(buffer);
+        }).catch(() => undefined);
+      }
     }
     for (const [loop, file] of Object.entries(EMITTER_FILES) as Array<[EmitterLoopId, string]>) {
       void source.load(file).then(decode).then((buffer) => {
@@ -397,13 +419,16 @@ export class AudioEngine {
   }
 
   /**
-   * The ambience beds' levels in [0, 1] (crowd murmur, ride machinery, and the daytime park bed). Cheap; call a few
-   * times a second.
+   * The ambience beds' levels in [0, 1] (crowd murmur, ride machinery, the daytime park bed, rain and the night's
+   * crickets; audioDirector's `atmosphereFor` gives the last three). Cheap; call a few times a second.
    */
-  setAmbience(crowd: number, machinery: number, day = 0): void {
-    this.crowd = Math.min(1, Math.max(0, crowd));
-    this.machinery = Math.min(1, Math.max(0, machinery));
-    this.day = Math.min(1, Math.max(0, day));
+  setAmbience(crowd: number, machinery: number, day = 0, rain = 0, night = 0): void {
+    const unit = (value: number): number => Math.min(1, Math.max(0, value));
+    this.crowd = unit(crowd);
+    this.machinery = unit(machinery);
+    this.day = unit(day);
+    this.rain = unit(rain);
+    this.night = unit(night);
     this.applyLoops();
   }
 
@@ -450,6 +475,7 @@ export class AudioEngine {
       voice.seen = true;
       voice.gain.gain.setTargetAtTime(Math.min(1, emitter.gain), now, 0.12);
       voice.panner?.pan.setTargetAtTime(Math.min(1, Math.max(-1, emitter.pan)), now, 0.12);
+      voice.source.playbackRate?.setTargetAtTime(emitter.rate ?? 1, now, 0.12);
       started += 1;
     }
     for (const [key, voice] of this.voices) if (!voice.seen) this.release(key, voice, now);
@@ -506,6 +532,8 @@ export class AudioEngine {
     // The synthesised music gives way while a produced track plays, the synthesised beds to the recorded ones.
     if (loop === 'music') return this.musicOn && !this.music?.active ? 1 : 0;
     if (loop === 'crowd') return this.bedGains.has('crowd') ? 0 : this.crowd;
+    if (loop === 'rain') return this.rain;
+    if (loop === 'night') return this.night;
     return this.bedGains.has('rides') ? 0 : this.machinery;
   }
 
@@ -526,9 +554,7 @@ export class AudioEngine {
     if (context === null) return;
     const now = context.currentTime;
     for (const loop of LOOP_IDS) {
-      // The music sits a little under the cues; the beds are quiet by design (they are texture, not signal).
-      const scale = loop === 'music' ? 0.55 : loop === 'crowd' ? 0.5 : 0.35;
-      this.loopGains.get(loop)?.gain.setTargetAtTime(this.loopLevel(loop) * scale, now, AMBIENCE_TIME_CONSTANT);
+      this.loopGains.get(loop)?.gain.setTargetAtTime(this.loopLevel(loop) * LOOP_SCALE[loop], now, AMBIENCE_TIME_CONSTANT);
     }
     for (const [bed, gain] of this.bedGains) gain.gain.setTargetAtTime(this.bedLevel(bed) * BED_SCALE[bed], now, AMBIENCE_TIME_CONSTANT);
   }

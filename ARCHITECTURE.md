@@ -539,7 +539,8 @@ loop together (optional `loopStart` / `loopEnd`) and cross-fade on a switch; at 
 produced track plays, the synthesised music loop is at 0; any failure leaves that track out for the session and the
 synthesised loop plays. Authoring guide: MUSIC.md.
 
-**Recorded sound effects**: `SOUND_FILES` (AudioEngine.ts) names a file under `public/sfx/` for some cues. With a
+**Recorded sound effects** (authoring guide and licences: SOUND.md): `SOUND_FILES` (AudioEngine.ts) names a file, or a
+list of variants played in turn, under `public/sfx/` for some cues. With a
 `SampleSource` (`createBrowserSampleSource`), `unlock()` fetches and decodes each one, and its buffer replaces the
 synthesised cue once ready; before that, and for good after a failed fetch or decode, the synthesised cue plays. A
 `RecordedSoundId` (launch, boost, scream, crash, puff, flush, the big and small splash, thunder) has no synthesised
@@ -557,14 +558,19 @@ stay full and centred). `ambienceFor` turns the guests and running rides near th
 density, so a close view of a busy plaza is as full as a far view of a busy park).
 
 **Positional loops** (`audio/rideSounds.ts`, `RideSounds.update` at 4 Hz): a coaster's train rolls where it is (the
-renderers' `coasterHeadIndex` and the centre line; level by its speed since the last look) and rattles its chain on a
-chained segment; a shuttle launches (and screams) as it leaves; a circuit's boost and launch pieces fire as the train
-enters them and its riders scream once over the highest crest (a drop of 2 levels or more); the Bumble Coach puffs steam,
+renderers' `coasterHeadIndex` and the centre line; level and playback rate by its speed since the last look) and
+rattles its chain on a chained segment; a shuttle launches (and screams) as it leaves. A circuit rings its bell at
+dispatch, and as the train enters each piece: a whoosh over every crest (`dropsOf`, louder the deeper), boost and launch
+pieces, the brakes on the station's first piece, and screams on drops of 2 levels or more and on inversions, by a
+chance and level from the ride's intensity (`hash32` of ride, lap and piece: deterministic, never the simulation's
+random). No one-shots while paused. The Bumble Coach puffs steam,
 Temple Trek's carts run an engine, every other running ride hums a motor, a Ripple Fountain splashes. The loops go to
 `AudioEngine.setEmitters`: at most `MAX_VOICES` (the loudest), a voice per key that glides while it stays and fades out
 and stops when it goes. Paused: only fountains. Thunder (`thunderBetween`, the same cells as `stormFlashAt`) plays near
 or far for every bolt the sky would draw. The recorded park beds (`BED_FILES`: day, crowd, chatter, rides) replace the
-synthesised crowd and machinery once decoded.
+synthesised crowd and machinery once decoded. `atmosphereFor` sets the beds that follow the clock and the sky: the day
+bed by day, synthesised crickets (`night`) by night and synthesised `rain` in rain and storms, which pushes the other
+two down.
 
 ## Crowd flow and neighborhoods (Phase 14)
 

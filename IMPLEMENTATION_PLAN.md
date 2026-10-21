@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–58; 48 and 49 built, the rest not started)
+## Owner Feedback 2026-10-19 (Phases 48–58; 48, 49 and 56 built, the rest not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3300,53 +3300,44 @@ Replaces "Terrain elevation" and "Water as buildable terrain" under Future Candi
   `CLASSIC_MIN_ZOOM` if it is cheap (classic is frozen, so optional). Tests: the zoom levels in `camera.test.ts`
   and the frame-cost budget.
 
-### Phase 56 — Atmosphere by Zoom and Coaster Sounds (owner request 2026-10-19)
+### Phase 56 — Atmosphere by Zoom and Coaster Sounds (owner request 2026-10-19; built 2026-10-21)
 
-The owner is producing the sounds: park ambience recordings and a library of coaster sounds (chain lift, drop and
-so on). The first files are in `public/sound effects/` (four park ambience beds, one ride-start scream). Today the two
-ambience beds (crowd, machinery) are synthesised loops whose level follows the guests and rides in view and the zoom
-(`ambienceFor` in `audio/audioDirector.ts`). The produced music (Phase 47) plays the same at every zoom.
+The owner produced the sounds: park ambience recordings, ride and coaster sounds, UI cues and thunder, all in
+`public/sfx/` (`ui/`, `coasters/`, `ambience/`). Built in two commits: the recorded sounds, the zoom mix and the
+positional sounds (d506f03), then the rest of the coaster library, the weather and night beds, variants, SOUND.md and
+the licence table. SOUND.md is the guide.
 
-- [ ] **Music out, atmosphere in, as the camera zooms in.** Above a zoom threshold the background music fades down
-  and produced atmosphere beds fade up. Zooming out reverses it.
-  - The fade runs over a band of zoom levels, not at a single step: music is full at or below `musicFullBelow`, the
-    atmosphere is full at or above `atmosphereFullAbove`, and both move with the engine's time constant, so a quick
-    scroll never jumps.
-  - Proposed default: the band covers the two closest zoom levels. The band and how far the music ducks (fully out,
-    or down to a floor) are the owner's call.
-  - The music keeps playing underneath at zero gain (ducked, not stopped), so zooming out picks it up in step and
-    does not restart the track. The menu and the cinematic camera keep the music.
-  - Atmosphere beds come from a manifest like the music's (`public/sfx/manifest.json`; a folder without spaces).
-    Each bed has an id, files (OGG first, MP3 fallback), a gain trim, loop points, and when it plays: day or night,
-    the weather (rain, storm), and how busy the view is (an empty park against a crowded one).
-  - The synthesised crowd and machinery beds stay as the fallback when no bed is listed or a file fails to load.
-  - The crowd and machinery levels still follow what is in view, as `ambienceFor` does now.
-- [ ] **Coaster sound library.** Sounds tied to what a train is doing, worked out from the centre line and the
-  train's position (no simulation change: the determinism pins stay):
-  - a chain-lift clatter loop while the train is on a chained segment (`centreLineChainedHalf`);
-  - a crest-and-drop whoosh where the pitch turns steeply down after a climb, louder with the drop's depth;
-  - screams on big drops and inversions (loops, corkscrews, zero-g and cobra rolls). Their chance and loudness grow
-    with the ride's intensity, and the ride-start scream plays on dispatch;
-  - a launch and boost surge, a brake hiss into the station, and a station dispatch bell;
-  - the wheel roar under the train, its pitch following the speed.
-- [ ] **Coaster sound rules.**
-  - Each sound plays from where the train is: louder the closer to the middle of the screen and the closer the zoom,
-    panned left or right by screen position.
-  - Nothing plays for a coaster off-screen or while the game is paused.
-  - A voice budget (for example 6 coaster voices at once, nearest first) keeps a park of coasters from turning into
-    noise.
-  - The sounds go on the existing rides bus, so the settings sliders and the mute key cover them.
-  - Each sound may list several variants, picked at random, so a repeated drop does not sound looped.
-- [ ] **Licensing.** Every file gets its source and licence recorded next to it (freesound files are CC0 or CC-BY;
-  check the ElevenLabs terms). CC-BY credits go into About and feedback.
-- [ ] **Guide.** A sound guide like MUSIC.md (SOUND.md): file names, formats, loudness targets, loop points, which
-  coaster event plays which id, and how to test a new file in the game without a build.
-- [ ] Tests, all pure functions:
-  - the crossfade curve against zoom, including that the music is ducked and not restarted;
-  - manifest parsing that forgives typos, as `music.ts` does;
-  - event detection on fixture layouts (a chain lift, a drop, a loop, a launch and the brakes each fire where
-    expected, and nothing fires twice in a row);
-  - the voice budget and the screen-position pan.
+- [x] **Music out, park in, as the camera zooms in.** `zoomMix` (audioDirector) cross-fades the park buses against the
+  music bus over the whole zoom range (`MIX_ZOOM_OUT` 0.08 to `MIX_ZOOM_IN` 0.92, equal power), with a 0.25 s time
+  constant. The music is ducked to zero, never stopped; the start screen is all music.
+  - **Changed from the plan:** no `public/sfx/manifest.json`. The cue each file plays is a table in code
+    (`SOUND_FILES`, `EMITTER_FILES`, `BED_FILES` in AudioEngine.ts), and a replaced file plays without a build. There
+    are no loop points or per-file gain trims: each loop plays its whole file.
+  - Beds by time and weather (`atmosphereFor`): the recorded day bed by day, synthesised crickets at night and a
+    synthesised rain bed in rain and storms (fuller in a storm), which pushes the other two down. The crowd and rides
+    beds still follow what is in view (`ambienceFor`). The synthesised crowd and machinery stay as the fallback.
+- [x] **Coaster sound library** (`rideSounds.ts`; it only reads the simulation, so the determinism pins stay):
+  - chain-lift loop on a chained piece; the wheel roll under the train, its level and pitch (0.75× to 1.25×) from
+    its speed;
+  - a whoosh over every crest that drops (`dropsOf`), louder the deeper the drop;
+  - screams on drops of 2 levels or more and on inversions (loop, corkscrew, zero-g roll, cobra roll), with a chance
+    and level from the ride's intensity (a hash of the ride, the lap and the piece). An intense ride (over 50)
+    sometimes screams as it leaves. The shuttle screams on its launch;
+  - launch and boost pieces, a brake hiss as the train enters the station, a dispatch bell as it leaves.
+  - The whoosh, brake and bell have no recordings yet: they are synthesised (`synth.ts`). SOUND.md names the file to
+    drop in for each.
+- [x] **Coaster sound rules.** Level by the distance to the middle of the screen (`proximity`), pan by screen position
+  (`panFor`); nothing off-screen or while paused; on the Rides bus. Each cue in `SOUND_FILES` may list variants, which
+  play in turn. **Changed from the plan:** the voice budget is 10 (`MAX_VOICES`), the loudest first.
+- [x] **Licensing.** SOUND.md has a table of every file with its source, licence and credit line. Every file so far
+  was generated with Claude (claude.ai) for the game (owner, 2026-10-21), so none needs a credit. About shows
+  `SOUND_CREDITS` (aboutModel.ts) under "Sound credits" once a file from elsewhere asks for one.
+- [x] **Guide.** SOUND.md: which file plays when, the synthesised-only cues, the coaster events, the mix rules,
+  variants, formats and levels, testing a new file without a build, and the licences. MUSIC.md points to it.
+- [x] Tests (`audio.test.ts`, `rideSounds.test.ts`): the zoom cross-fade, the beds by time and weather, a recorded
+  cue replacing its synthesised one, variants in turn, the playback rate, the voice budget, proximity and pan, the
+  crests of the fixture layouts, a lap's bell, whoosh, screams and brakes once each, inversions, boosts and launches,
+  fewer screams on a gentle ride, and nothing while paused.
 
 ### Phase 57 — Step-by-Step Tutorial (owner request 2026-10-20)
 
