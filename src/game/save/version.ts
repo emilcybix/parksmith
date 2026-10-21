@@ -29,9 +29,11 @@ export const SAVE_SCHEMA_VERSION = 17;
  * benches, nausea, warmth, pauses, six new stalls; every park, old or new, plays by it once loaded); 6 = Phase 39 (two
  * coaster families, the Whisker Mouse and the Timber Twister, and their research projects Tight Turns and Timber
  * Framing; an older park can research them too, and its coasters keep the numbers they were built with); 7 = Phase 44-46
- * (Thunder Launch builds shuttles, taller coasters, coaster elements; built coasters keep their saved numbers).
+ * (Thunder Launch builds shuttles, taller coasters, coaster elements; built coasters keep their saved numbers); 8 = Phase 58
+ * (a new coaster's intensity is gentler: a 2-level biggest drop and an S-bend count for less, and a circuit may stay at
+ * height 1; built coasters keep their saved numbers).
  */
-export const SAVE_CONTENT_VERSION = 7;
+export const SAVE_CONTENT_VERSION = 8;
 
 export type SaveErrorCode =
   /** The data is not a save envelope at all (not an object, no integer schemaVersion). */

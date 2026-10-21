@@ -190,7 +190,8 @@ export const validateCoasterLayout = (
 
   const highest = Math.max(...pieces.map((piece) => piece.height));
   const hasDrop = pieces.some((piece, index) => index > 0 && piece.height < pieces[index - 1].height);
-  if (highest < 2 || !hasDrop) return failure('no-drop');
+  // Phase 58: a hill of height 1 is enough (a kiddie coaster); before, a circuit had to reach 2.
+  if (highest < 1 || !hasDrop) return failure('no-drop');
 
   // Phase 39: family rules (a steel layout never meets one).
   if (type.family === 'launch' && !pieces.some((piece) => piece.special === 'launch')) return failure('launch-missing');
@@ -396,16 +397,55 @@ const dropIntensityLevels = (drop: number): number => {
   return drop <= tall.fullIntensityLevels ? drop : tall.fullIntensityLevels + (drop - tall.fullIntensityLevels) * tall.tallLevelShare;
 };
 
+/** Phase 58: the biggest drop as the biggest-drop term reads it: a 1- or 2-level drop softened (`smallDropLevels`). */
+const biggestDropIntensityLevels = (drop: number): number => GAME_CONFIG.coaster.smallDropLevels[drop - 1] ?? dropIntensityLevels(drop);
+
+/**
+ * Phase 58: what a turn adds to the steep turn pairs, given the turn before it: nothing when that one is more than 2
+ * pieces back, a whole pair when it turned the same way (a hairpin), `sBendShare` of one when it turned the other way.
+ */
+const steepTurnWeight = (gap: number, sign: number, previousSign: number, sBendShare: number): number => {
+  if (gap > 2) return 0;
+  return sign !== previousSign ? sBendShare : 1;
+};
+
+/**
+ * Phase 58: what each term of the intensity formula adds, before the clamp to 0..100 (the review harness and the
+ * tests read it; the stats only keep the sum). `specials` is loops, boosts and launches (and a shuttle's backward
+ * ride), `elements` the Phase 46 elements and helices, `freeRuns` the free-climb bonus.
+ */
+export interface CoasterIntensityParts {
+  base: number;
+  biggestDrop: number;
+  descent: number;
+  steepTurns: number;
+  speed: number;
+  specials: number;
+  elements: number;
+  freeRuns: number;
+}
+
+const sumParts = (parts: CoasterIntensityParts): number => parts.base + parts.biggestDrop + parts.descent + parts.steepTurns
+  + parts.speed + parts.specials + parts.elements + parts.freeRuns;
+
 /** Deterministic ride profile from pure track shape — no randomness, no world state. */
 export const deriveCoasterStats = (
   pieces: readonly CoasterPiece[],
   type: CoasterTypeDefinition,
-): CoasterDerivedStats => {
+): CoasterDerivedStats => deriveCoasterStatsWithParts(pieces, type).stats;
+
+/** Phase 58: the stats and the intensity's parts (`CoasterIntensityParts`). */
+export const deriveCoasterStatsWithParts = (
+  pieces: readonly CoasterPiece[],
+  type: CoasterTypeDefinition,
+): { stats: CoasterDerivedStats; parts: CoasterIntensityParts } => {
   const specials = GAME_CONFIG.coaster.specials;
   if (isShuttleLayout(pieces)) return deriveShuttleStats(pieces, type, shuttleProfile(pieces));
+  const family = GAME_CONFIG.coaster.families[type.family];
   let turns = 0;
   let steepTurnPairs = 0;
   let previousTurnIndex = -10;
+  let previousTurnSign = 0;
   let totalDescent = 0;
   let drops = 0;
   let biggestDrop = 0;
@@ -421,8 +461,10 @@ export const deriveCoasterStats = (
     const outbound = directionBetween(current.cell, next.cell);
     if (inbound !== outbound) {
       turns += 1;
-      if (index - previousTurnIndex <= 2) steepTurnPairs += 1;
+      const sign = turnSignAt(pieces, index);
+      steepTurnPairs += steepTurnWeight(index - previousTurnIndex, sign, previousTurnSign, family.sBendShare);
       previousTurnIndex = index;
+      previousTurnSign = sign;
     }
     const heightChange = next.height - current.height;
     if (heightChange < 0) {
@@ -450,8 +492,7 @@ export const deriveCoasterStats = (
   // Free climbs add a bounded bonus; a layout without one takes the exact expressions it always did.
   const lift = GAME_CONFIG.coaster.lift;
   const { free: freePieces, freeRuns } = liftCounts(pieces);
-  // Phase 39: the family's weights; `steel` is exactly the numbers every coaster had before families.
-  const family = GAME_CONFIG.coaster.families[type.family];
+  // Phase 39: the family's weights (`family`, above); `steel` is exactly the numbers every coaster had before families.
   const airtime = family.airtimeDrops > 0 ? Math.min(family.airtimeDrops, drops) * family.airtimePerDrop : 0;
   const rawExcitement = 16 + pieces.length * 0.5 + turns * family.turn + totalDescent * family.descent + highestHeight * 3
     + loops * specials.loop.excitement + boosts * specials.boost.excitement
@@ -459,11 +500,16 @@ export const deriveCoasterStats = (
     + airtime
     + launches * specials.launch.excitement
     + elementScore(pieces, true).excitement;
-  const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + intensityDescent * 2.5 + steepTurnPairs * family.steepTurns
-    + loops * specials.loop.intensity + boosts * specials.boost.intensity
-    + speed.topSpeed * 1.2
-    + launches * specials.launch.intensity
-    + elementScore(pieces, true).intensity;
+  const parts: CoasterIntensityParts = {
+    base: 8,
+    biggestDrop: biggestDropIntensityLevels(biggestDrop) * family.biggestDrop,
+    descent: intensityDescent * 2.5,
+    steepTurns: steepTurnPairs * family.steepTurns,
+    speed: speed.topSpeed * 1.2,
+    specials: loops * specials.loop.intensity + boosts * specials.boost.intensity + launches * specials.launch.intensity,
+    elements: elementScore(pieces, true).intensity,
+    freeRuns: freeRuns > 0 ? Math.min(lift.maxFreeIntensity, lift.freeRunIntensity * freeRuns) : 0,
+  };
   // Phase 38: each crossing is a near miss (capped); a layout without one takes the exact expressions it always did.
   const crossings = coasterCrossings(pieces);
   const crossing = GAME_CONFIG.coaster.crossing;
@@ -475,13 +521,9 @@ export const deriveCoasterStats = (
     0,
     100,
   ));
-  const intensity = round(clamp(
-    freeRuns > 0 ? rawIntensity + Math.min(lift.maxFreeIntensity, lift.freeRunIntensity * freeRuns) : rawIntensity,
-    0,
-    100,
-  ));
+  const intensity = round(clamp(sumParts(parts), 0, 100));
   const baseRunningCost = 4 + pieces.length * 0.12 + loops * 0.8 + boosts * 0.5 + launches * 1.2;
-  return {
+  const stats: CoasterDerivedStats = {
     pieces: pieces.length,
     turns,
     drops,
@@ -504,6 +546,7 @@ export const deriveCoasterStats = (
       ? Math.max(0, type.reliability - Math.min(lift.maxFreeReliabilityLoss, lift.freeRunReliabilityLoss * freeRuns))
       : type.reliability,
   };
+  return { stats, parts };
 };
 
 /**
@@ -516,18 +559,22 @@ const deriveShuttleStats = (
   pieces: readonly CoasterPiece[],
   type: CoasterTypeDefinition,
   profile: ShuttleProfile,
-): CoasterDerivedStats => {
+): { stats: CoasterDerivedStats; parts: CoasterIntensityParts } => {
   const config = GAME_CONFIG.coaster;
   const specials = config.specials;
   const count = pieces.length;
+  const sBendShare = config.families[type.family].sBendShare;
   let turns = 0;
   let steepTurnPairs = 0;
   let previousTurnIndex = -10;
+  let previousTurnSign = 0;
   for (let index = 1; index < count - 1; index += 1) {
     if (directionBetween(pieces[index - 1].cell, pieces[index].cell) !== directionBetween(pieces[index].cell, pieces[index + 1].cell)) {
       turns += 1;
-      if (index - previousTurnIndex <= 2) steepTurnPairs += 1;
+      const sign = turnSignAt(pieces, index);
+      steepTurnPairs += steepTurnWeight(index - previousTurnIndex, sign, previousTurnSign, sBendShare);
       previousTurnIndex = index;
+      previousTurnSign = sign;
     }
   }
   let drops = 0;
@@ -571,15 +618,20 @@ const deriveShuttleStats = (
     + (profile.topSpeed - config.speed.cruise) * 2.5
     + specials.launch.excitement + shuttle.backwardExcitement
     + elementScore(pieces, false).excitement;
-  const rawIntensity = 8 + dropIntensityLevels(biggestDrop) * family.biggestDrop + intensityDescent * 2.5 + steepTurnPairs * family.steepTurns
-    + loops * specials.loop.intensity * 2 + boosts * specials.boost.intensity
-    + profile.topSpeed * 1.2
-    + specials.launch.intensity + shuttle.backwardIntensity
-    + elementScore(pieces, false).intensity;
+  const parts: CoasterIntensityParts = {
+    base: 8,
+    biggestDrop: biggestDropIntensityLevels(biggestDrop) * family.biggestDrop,
+    descent: intensityDescent * 2.5,
+    steepTurns: steepTurnPairs * family.steepTurns,
+    speed: profile.topSpeed * 1.2,
+    specials: loops * specials.loop.intensity * 2 + boosts * specials.boost.intensity + specials.launch.intensity + shuttle.backwardIntensity,
+    elements: elementScore(pieces, false).intensity,
+    freeRuns: 0,
+  };
   const crossings = coasterCrossings(pieces);
   const excitement = round(clamp(rawExcitement + Math.min(config.crossing.maximumCounted, crossings) * config.crossing.excitement, 0, 100));
-  const intensity = round(clamp(rawIntensity, 0, 100));
-  return {
+  const intensity = round(clamp(sumParts(parts), 0, 100));
+  const stats: CoasterDerivedStats = {
     pieces: count,
     turns,
     drops,
@@ -598,6 +650,7 @@ const deriveShuttleStats = (
     ticketPrice: Math.round((3 + excitement * 0.07) * 2) / 2,
     reliability: type.reliability,
   };
+  return { stats, parts };
 };
 
 /**
@@ -702,7 +755,7 @@ export const COASTER_VALIDATION_TEXT: Readonly<Record<CoasterValidationFailure, 
   'station-not-straight': 'The station must be a straight run.',
   'height-step': 'The track can only climb or fall one level per piece.',
   'height-range': 'The track is higher than this coaster type allows.',
-  'no-drop': 'Add a hill of height 2+ and a drop so the train can run.',
+  'no-drop': 'Add a hill and a drop so the train can run.',
   'special-not-allowed': 'This coaster type cannot fit that special piece.',
   'special-not-straight': 'Special pieces need a straight stretch of track (rolls need two straight pieces).',
   'special-on-station': 'Special pieces cannot sit on the station.',

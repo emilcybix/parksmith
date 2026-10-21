@@ -512,13 +512,15 @@ export const GAME_CONFIG = {
     /**
      * Phase 39: the ride model's weights per family (design.ts deriveCoasterStats). `steel` holds the numbers every
      * coaster had before families; `airtimePerDrop` (wooden) adds excitement per drop, up to `airtimeDrops`.
+     * Phase 58: `sBendShare` is what a steep turn pair counts when the two turns go opposite ways (an S-bend) instead of
+     * the same way (a hairpin): half on every family but the wild mouse, whose tight turns are its character.
      */
     families: {
-      steel: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, airtimePerDrop: 0, airtimeDrops: 0 },
-      'wild-mouse': { turn: 2.4, descent: 3, biggestDrop: 6, steepTurns: 4, airtimePerDrop: 0, airtimeDrops: 0 },
-      wooden: { turn: 1.5, descent: 4.5, biggestDrop: 13, steepTurns: 2.2, airtimePerDrop: 1.5, airtimeDrops: 4 },
-      launch: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, airtimePerDrop: 0, airtimeDrops: 0 },
-      inverted: { turn: 2, descent: 4.5, biggestDrop: 10, steepTurns: 3.2, airtimePerDrop: 0, airtimeDrops: 0 },
+      steel: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, sBendShare: 0.5, airtimePerDrop: 0, airtimeDrops: 0 },
+      'wild-mouse': { turn: 2.4, descent: 3, biggestDrop: 6, steepTurns: 4, sBendShare: 1, airtimePerDrop: 0, airtimeDrops: 0 },
+      wooden: { turn: 1.5, descent: 4.5, biggestDrop: 13, steepTurns: 2.2, sBendShare: 0.5, airtimePerDrop: 1.5, airtimeDrops: 4 },
+      launch: { turn: 1.5, descent: 4.5, biggestDrop: 10, steepTurns: 2.2, sBendShare: 0.5, airtimePerDrop: 0, airtimeDrops: 0 },
+      inverted: { turn: 2, descent: 4.5, biggestDrop: 10, steepTurns: 3.2, sBendShare: 0.5, airtimePerDrop: 0, airtimeDrops: 0 },
     },
     stationLoadSeconds: 6,
     speed: {
@@ -594,6 +596,12 @@ export const GAME_CONFIG = {
      * layout of the old height cap (4) derives exactly as before.
      */
     tall: { fullIntensityLevels: 4, tallLevelShare: 0.25 },
+    /**
+     * Phase 58: the biggest drop of 1 or 2 levels as the intensity's biggest-drop term reads it (index 0 is a 1-level
+     * drop): a 2-level drop counts 1.5 levels, so a family coaster's highest hill is not a thrill; 3 levels and more
+     * count in full, as before. PROVISIONAL: see BALANCE_NOTES.md ("Phase 58: coaster intensity").
+     */
+    smallDropLevels: [1, 1.5] as readonly number[],
     specials: {
       loop: { cost: 260, excitement: 9, intensity: 12 },
       boost: { cost: 140, excitement: 3, intensity: 4 },

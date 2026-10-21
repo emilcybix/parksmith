@@ -12,6 +12,9 @@ import { hillDipLayout, loopOvalLayout, longestLayout, ovalLayout, randomCircuit
  * derived stats and the base cost as they were before the change, and compares them with the live
  * code using Object.is on every number, on the five golden layouts, the longest layout and
  * random circuits. Never "fix" the copy: if the live code differs, the live code is wrong.
+ *
+ * Phase 58 changed the intensity on purpose (a 2-level biggest drop and an S-bend count for less): it is compared as
+ * "never more than the copy's" here, and pinned by the intensity fixtures (`intensityFixtures.ts`) and the goldens.
  */
 
 const clamp = (value: number, minimum: number, maximum: number): number =>
@@ -177,6 +180,8 @@ const compare = (name: string, pieces: CoasterPiece[], type: CoasterTypeDefiniti
   same(profile, legacyProfile, `${name} profile`);
   const legacyStats = legacyDeriveStats(pieces, type);
   const stats = deriveCoasterStats(pieces, type);
+  expect(stats.intensity, `${name} intensity (Phase 58: softened, never harder)`).toBeLessThanOrEqual(legacyStats.intensity);
+  legacyStats.intensity = stats.intensity;
   expect(Object.keys(stats), `${name} stats keys`).toEqual(Object.keys(legacyStats));
   expect(JSON.stringify(stats), `${name} stats JSON`).toBe(JSON.stringify(legacyStats));
   same(stats, legacyStats as CoasterDerivedStats, `${name} stats`);

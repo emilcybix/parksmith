@@ -116,18 +116,24 @@ const PRE_CHANGE_SAVE_RUNS: Record<string, readonly string[]> = {
  * (dev park, the player-built coaster, the hand-driven park, first day, pre-first-step, the calendar and the weather
  * park). Unmoved: the four scenario parks, whose starting stalls already faced their paths. With
  * `GAME_CONFIG.access.frontOnly` off every value is the Phase 38 one (defaultIdentity.review.test.ts keeps its pins).
+ *
+ * Re-pinned 2026-10-21, Phase 58 (content version 8), a deliberate gameplay change: a new coaster's intensity counts a
+ * 2-level biggest drop as 1.5 levels and an S-bend as half a steep turn pair, so the coasters these parks build are
+ * gentler (less nausea and sickness, less wear). Moved: the five parks that build a coaster (dev park, the player-built
+ * coaster, the hand-driven park, pre-first-step, the calendar park). Unmoved: the four scenario parks, first day and
+ * the weather park, which build none.
  */
 const PRE_CHANGE_FIXTURES: Record<string, { final: string; events: string; fingerprints: string; observables: string }> = {
-  'dev park, 1,000 guests, coaster': { final: '379b13b45571cf9a', events: '9d8422c4ec00197e', fingerprints: 'c47df8134681994c', observables: '8296a1bed74a9887' },
+  'dev park, 1,000 guests, coaster': { final: '35e3e9fe60440516', events: 'd2120e4c6e56f19a', fingerprints: '6ffa707a97976c76', observables: 'b23fc1cee40a4115' },
   'scenario with Pulse Cards and a rules-locked id': { final: '61979b25761df373', events: '5d9b00c22adcfee6', fingerprints: 'e02f287bea932338', observables: '42467d5c6cdf4a2e' },
   'scenario latched success': { final: 'e5c36d65bc70dee2', events: '9030f462ddf66049', fingerprints: '28065ad7d491be07', observables: '07e11b8f39c612d6' },
   'scenario latched failure': { final: '13f46a1213a0c5d9', events: '6ace405e46b8ecc5', fingerprints: 'b3e95127fb35fc41', observables: '83c0c8b337a916ea' },
   'scenario mid sustain streak': { final: '1e4ebf326333c689', events: '008be93323b5a50d', fingerprints: '257c3bc00aee79d5', observables: 'a3081cc19109beb2' },
-  'player-built coaster with loop and boost, bulldozed later': { final: 'bd84fa2e79b5d0ce', events: '8acca766ef6fcacb', fingerprints: '69c337d33e858e1f', observables: '4c02cfabb7fa64f1' },
-  'hand-driven park: breakdown, repair, litter, closure, research': { final: '3e9c2164b43493f7', events: 'e7164638c7e0e06f', fingerprints: '2ce6418cd4ee7c36', observables: 'aeed607748596fef' },
+  'player-built coaster with loop and boost, bulldozed later': { final: 'd648b028265f2685', events: '785263781374025e', fingerprints: '91056914277ff107', observables: '46649b06ecebe6a7' },
+  'hand-driven park: breakdown, repair, litter, closure, research': { final: '592720eb1b362af2', events: 'e7164638c7e0e06f', fingerprints: 'e96b1aab376da62d', observables: 'e811e6d2627c4db6' },
   'first day: sandbox progression latching, skip and dismiss': { final: '09b7c75125318943', events: '9edf55db86116ffb', fingerprints: 'a8194581755b9e05', observables: '10db11263bf5f717' },
-  'pre-first-step and right after removeAll': { final: '41ff24cd8fd34646', events: 'bf28cd9330b85580', fingerprints: '0ae8926bcf542f2d', observables: '2644ea894fe6a4b9' },
-  'park calendar: short days, a length change and a time lock': { final: 'bd2dd9d61b99bf9c', events: '9b53e4d5be56c295', fingerprints: '47c959b75906dc5f', observables: '69e91d228112e290' },
+  'pre-first-step and right after removeAll': { final: '7eed33e5e92f4ab6', events: 'bf28cd9330b85580', fingerprints: '0ae8926bcf542f2d', observables: 'e9f062380cb4f369' },
+  'park calendar: short days, a length change and a time lock': { final: 'e8d1abfe75b8f81c', events: '396e15544e02cab0', fingerprints: '6bae44cf5e60bd33', observables: 'f041603e6eadfca2' },
   'weather: a stormy afternoon with a storm-closed ride, a player-closed ride and opening hours': { final: '69402cd4cc57043a', events: '7211ebd9cb3cf3c1', fingerprints: 'd24163be0630ad08', observables: 'be5ad71b5e28f279' },
 };
 

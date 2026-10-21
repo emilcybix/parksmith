@@ -3,11 +3,25 @@ import { describe, expect, it, vi } from 'vitest';
 /**
  * Phase 40: these pins are of the renderer (or of the park it draws), frozen before buildings had fronts; with front-only
  * access on, the dev park's stalls turn toward their paths and draw differently. The renderer is not what moved, so the
- * pins run with the rule off (the turn itself is pinned in game/frontAccess.test.ts).
+ * pins run with the rule off (the turn itself is pinned in game/frontAccess.test.ts). Phase 58's gentler intensity is
+ * off here for the same reason.
  */
 vi.mock('../config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../config')>();
-  return { ...actual, GAME_CONFIG: { ...actual.GAME_CONFIG, access: { ...actual.GAME_CONFIG.access, frontOnly: false } } };
+  const config = actual.GAME_CONFIG;
+  return {
+    ...actual,
+    GAME_CONFIG: {
+      ...config,
+      access: { ...config.access, frontOnly: false },
+      // Phase 58: the coasters' saved intensity as it was (the renderer never draws it; only the world hash holds it).
+      coaster: {
+        ...config.coaster,
+        smallDropLevels: [1, 2],
+        families: Object.fromEntries(Object.entries(config.coaster.families).map(([family, weights]) => [family, { ...weights, sBendShare: 1 }])),
+      },
+    },
+  };
 });
 import { colourKindOf } from '../content/colours';
 import { hashState } from '../save/hash';

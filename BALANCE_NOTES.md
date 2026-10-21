@@ -899,6 +899,110 @@ Only two parks moved operating profit by more than $300, both one-premium: Meado
 - The card summary prints Quick Turnaround's median as `0.15000000000000002`, a float formatting slip in
   `cardBalance.review.test.ts`. It is cosmetic and was left alone (tests only in this phase).
 
+## Phase 58: coaster intensity (2026-10-21) · **PROVISIONAL**
+
+**Changed:** `GAME_CONFIG.coaster.smallDropLevels` (new, `[1, 1.5]`: a 2-level biggest drop counts as 1.5 levels in the
+biggest-drop term) and `families.*.sBendShare` (new: 0.5 on every family, 1 on the wild mouse: a steep turn pair whose
+two turns go opposite ways counts half). A circuit may now stay at height 1 (`no-drop` asks for a hill of 1+, not 2+).
+Content version 8: a built coaster keeps the intensity it was saved with.
+**Why:** the owner could not build a gentle coaster (2026-10-20). A layout with two small drops (highest point 2) and
+some turns read 60, over the nausea floor of 45 (`guestLife.nausea.minimumIntensity`).
+**Measured with:** `COASTER_INTENSITY_REPORT=1 yarn vitest run src/game/balance/coasterIntensity.review.test.ts --reporter=verbose`
+over the fixtures in `src/game/coaster/intensityFixtures.ts`.
+
+### What the numbers said before any change
+
+Layouts with low hills (1-level drops) and wide turns already sat at 26-36, under the floor. The two things that pushed a
+small layout over it were:
+
+1. **A 2-level drop** cost 20 points, as much as the rest of a family ride's shape put together.
+2. **S-bends.** A zig-zag (a turn on every piece, alternating ways) counted every pair as steep: 11 pairs, 24 points on
+   the owner-like layout. That is as much as a 2-level drop.
+
+The base (8) and the speed term (5-7) were not the problem, so they did not move. Excitement is unchanged.
+
+| layout | intensity before | after |
+| --- | --- | --- |
+| kiddie oval (height 1, one 1-level drop) | 25.7 (refused: no-drop) | 25.7 |
+| family oval (height 2, two 1-level drops) | 29.2 | 29.2 |
+| family hills (three 1-level drops, wide turns) | 30.8 | 30.8 |
+| family S-bends (height 1, gentle S-curves) | 30.1 (refused: no-drop) | 27.9 |
+| family wide S (height 2, 1-level drops, wide S-curves) | 36.1 | 33.9 |
+| owner's layout (height 2, drops of 2 and 1, zig-zag) | 66.5 | 50.5 |
+| oval (one 2-level drop) | 40.2 | 35.2 |
+| zig-zag (height 3, turns on every piece) | 56.9 | 45.9 |
+| hill and dip (3-level drop and two 2s) | 65.2 | 65.2 |
+| tall (one 4-level drop) | 65.2 | 65.2 |
+| loops and a boost | 68.2 | 63.2 |
+| longest (sawtooth 0-4, 40 corners) | 100 | 100 |
+| elements (3-level drop, corkscrew, zero-g roll) | 69.7 | 69.7 |
+| hyper (one 10-level drop) | 91.2 | 91.2 |
+
+### After: every term, and what a rider's stomach does
+
+| layout | type | excitement | intensity | base | biggest drop | descent | steep turns | speed | specials, elements, free runs |
+|--------|------|------------|-----------|------|--------------|---------|-------------|-------|-------------------------------|
+| kiddie oval (height 1, one 1-level drop) | comet-trail | 46.3 | **25.7** | 8 | 10 | 2.5 | 0 | 5.2 | 0 |
+| family oval (height 2, two 1-level drops) | comet-trail | 56 | **29.2** | 8 | 10 | 5 | 0 | 6.2 | 0 |
+| family hills (three 1-level drops, wide turns) | comet-trail | 62.5 | **30.8** | 8 | 10 | 7.5 | 0 | 5.3 | 0 |
+| family S-bends (height 1, gentle S-curves) | comet-trail | 52.3 | **27.9** | 8 | 10 | 2.5 | 2.2 | 5.2 | 0 |
+| family wide S (height 2, 1-level drops, wide S-curves) | comet-trail | 74.5 | **33.9** | 8 | 10 | 7.5 | 2.2 | 6.2 | 0 |
+| owner's layout (height 2, drops of 2 and 1, zig-zag) | comet-trail | 80.8 | **50.5** | 8 | 15 | 7.5 | 13.2 | 6.8 | 0 |
+| oval (one 2-level drop) | comet-trail | 58 | **35.2** | 8 | 15 | 5 | 0 | 7.2 | 0 |
+| zig-zag (height 3, turns on every piece) | star-chaser | 84.5 | **45.9** | 8 | 10 | 7.5 | 13.2 | 7.2 | 0 |
+| hill and dip (3-level drop and two 2s) | star-chaser | 92 | **65.2** | 8 | 30 | 20 | 0 | 7.2 | 0 |
+| tall (one 4-level drop) | skyline-serpent | 73 | **65.2** | 8 | 40 | 10 | 0 | 7.2 | 0 |
+| loops and a boost | skyline-serpent | 79 | **63.2** | 8 | 15 | 5 | 0 | 7.2 | 28 |
+| longest (sawtooth 0-4, 40 corners) | skyline-serpent | 100 | **100** | 8 | 40 | 75 | 45.1 | 7.2 | 0 |
+| elements (3-level drop, corkscrew, zero-g roll) | skyline-serpent | 84.5 | **69.7** | 8 | 30 | 7.5 | 0 | 7.2 | 17 |
+| hyper (one 10-level drop) | titan-hyper | 100 | **91.2** | 8 | 55 | 18.8 | 2.2 | 7.2 | 0 |
+
+Nausea: one ride / two back to back (the stomach settles for the ride's duration between them) / the two on a full
+stomach. Q is a queasy stop, V sick. The guests are the middle of the three bands `rollPreferredIntensity` draws.
+
+| kiddie oval (height 1, one 1-level drop) | 25.7 | 15.5 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| family oval (height 2, two 1-level drops) | 29.2 | 14.4 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| family hills (three 1-level drops, wide turns) | 30.8 | 18.3 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| family S-bends (height 1, gentle S-curves) | 27.9 | 15.5 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| family wide S (height 2, 1-level drops, wide S-curves) | 33.9 | 20.9 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| owner's layout (height 2, drops of 2 and 1, zig-zag) | 50.5 | 19 | 18 / 25 / 38 | 5 / 5 / 7 | 5 / 5 / 7 |
+| oval (one 2-level drop) | 35.2 | 14 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| zig-zag (height 3, turns on every piece) | 45.9 | 17.1 | 10 / 10 / 18 | 1 / 1 / 1 | 1 / 1 / 1 |
+| hill and dip (3-level drop and two 2s) | 65.2 | 19 | 43 / 75 Q / **100 V** | 22 / 33 / 49 | 18 / 25 / 38 |
+| tall (one 4-level drop) | 65.2 | 13.8 | 43 / 78 Q / **100 V** | 22 / 36 / 52 | 18 / 28 / 41 |
+| loops and a boost | 63.2 | 15.9 | 40 / 70 Q / **98 V** | 19 / 28 / 42 | 16 / 23 / 35 |
+| longest (sawtooth 0-4, 40 corners) | 100 | 32.4 | **100 V** / **100 V** / **100 V** | **82 V** / **100 V** / **100 V** | 59 Q / **99 V** / **100 V** |
+| elements (3-level drop, corkscrew, zero-g roll) | 69.7 | 16.1 | 51 / **92 V** / **100 V** | 30 / 50 / 71 Q | 22 / 35 / 50 |
+| hyper (one 10-level drop) | 91.2 | 20.6 | **87 V** / **100 V** / **100 V** | 67 Q / **100 V** / **100 V** | 44 / 76 Q / **100 V** |
+
+- **Family coasters** (1-level drops, wide turns or gentle S-bends) land at 26-34 and unsettle no one, even ridden twice on
+  a full stomach.
+- **The owner's layout** lands at 50.5 (the target was 45-55). It makes a gentle guest queasy only on the second ride on a
+  full stomach, and never sick. Before, the same guest was queasy on the second ride hungry and sick on a full stomach.
+- **Thrill layouts** (3 levels and more, loops, elements) do not move, apart from loops and a boost: its 2-level drop now
+  counts 1.5 levels, so it went from 68.2 to 63.2. The plan's target of 70-100 for thrill rides was never the case: they
+  were at 65-70 before and stay at 63-70. They keep their place above every family and mid layout.
+- **The wild mouse** keeps every steep turn pair whole, so it gains on a steel coaster on the same S-bends.
+- **The families** keep their order (mouse drops lighter, wooden rougher: `families.test.ts`).
+
+### What moved elsewhere
+
+- **The dev park and the determinism fixtures** that build a coaster: re-pinned in `liftPersistence.review.test.ts`.
+  `defaultIdentity.review.test.ts` and `colourTestPark.test.ts` run with the old intensity (the mock), so they keep their
+  pins and show that the switched-off code is the code before.
+- **`parkScale.test.ts`** (a minimum cleaning crew against a scaled one, at 1,000 guests in the dev park): the dev park's
+  coaster is gentler, so fewer guests are sick and the minimum crew keeps up better. The test read the litter at the last
+  tick only, where both crews ended on 8 units. It now averages the second half: before, 68 against 82 cleanliness; after,
+  75 against 80. The margin it asks for went from 10 to 4.
+- **The strategy, card and Map sweeps** build no coaster (the bots never call `placeCoaster`), so they cannot move.
+
+### What would change these numbers
+
+- Playtests where gentle guests still turn green on family coasters, or where thrill guests find nothing intense enough.
+- A gentler coaster that is now a dull one: excitement was left alone on purpose; that is the owner's call.
+
+---
+
 ## Phase 49: litter, vomit and scenery (2026-10-20) · **PROVISIONAL**
 
 Three questions from the owner's 2026-10-19 playtest, answered from the simulation before any tuning. No number in

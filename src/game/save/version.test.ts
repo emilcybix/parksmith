@@ -56,7 +56,7 @@ const fakeV1ToV2: SaveMigration = {
 describe('versions', () => {
   it('is at schema 17 with the First Day, calendar, weather, lift hill, colour, gate colour, map, recipe, game-mode, run, one-shot ledger, crowd field, land, guest life, front access and shuttle migrations, content version 7', () => {
     expect(SAVE_SCHEMA_VERSION, 'schema').toBe(17);
-    expect(SAVE_CONTENT_VERSION, 'content (2: weather and the arrival curve; 3: Phase 16 content and the two ruleset keys; 4: Phase 14 crowdFeedback; 5: Phase 29 guest life; 6: Phase 39 coaster families; 7: Phases 44-46 coasters)').toBe(7);
+    expect(SAVE_CONTENT_VERSION, 'content (2: weather and the arrival curve; 3: Phase 16 content and the two ruleset keys; 4: Phase 14 crowdFeedback; 5: Phase 29 guest life; 6: Phase 39 coaster families; 7: Phases 44-46 coasters; 8: Phase 58 gentler intensity)').toBe(8);
     expect(SAVE_MIGRATIONS.map((migration) => [migration.from, migration.to]), 'sixteen migrations').toEqual([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 14], [14, 15], [15, 16], [16, 17]]);
     expect(() => assertMigrationChain(SAVE_MIGRATIONS), 'the shipped chain is consistent').not.toThrow();
   });

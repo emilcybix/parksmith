@@ -49,17 +49,28 @@ const runCrowdedPark = (cleaners: number, trainings: number, seconds: number) =>
   }
   for (let index = 0; index < trainings; index += 1) session.operations.trainStaff('cleaner');
 
-  for (let step = 0; step < seconds * 1_000 / GAME_CONFIG.fixedStepMs; step += 1) {
+  // Phase 58: litter and cleanliness are averaged over the second half (one look every 10 s), not read at the last
+  // tick: the standing litter is a handful of units, and one pile more or less at the end decided the comparison.
+  const steps = seconds * 1_000 / GAME_CONFIG.fixedStepMs;
+  let litter = 0;
+  let cleanliness = 0;
+  let looks = 0;
+  for (let step = 0; step < steps; step += 1) {
     session.step(GAME_CONFIG.fixedStepMs);
     // Keep the park pinned at the cap instead of letting the crowd drain away.
     if (step % 100 === 0) session.guests.spawnGuests(GAME_CONFIG.guests.maximum);
+    if (step >= steps / 2 && step % 100 === 99) {
+      const snapshot = session.operations.snapshot();
+      litter += snapshot.cleanliness.litterUnits;
+      cleanliness += snapshot.cleanliness.score;
+      looks += 1;
+    }
   }
-  const snapshot = session.operations.snapshot();
   return {
     hired,
     guests: session.guests.guests.size,
-    litter: snapshot.cleanliness.litterUnits,
-    cleanliness: snapshot.cleanliness.score,
+    litter: litter / looks,
+    cleanliness: cleanliness / looks,
   };
 };
 
@@ -73,9 +84,11 @@ describe('staffing a park at the guest cap', () => {
     expect(scaled.hired).toBe(16);
     expect(scaled.guests).toBeGreaterThan(GAME_CONFIG.guests.maximum * 0.9);
 
+    // Phase 58 (a gentler dev-park coaster, so fewer sick guests): the minimum crew keeps up better than it did, 75
+    // against 80 (it was 68 against 82, averaged the same way). See BALANCE_NOTES.md ("Phase 58: coaster intensity").
     expect(scaled.litter).toBeLessThan(minimum.litter);
-    expect(scaled.cleanliness).toBeGreaterThan(minimum.cleanliness + 10);
-    expect(scaled.cleanliness).toBeGreaterThan(80);
+    expect(scaled.cleanliness).toBeGreaterThan(minimum.cleanliness + 4);
+    expect(scaled.cleanliness).toBeGreaterThan(78);
     // Two 300-second crowded runs: ~3 s alone, so the 5 s default flakes when the whole suite runs in parallel.
   }, 30_000);
 });

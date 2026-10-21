@@ -55,6 +55,12 @@ vi.mock('../config', async (importOriginal) => {
       guestLife: { ...config.guestLife, enabled: false },
       // Phase 40: front-only access switched off, so new parks compile no `frontAccess` key and seed as they did.
       access: { ...config.access, frontOnly: false },
+      // Phase 58: the coaster intensity as it was (a 2-level biggest drop in full, an S-bend a whole steep turn pair).
+      coaster: {
+        ...config.coaster,
+        smallDropLevels: [1, 2],
+        families: Object.fromEntries(Object.entries(config.coaster.families).map(([family, weights]) => [family, { ...weights, sBendShare: 1 }])),
+      },
     },
   };
 });

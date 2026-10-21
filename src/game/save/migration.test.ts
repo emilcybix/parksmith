@@ -336,7 +336,10 @@ describe('migration 4 -> 5 (lift hills: every old piece is chained)', () => {
       expect(record.pieces.every((piece) => piece.freeClimb === undefined)).toBe(true);
       const type = COASTER_TYPE_BY_ID.get(session.world.objects.get(record.objectId)!.definitionId)!;
       expect(coasterSpeedProfile(record.pieces).travelSeconds, 'chained numbers are unchanged').toEqual(record.stats.travelSeconds);
-      expect(deriveCoasterStats(record.pieces, type), 'derived stats equal the stored ones').toEqual(record.stats);
+      // Phase 58 softened the intensity of a new build; the saved one is kept (above) and every other number derives the same.
+      const derived = deriveCoasterStats(record.pieces, type);
+      expect(derived.intensity).toBeLessThanOrEqual(record.stats.intensity);
+      expect({ ...derived, intensity: record.stats.intensity }, 'derived stats equal the stored ones').toEqual(record.stats);
     });
     const state = session.serialize();
     expect(hashState(ParkSession.fromState(JSON.parse(JSON.stringify(state)) as typeof state).serialize())).toBe(hashState(state));
