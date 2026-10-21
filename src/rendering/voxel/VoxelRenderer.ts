@@ -824,8 +824,9 @@ export class VoxelRenderer implements RendererPort {
    * a second, not per frame: the four corner reads allocate a little.
    */
   readViewInfo(out: ViewInfo): void {
-    const levels = this.camera.zoomLevels;
-    out.zoom = levels.max > levels.min ? (this.camera.zoom - levels.min) / (levels.max - levels.min) : 0.5;
+    // Phase 55: the level's place in the list (the far levels are the furthest out), not N.
+    const last = this.camera.levelList.length - 1;
+    out.zoom = last > 0 ? this.camera.levelIndex / last : 0.5;
     const size = this.camera.cssSize();
     let u0 = Number.POSITIVE_INFINITY;
     let v0 = Number.POSITIVE_INFINITY;
@@ -918,6 +919,7 @@ export class VoxelRenderer implements RendererPort {
     return {
       passes: ms === undefined ? null : { gbuffer: ms[PASS_GBUFFER], light: ms[PASS_LIGHT], composite: ms[PASS_COMPOSITE], upscale: ms[PASS_UPSCALE] },
       zoom: snap.zoom,
+      texelScale: snap.texelScale,
       lowWidth: snap.lowWidth,
       lowHeight: snap.lowHeight,
     };
@@ -989,14 +991,15 @@ export class VoxelRenderer implements RendererPort {
     this.camera.focusCellXY(view.x, view.y);
   }
 
+  /** Phase 55: the zoom level's index (0 is the furthest out). */
   get cameraZoom(): number {
-    return this.camera.zoom;
+    return this.camera.levelIndex;
   }
 
-  /** A whole zoom level (clamped), keeping the middle of the viewport where it is. */
+  /** A zoom level by index (clamped), keeping the middle of the viewport where it is. */
   setCameraZoom(zoom: number): void {
     const size = this.camera.cssSize();
-    this.camera.setZoomAtCss(zoom, size.width / 2, size.height / 2);
+    this.camera.setLevelAtCss(zoom, size.width / 2, size.height / 2);
   }
 
   /** Whether the tile grid is on; the world pass reads it as its grid uniform. */

@@ -24,6 +24,12 @@ import { GUARD_BAND_TEXELS, LOW_RES_TEXEL_BUDGET, MAX_ZOOM_CSS_PER_TEXEL } from 
  *
  * Picking, drag pan and wheel zoom come through the shared input binding (worldInput.ts), for which
  * this class is the view. Key pan arrives the same way, as `panByCss`, at the legacy speed.
+ *
+ * Phase 55: a zoom LEVEL is a pair (texel scale k, zoom N): the low-res target holds k world texels per texel (k = 1
+ * at every level but the far ones), each drawn as N × N device px, so a device px shows k / N world texels. The far
+ * levels (k = 2 and 4 at the smallest N) draw the scene at half and quarter scale into a target of the same size
+ * (`farLevels`; off until the renderer draws them). The origin snaps to whole low-res texels (multiples of k world
+ * texels), and with k = 1 every expression below is bit for bit what it was before levels had a k.
  */
 
 /** Highest devicePixelRatio the voxel renderer honours; beyond it the budget decides anyway. */
@@ -45,6 +51,39 @@ export interface ZoomLevels {
   initial: number;
 }
 
+/** Phase 55: one zoom level: `texelScale` world texels per low-res texel, each drawn as `zoom` × `zoom` device px. */
+export interface ZoomLevel {
+  readonly texelScale: number;
+  readonly zoom: number;
+}
+
+/** Phase 55: the far levels' texel scales, furthest first (powers of two, so every `/ k` is exact). */
+export const FAR_TEXEL_SCALES: readonly number[] = [4, 2];
+
+/**
+ * Phase 55: the levels in order, furthest first: with `far`, (4, min) and (2, min); then (1, N) for every N from min
+ * to max. A level's index is what the wheel steps.
+ */
+export const zoomLevelList = (levels: Readonly<ZoomLevels>, far: boolean): ZoomLevel[] => {
+  const list: ZoomLevel[] = far ? FAR_TEXEL_SCALES.map((texelScale) => ({ texelScale, zoom: levels.min })) : [];
+  for (let zoom = levels.min; zoom <= levels.max; zoom += 1) list.push({ texelScale: 1, zoom });
+  return list;
+};
+
+/** Phase 55: the index of the level nearest `devicePerWorld` (device px per world texel); a tie goes nearer. */
+export const nearestLevel = (list: readonly ZoomLevel[], devicePerWorld: number): number => {
+  let best = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  list.forEach((level, index) => {
+    const distance = Math.abs(Math.log(level.zoom / level.texelScale) - Math.log(devicePerWorld));
+    if (distance <= bestDistance) {
+      best = index;
+      bestDistance = distance;
+    }
+  });
+  return best;
+};
+
 /** The camera as one frame draws it. All values are whole numbers. */
 export interface SnappedCamera {
   /** World texel at the canvas's top-left device pixel. */
@@ -53,8 +92,10 @@ export interface SnappedCamera {
   /** Device-px shift of the upscaled picture, in [−(zoom − 1), 0]. */
   offsetX: number;
   offsetY: number;
-  /** Device px per texel. */
+  /** Device px per low-res texel. */
   zoom: number;
+  /** Phase 55: world texels per low-res texel (1, or 2 and 4 at the far levels). */
+  texelScale: number;
   /** Low-res target size in texels, guard band included. */
   lowWidth: number;
   lowHeight: number;
@@ -120,33 +161,41 @@ export const zoomLevelsFor = (
   return { min, max, initial: clamp(Math.round(resolution), min, max) };
 };
 
-/** 0 − x rather than −x, so an unshifted axis reads +0 and not −0. */
-const snapOffset = (origin: number, texel: number, zoom: number): number =>
-  0 - Math.min(zoom - 1, Math.floor((origin - texel) * zoom));
+/**
+ * 0 − x rather than −x, so an unshifted axis reads +0 and not −0. `texel` is the snapped origin in world texels (a
+ * multiple of `scale`); the shift is in device px within one low-res texel.
+ */
+const snapOffset = (origin: number, texel: number, zoom: number, scale: number): number =>
+  0 - Math.min(zoom - 1, Math.floor((origin - texel) / scale * zoom));
 
 export interface VoxelCameraOptions {
   /** `&zoom=N`: the starting zoom instead of the per-screen default, clamped into the levels. */
   zoomOverride?: number | null;
+  /** Phase 55: offer the far levels (half and quarter scale). Off until the renderer draws them. */
+  farLevels?: boolean;
 }
 
 export class VoxelCamera implements WorldInputView {
   /** World texel (unsnapped) at the canvas's top-left device pixel. */
   originX = 0;
   originY = 0;
-  private currentZoom = 1;
   private levels: ZoomLevels = { min: 1, max: 2, initial: 1 };
+  /** Phase 55: the levels (`zoomLevelList`) and the one in use. */
+  private list: ZoomLevel[] = zoomLevelList(this.levels, false);
+  private level = 0;
   private deviceWidth = 0;
   private deviceHeight = 0;
   private resolution = 1;
   private hasViewport = false;
   private wheelAccumulator = 0;
   private readonly zoomOverride: number | null;
+  private readonly farLevels: boolean;
   /** The turn chain (retargetForTurn): the origin per view while only turns moved the camera. */
   private readonly turnMemory = new Float64Array(8);
   private turnChainMask = 0;
   private turnChainX = 0;
   private turnChainY = 0;
-  private turnChainZoom = 0;
+  private turnChainLevel: ZoomLevel | null = null;
   private turnChainWidth = 0;
   private turnChainHeight = 0;
   private turnChainRotation = 0;
@@ -174,15 +223,38 @@ export class VoxelCamera implements WorldInputView {
 
   constructor(options: VoxelCameraOptions = {}) {
     this.zoomOverride = options.zoomOverride ?? null;
+    this.farLevels = options.farLevels ?? false;
   }
 
-  /** Device px per texel. */
+  /** Device px per low-res texel (N). */
   get zoom(): number {
-    return this.currentZoom;
+    return this.list[this.level].zoom;
   }
 
+  /** Phase 55: world texels per low-res texel (k). */
+  get texelScale(): number {
+    return this.list[this.level].texelScale;
+  }
+
+  /** The range of N the screen allows (the k = 1 levels). */
   get zoomLevels(): Readonly<ZoomLevels> {
     return this.levels;
+  }
+
+  /** Phase 55: every level, furthest first. */
+  get levelList(): readonly ZoomLevel[] {
+    return this.list;
+  }
+
+  /** Phase 55: the index of the level in use in `levelList`. */
+  get levelIndex(): number {
+    return this.level;
+  }
+
+  /** The index of the k = 1 level of zoom N (clamped into the range). */
+  private indexOfZoom(zoom: number): number {
+    const target = clamp(Math.round(zoom), this.levels.min, this.levels.max);
+    return this.list.findIndex((level) => level.texelScale === 1 && level.zoom === target);
   }
 
   /**
@@ -195,27 +267,31 @@ export class VoxelCamera implements WorldInputView {
   setViewport(deviceWidth: number, deviceHeight: number, resolution: number, maxTextureSize: number): void {
     this.completeEase();
     const first = !this.hasViewport;
-    const previous = { width: this.deviceWidth, height: this.deviceHeight, zoom: this.currentZoom, resolution: this.resolution };
+    const previous = { width: this.deviceWidth, height: this.deviceHeight, zoom: this.zoom, scale: this.texelScale, resolution: this.resolution };
     const centre = this.worldAtDevice(previous.width / 2, previous.height / 2);
     this.levels = zoomLevelsFor(deviceWidth, deviceHeight, resolution, maxTextureSize);
+    this.list = zoomLevelList(this.levels, this.farLevels);
     this.deviceWidth = deviceWidth;
     this.deviceHeight = deviceHeight;
     this.resolution = resolution;
     this.hasViewport = true;
     if (first) {
-      this.currentZoom = clamp(this.zoomOverride ?? this.levels.initial, this.levels.min, this.levels.max);
+      this.level = this.indexOfZoom(this.zoomOverride ?? this.levels.initial);
       this.constrain();
       return;
     }
-    const scaled = resolution === previous.resolution
-      ? this.currentZoom
-      : Math.round(this.currentZoom * resolution / previous.resolution);
-    this.currentZoom = clamp(scaled, this.levels.min, this.levels.max);
+    // The same scale where it still exists (an N = 2 level at k = 1 stays; when only R changes, N scales with it).
+    if (previous.scale === 1) {
+      const scaled = resolution === previous.resolution ? previous.zoom : Math.round(previous.zoom * resolution / previous.resolution);
+      this.level = this.indexOfZoom(scaled);
+    } else {
+      this.level = nearestLevel(this.list, previous.zoom / previous.scale * resolution / previous.resolution);
+    }
     // An axis whose size and zoom did not change keeps its origin exactly: re-deriving it from the
     // centre would round, and one rounding step across a texel edge moves the picture a pixel.
-    const zoomChanged = this.currentZoom !== previous.zoom;
-    if (zoomChanged || deviceWidth !== previous.width) this.originX = centre.x - deviceWidth / 2 / this.currentZoom;
-    if (zoomChanged || deviceHeight !== previous.height) this.originY = centre.y - deviceHeight / 2 / this.currentZoom;
+    const zoomChanged = this.zoom !== previous.zoom || this.texelScale !== previous.scale;
+    if (zoomChanged || deviceWidth !== previous.width) this.originX = centre.x - deviceWidth / 2 * this.texelScale / this.zoom;
+    if (zoomChanged || deviceHeight !== previous.height) this.originY = centre.y - deviceHeight / 2 * this.texelScale / this.zoom;
     this.constrain();
   }
 
@@ -339,19 +415,21 @@ export class VoxelCamera implements WorldInputView {
 
   /** The camera as this frame draws it. */
   snapped(): SnappedCamera {
-    const zoom = this.currentZoom;
-    const texelX = Math.floor(this.originX);
-    const texelY = Math.floor(this.originY);
+    const zoom = this.zoom;
+    const scale = this.texelScale;
+    const texelX = Math.floor(this.originX / scale) * scale;
+    const texelY = Math.floor(this.originY / scale) * scale;
     return {
       texelX,
       texelY,
-      offsetX: snapOffset(this.originX, texelX, zoom),
-      offsetY: snapOffset(this.originY, texelY, zoom),
+      offsetX: snapOffset(this.originX, texelX, zoom, scale),
+      offsetY: snapOffset(this.originY, texelY, zoom, scale),
       zoom,
+      texelScale: scale,
       lowWidth: lowResSize(this.deviceWidth, zoom),
       lowHeight: lowResSize(this.deviceHeight, zoom),
-      cameraTexelX: texelX - GUARD_BAND_TEXELS,
-      cameraTexelY: texelY - GUARD_BAND_TEXELS,
+      cameraTexelX: texelX - GUARD_BAND_TEXELS * scale,
+      cameraTexelY: texelY - GUARD_BAND_TEXELS * scale,
     };
   }
 
@@ -361,21 +439,21 @@ export class VoxelCamera implements WorldInputView {
 
   /**
    * Canvas CSS px → world px through the snapped transform, the exact inverse of the upscale:
-   * device px p shows world texel floor((p − offset) / N) + texel.
+   * device px p shows low-res texel floor((p − offset) / N), which is world texel k times that plus texel.
    */
   cssToWorld(x: number, y: number): { x: number; y: number } {
     const snap = this.snapped();
     return {
-      x: (x * this.resolution - snap.offsetX) / snap.zoom + snap.texelX,
-      y: (y * this.resolution - snap.offsetY) / snap.zoom + snap.texelY,
+      x: (x * this.resolution - snap.offsetX) / snap.zoom * snap.texelScale + snap.texelX,
+      y: (y * this.resolution - snap.offsetY) / snap.zoom * snap.texelScale + snap.texelY,
     };
   }
 
-  /** The world follows the pointer: a CSS-px drag moves the origin by −Δ·R/N texels. */
+  /** The world follows the pointer: a CSS-px drag moves the origin by −Δ·R·k/N world texels. */
   panByCss(dx: number, dy: number): void {
     this.cancelEase();
-    this.originX -= dx * this.resolution / this.currentZoom;
-    this.originY -= dy * this.resolution / this.currentZoom;
+    this.originX -= dx * this.resolution / this.zoom * this.texelScale;
+    this.originY -= dy * this.resolution / this.zoom * this.texelScale;
     this.constrain();
   }
 
@@ -397,21 +475,26 @@ export class VoxelCamera implements WorldInputView {
     const levels = Math.trunc(this.wheelAccumulator / WHEEL_UNITS_PER_LEVEL);
     if (levels === 0) return;
     this.wheelAccumulator -= levels * WHEEL_UNITS_PER_LEVEL;
-    // Wheel down (positive deltaY) zooms out, like the classic camera.
-    const next = clamp(this.currentZoom - levels, this.levels.min, this.levels.max);
-    if (next === this.currentZoom || next !== this.currentZoom - levels) this.wheelAccumulator = 0;
-    this.setZoomAtCss(next, x, y);
+    // Wheel down (positive deltaY) zooms out, like the classic camera: one level further per step.
+    const next = clamp(this.level - levels, 0, this.list.length - 1);
+    if (next === this.level || next !== this.level - levels) this.wheelAccumulator = 0;
+    this.setLevelAtCss(next, x, y);
   }
 
-  /** Sets the zoom (clamped into the levels) keeping the world point at CSS px (x, y) in place. */
+  /** Sets the k = 1 zoom N (clamped into the levels) keeping the world point at CSS px (x, y) in place. */
   setZoomAtCss(zoom: number, x: number, y: number): void {
-    const next = clamp(Math.round(zoom), this.levels.min, this.levels.max);
-    if (next === this.currentZoom) return;
+    this.setLevelAtCss(this.indexOfZoom(zoom), x, y);
+  }
+
+  /** Phase 55: sets the level (an index into `levelList`, clamped) keeping the world point at CSS px (x, y) in place. */
+  setLevelAtCss(index: number, x: number, y: number): void {
+    const next = clamp(Math.round(index), 0, this.list.length - 1);
+    if (next === this.level) return;
     this.cancelEase();
     const deviceX = x * this.resolution;
     const deviceY = y * this.resolution;
     const anchor = this.worldAtDevice(deviceX, deviceY);
-    this.currentZoom = next;
+    this.level = next;
     this.placeWorldAtDevice(anchor.x, anchor.y, deviceX, deviceY);
     this.constrain();
   }
@@ -486,7 +569,7 @@ export class VoxelCamera implements WorldInputView {
     const memory = this.turnMemory;
     const chained = this.turnChainMask !== 0
       && this.originX === this.turnChainX && this.originY === this.turnChainY
-      && this.currentZoom === this.turnChainZoom
+      && this.list[this.level] === this.turnChainLevel
       && this.deviceWidth === this.turnChainWidth && this.deviceHeight === this.turnChainHeight
       && from.rotation === this.turnChainRotation && from.ox === this.turnChainOx && from.oy === this.turnChainOy;
     if (!chained) this.turnChainMask = 0;
@@ -497,23 +580,23 @@ export class VoxelCamera implements WorldInputView {
       this.originX = memory[to.rotation * 2];
       this.originY = memory[to.rotation * 2 + 1];
     } else {
-      const centreX = this.originX + this.deviceWidth / 2 / this.currentZoom;
-      const centreY = this.originY + this.deviceHeight / 2 / this.currentZoom;
+      const centreX = this.originX + this.deviceWidth / 2 * this.texelScale / this.zoom;
+      const centreY = this.originY + this.deviceHeight / 2 * this.texelScale / this.zoom;
       const u = centreY + centreX / 2;
       const v = centreY - centreX / 2;
       voxelFromView(from, u, v, turnScratch);
       voxelToView(to, turnScratch.x, turnScratch.y, turnScratch);
       const nextX = turnScratch.x - turnScratch.y;
       const nextY = (turnScratch.x + turnScratch.y) / 2;
-      this.originX = nextX - this.deviceWidth / 2 / this.currentZoom;
-      this.originY = nextY - this.deviceHeight / 2 / this.currentZoom;
+      this.originX = nextX - this.deviceWidth / 2 * this.texelScale / this.zoom;
+      this.originY = nextY - this.deviceHeight / 2 * this.texelScale / this.zoom;
       this.turnChainMask |= 1 << to.rotation;
       memory[to.rotation * 2] = this.originX;
       memory[to.rotation * 2 + 1] = this.originY;
     }
     this.turnChainX = this.originX;
     this.turnChainY = this.originY;
-    this.turnChainZoom = this.currentZoom;
+    this.turnChainLevel = this.list[this.level];
     this.turnChainWidth = this.deviceWidth;
     this.turnChainHeight = this.deviceHeight;
     this.turnChainRotation = to.rotation;
@@ -532,10 +615,11 @@ export class VoxelCamera implements WorldInputView {
     // Phase 36: the middle of the safe area (the whole viewport without insets: then these are exactly the old
     // halfX / halfY, so a camera that never had insets clamps bit-identically).
     const safe = this.safeArea();
-    const offsetX = (safe.x0 + safe.x1) / 2 / this.currentZoom;
-    const offsetY = (safe.y0 + safe.y1) / 2 / this.currentZoom;
-    const halfX = (safe.x1 - safe.x0) / 2 / this.currentZoom;
-    const halfY = (safe.y1 - safe.y0) / 2 / this.currentZoom;
+    const perDevice = this.texelScale;
+    const offsetX = (safe.x0 + safe.x1) / 2 * perDevice / this.zoom;
+    const offsetY = (safe.y0 + safe.y1) / 2 * perDevice / this.zoom;
+    const halfX = (safe.x1 - safe.x0) / 2 * perDevice / this.zoom;
+    const halfY = (safe.y1 - safe.y0) / 2 * perDevice / this.zoom;
     const centreX = this.originX + offsetX;
     const centreY = this.originY + offsetY;
     const groundX = (centreX / (TILE_WIDTH / 2) + centreY / (TILE_HEIGHT / 2)) / 2;
@@ -549,11 +633,11 @@ export class VoxelCamera implements WorldInputView {
   }
 
   private worldAtDevice(deviceX: number, deviceY: number): { x: number; y: number } {
-    return { x: this.originX + deviceX / this.currentZoom, y: this.originY + deviceY / this.currentZoom };
+    return { x: this.originX + deviceX * this.texelScale / this.zoom, y: this.originY + deviceY * this.texelScale / this.zoom };
   }
 
   private placeWorldAtDevice(worldX: number, worldY: number, deviceX: number, deviceY: number): void {
-    this.originX = worldX - deviceX / this.currentZoom;
-    this.originY = worldY - deviceY / this.currentZoom;
+    this.originX = worldX - deviceX * this.texelScale / this.zoom;
+    this.originY = worldY - deviceY * this.texelScale / this.zoom;
   }
 }

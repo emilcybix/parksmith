@@ -66,6 +66,8 @@ export interface RendererPerformance {
   gpu?: {
     passes: { gbuffer: number; light: number; composite: number; upscale: number } | null;
     zoom: number;
+    /** World texels per low-res texel (Phase 55: 2 and 4 at the far levels). */
+    texelScale: number;
     lowWidth: number;
     lowHeight: number;
   };
@@ -215,9 +217,12 @@ export interface RendererPort {
    * every frame without allocating. Optional: a renderer without it simply shows a still park.
    */
   setCameraCentre?(cellX: number, cellY: number): void;
-  /** The camera's current whole zoom level (the start-screen sweep steps it). Optional, with `setCameraZoom`. */
+  /**
+   * The camera's current zoom level as an index, larger is nearer (the start-screen sweep steps it). Optional, with
+   * `setCameraZoom`. Phase 55: an index, not device px per texel, since the far levels draw at half and quarter scale.
+   */
   readonly cameraZoom?: number;
-  /** Presentation only: sets the whole zoom level, clamped into the renderer's levels, keeping the viewport's centre. */
+  /** Presentation only: sets the zoom level (an index), clamped into the renderer's levels, keeping the viewport's centre. */
   setCameraZoom?(zoom: number): void;
   /**
    * Phase 41: draws the next frames through a cinematic camera (null: back to the isometric view). Optional (voxel

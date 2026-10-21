@@ -3384,8 +3384,18 @@ browsers offer.
 7. **Classic.** `CLASSIC_MIN_ZOOM` stays (classic is frozen).
 
 *Steps.*
-1. Levels and camera (CPU only, k = 1 everywhere, so nothing changes on screen). Tests: the level list per screen,
-   the snapped invariants with k, picking, bit-exact turn round trips at every level.
+1. [x] Levels and camera (CPU only, k = 1 everywhere, so nothing changes on screen). Built 2026-10-21:
+   - A level is (k, N) (`ZoomLevel`, `zoomLevelList`, `nearestLevel`). The wheel steps a level index.
+     `RendererPort.cameraZoom`/`setCameraZoom` and `readViewInfo().zoom` use the index; `&zoom=N` still means
+     N at k = 1.
+   - The snapped camera carries `texelScale`. The origin snaps to whole low-res texels, and the guard band counts in
+     world texels.
+   - With k = 1 every expression is bit for bit the old one: every existing camera, turn, input and renderer test
+     passes unchanged.
+   - The far levels are behind `VoxelCameraOptions.farLevels`, off until step 2. `camera.far.test.ts` runs them:
+     the list per screen, a 64 × 64 map fitting at k = 4, the snapped invariants and the upscale inverse, the wheel,
+     the drag, Q × 4 round trips and resizes.
+   - `&voxelTiming=1` shows N/k.
 2. Projection and culling with k (the far levels draw).
 3. Composite: Bayer anchors, outlines, patterns, contact shadow, weather.
 4. Overlays and figures.

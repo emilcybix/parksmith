@@ -1094,7 +1094,7 @@ export const PerformanceOverlay = (): React.JSX.Element | null => {
       <span>PATHFIND <b>{perf.pathfindingRequests} / sec</b></span>
       {perf.gpu && (
         <>
-          <span>ZOOM <b>{perf.gpu.zoom}</b> · TARGET <b>{perf.gpu.lowWidth}×{perf.gpu.lowHeight}</b> ({((perf.gpu.lowWidth * perf.gpu.lowHeight) / 1e6).toFixed(2)} M)</span>
+          <span>ZOOM <b>{perf.gpu.texelScale > 1 ? `${perf.gpu.zoom}/${perf.gpu.texelScale}` : perf.gpu.zoom}</b> · TARGET <b>{perf.gpu.lowWidth}×{perf.gpu.lowHeight}</b> ({((perf.gpu.lowWidth * perf.gpu.lowHeight) / 1e6).toFixed(2)} M)</span>
           {perf.gpu.passes
             ? <span>GPU <b>{(perf.gpu.passes.gbuffer + perf.gpu.passes.light + perf.gpu.passes.composite + perf.gpu.passes.upscale).toFixed(2)} ms</b> (G {perf.gpu.passes.gbuffer.toFixed(2)} · L {perf.gpu.passes.light.toFixed(2)} · C {perf.gpu.passes.composite.toFixed(2)} · U {perf.gpu.passes.upscale.toFixed(2)})</span>
             : <span>GPU <b>no timer queries</b></span>}
