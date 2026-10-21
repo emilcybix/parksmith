@@ -95,8 +95,12 @@ import { consumeRecoverOnBoot } from './alpha/bootFlags';
 import { degradationNotice } from './alpha/degradationNotice';
 import { GAME_VERSION } from '../ui/aboutModel';
 import { AudioEngine } from '../audio/AudioEngine';
-import { createBrowserAudioContext, createBrowserMusicSource } from '../audio/browserContext';
-import { ambienceFor, musicStateFor, soundForCue, volumesOf, wholeMapView } from '../audio/audioDirector';
+import type { SoundId } from '../audio/synth';
+import { createBrowserAudioContext, createBrowserMusicSource, createBrowserSampleSource } from '../audio/browserContext';
+import {
+  TOAST_SOUND, ambienceFor, cueVoice, musicStateFor, thunderBetween, thunderIsNear, volumesOf, wholeMapView, zoomMix, type CueVoice,
+} from '../audio/audioDirector';
+import { RideSounds } from '../audio/rideSounds';
 import { describeLoadResult, planQuickSaveShortcut } from '../ui/saveLoadModel';
 import {
   bootMenuDecision,
@@ -473,19 +477,30 @@ export class GameApp implements GameCommands, RunCommands {
   /** Phase 15: diffs the park into feedback cues (world effects now, sounds with the audio step). */
   private readonly feedback = new FeedbackTracker((effect) => {
     this.renderer?.showEffect?.(effect);
-    const sound = soundForCue(effect, this.viewInfo, this.session);
-    if (sound !== null) this.audio.play(sound);
+    const voice = cueVoice(effect, this.viewInfo, this.session, this.cueScratch);
+    if (voice !== null) this.audio.play(voice.sound, voice.gain, voice.pan);
   });
+  private readonly cueScratch: CueVoice = { sound: 'click', gain: 0, pan: 0 };
+  /** The rides' and fountains' positional sounds (loops and one-shots), read at the 4 Hz cadence. */
+  private readonly rideSounds = new RideSounds();
+  private readonly playRideSound = (sound: SoundId, gain: number, pan: number): void => {
+    this.audio.play(sound, gain, pan);
+  };
+  private readonly mixScratch = { park: 1, music: 1 };
+  /** The storm slot and the second into it the thunder was last checked at. */
+  private thunderSeed = 0;
+  private thunderSeconds = 0;
   /** Phase 15: the six-bus audio engine; silent until the first user gesture (`unlockAudio`). */
   private readonly audio = new AudioEngine(
     createBrowserAudioContext,
     volumesOf(getSettings()),
     createBrowserMusicSource(),
+    createBrowserSampleSource(),
   );
   /** Phase 47: the calendar read at the 4 Hz cadence for the music's night track (the frame's view is the renderer's). */
   private readonly musicCalendar = createCalendarView();
   /** Phase 15: what the camera shows, refreshed at 4 Hz for the on-screen test and the ambience. */
-  private readonly viewInfo: ViewInfo = { zoom: 0.5, x0: 0, y0: 0, x1: 31, y1: 31 };
+  private readonly viewInfo: ViewInfo = { zoom: 0.5, x0: 0, y0: 0, x1: 31, y1: 31, cx: 16, cy: 16, halfWidth: 16, rightX: 1, rightY: 0 };
   private stopWatchingVolumes: (() => void) | null = null;
   /** Phase 21: what the published land UI was computed from (the world and its land revision). */
   private landUiKey: { world: GameWorld; revision: number } | null = null;
@@ -534,6 +549,7 @@ export class GameApp implements GameCommands, RunCommands {
     this.startMenuEnabled = options.startMenu ?? START_MENU_DEFAULT;
     this.pristineWorldVersion = this.session.world.version;
     this.feedback.attach(this.session);
+    this.rideSounds.reset();
     const store = options.saveStore ?? createSaveStore();
     this.recoveryMonitor = getOrCreateRecoveryMonitor(window as unknown as Record<string, unknown>);
     const resilient = store as SaveStore & { retry?: () => Promise<{ status: StoreStatus }> };
@@ -591,6 +607,7 @@ export class GameApp implements GameCommands, RunCommands {
     // Phase 15: audio exists only after the first gesture (browsers refuse it before, and a game must not start loud).
     window.addEventListener('pointerdown', this.unlockAudio, true);
     window.addEventListener('keydown', this.unlockAudio, true);
+    window.addEventListener('click', this.clickSound, true);
     this.stopWatchingVolumes = settingsStore.subscribe((state, previous) => {
       if (state.settings !== previous.settings) this.audio.setVolumes(volumesOf(state.settings));
     });
@@ -1901,6 +1918,7 @@ export class GameApp implements GameCommands, RunCommands {
     try {
       this.session = next;
       this.feedback.attach(next);
+      this.rideSounds.reset();
       this.unsubscribeWorld = this.world.subscribe(this.onWorldChanged);
       this.sweep.setCentre(this.world.width / 2, this.world.height / 2);
       this.renderer?.setSession(next);
@@ -2762,6 +2780,7 @@ export class GameApp implements GameCommands, RunCommands {
     this.recoveryController.dispose();
     window.removeEventListener('pointerdown', this.unlockAudio, true);
     window.removeEventListener('keydown', this.unlockAudio, true);
+    window.removeEventListener('click', this.clickSound, true);
     this.stopWatchingVolumes?.();
     this.stopWatchingVolumes = null;
     this.audio.setSuspended(true);
@@ -4230,8 +4249,9 @@ export class GameApp implements GameCommands, RunCommands {
    * notification-intensity setting, so a refusal or error cannot be lost by forgetting a tag.
    * Only confirmations ('routine') and progress events ('important') name themselves.
    */
-  private toast(message: string, cls: NotificationClass = 'alert'): void {
+  private toast(message: string, cls: NotificationClass = 'alert', sound: SoundId | null = TOAST_SOUND[cls]): void {
     if (!shouldShowNotification(cls, getSettings().notifications)) return;
+    if (sound !== null) this.audio.play(sound);
     window.clearTimeout(this.toastTimer);
     useUiStore.getState().setToast(message, cls);
     this.toastTimer = window.setTimeout(() => useUiStore.getState().setToast(null), 2200);
@@ -4245,9 +4265,9 @@ export class GameApp implements GameCommands, RunCommands {
       const names = latest.unlockedDefinitionIds
         .map((definitionId) => BUILD_BY_ID.get(definitionId)?.name ?? definitionId)
         .join(', ');
-      this.toast(`Research complete · ${names}`, 'important');
+      this.toast(`Research complete · ${names}`, 'important', null);
     } else {
-      this.toast(`Milestone reached · Finding: +${latest.rewardResearchPoints} RP`, 'important');
+      this.toast(`Milestone reached · Finding: +${latest.rewardResearchPoints} RP`, 'important', null);
     }
     this.audio.play('research');
   }
@@ -4882,6 +4902,11 @@ export class GameApp implements GameCommands, RunCommands {
     this.toast(degradationNotice(label), 'important');
   }
 
+  /** Every press of a button in the interface clicks (the canvas has its own cues). */
+  private readonly clickSound = (event: MouseEvent): void => {
+    if (event.target instanceof Element && event.target.closest('button') !== null) this.audio.play('click');
+  };
+
   /** Phase 15: the first pointer or key press anywhere creates the audio (once; later presses cost nothing). */
   private readonly unlockAudio = (): void => {
     this.audio.unlock();
@@ -4897,10 +4922,32 @@ export class GameApp implements GameCommands, RunCommands {
     else wholeMapView(this.session, this.viewInfo);
     if (!this.audio.ready) return;
     const level = ambienceFor(this.viewInfo, this.session, this.clock.speed === 0);
-    this.audio.setAmbience(level.crowd, level.machinery);
     const night = this.session.calendar.viewInto(this.musicCalendar, this.world.tick).label === 'Night';
+    this.audio.setAmbience(level.crowd, level.machinery, this.menuHold || night ? 0 : 1);
+    const mix = zoomMix(this.viewInfo.zoom, this.menuHold, this.mixScratch);
+    this.audio.setMix(mix.park, mix.music);
+    const paused = this.clock.speed === 0;
+    this.audio.setEmitters(this.rideSounds.update(this.session, this.viewInfo, paused || this.menuHold, this.playRideSound));
+    this.listenForThunder();
     this.audio.setMusicState(musicStateFor(this.session, this.menuHold, night));
     this.publishMusic();
+  }
+
+  /** A storm's lightning (the bolts the sky draws, whether or not flashes are shown) thunders, near or far. */
+  private listenForThunder(): void {
+    const weather = this.session.weatherViewInto(this.frameWeather, this.world.tick);
+    const seconds = weather.secondsIntoSegment;
+    if (weather.flashSeed !== this.thunderSeed || seconds < this.thunderSeconds) {
+      this.thunderSeed = weather.flashSeed;
+      this.thunderSeconds = seconds;
+      return;
+    }
+    const bolt = this.menuHold ? 0 : thunderBetween(weather.flashSeed, this.thunderSeconds, seconds);
+    this.thunderSeconds = seconds;
+    if (bolt === 0) return;
+    const near = thunderIsNear(bolt, weather.intensity);
+    // The sky is everywhere: full level, a little to one side or the other.
+    this.audio.play(near ? 'thunder-near' : 'thunder-far', near ? 1 : 0.8, ((bolt % 7) - 3) / 6);
   }
 
   /** The music player's view (track list and the one playing), written only when it changed. */

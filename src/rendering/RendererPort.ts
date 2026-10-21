@@ -326,5 +326,13 @@ export interface ViewInfo {
   y0: number;
   x1: number;
   y1: number;
+  /** The world point (fractional cells) at the middle of the screen; may lie off the map. */
+  cx: number;
+  cy: number;
+  /** Half the screen's width in world cells (not clamped to the map). */
+  halfWidth: number;
+  /** The world direction (a unit vector) that points right on screen, for stereo panning. */
+  rightX: number;
+  rightY: number;
 }
 

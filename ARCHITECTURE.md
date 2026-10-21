@@ -539,6 +539,33 @@ loop together (optional `loopStart` / `loopEnd`) and cross-fade on a switch; at 
 produced track plays, the synthesised music loop is at 0; any failure leaves that track out for the session and the
 synthesised loop plays. Authoring guide: MUSIC.md.
 
+**Recorded sound effects**: `SOUND_FILES` (AudioEngine.ts) names a file under `public/sfx/` for some cues. With a
+`SampleSource` (`createBrowserSampleSource`), `unlock()` fetches and decodes each one, and its buffer replaces the
+synthesised cue once ready; before that, and for good after a failed fetch or decode, the synthesised cue plays. A
+`RecordedSoundId` (launch, boost, scream, crash, puff, flush, the big and small splash, thunder) has no synthesised
+version and is simply not heard without its file. `soundForCue` picks the sound per object (a water build splashes, a
+Splash Rings / Puddle Jumpers cycle ends in a splash, a coaster breakdown crashes, a toilet sale flushes); GameApp's
+`toast` plays `TOAST_SOUND[cls]` and a capture `click` listener plays `click` for any `<button>`.
+
+**Zoom and proximity**: `ViewInfo` carries the ground point at the middle of the screen (`cx`, `cy`), half the screen
+width in cells (`halfWidth`) and the world direction of screen-right (`rightX`, `rightY`). `zoomMix` cross-fades (equal
+power) the park buses (ambience, rides, guests) against the music bus by the zoom fraction: only the park zoomed all the
+way in, only the music all the way out, all music on the start screen; `AudioEngine.setMix` multiplies the bus gains
+(UI never). A world sound's level is `proximity` (distance to the screen's middle in half widths: 1 there, ~0.6 at the
+edge, ~0 a screen away) and its stereo place `panFor`; `cueVoice` applies both to the feedback cues (the player's own
+stay full and centred). `ambienceFor` turns the guests and running rides near the middle into bed levels (the crowd as a
+density, so a close view of a busy plaza is as full as a far view of a busy park).
+
+**Positional loops** (`audio/rideSounds.ts`, `RideSounds.update` at 4 Hz): a coaster's train rolls where it is (the
+renderers' `coasterHeadIndex` and the centre line; level by its speed since the last look) and rattles its chain on a
+chained segment; a shuttle launches (and screams) as it leaves; a circuit's boost and launch pieces fire as the train
+enters them and its riders scream once over the highest crest (a drop of 2 levels or more); the Bumble Coach puffs steam,
+Temple Trek's carts run an engine, every other running ride hums a motor, a Ripple Fountain splashes. The loops go to
+`AudioEngine.setEmitters`: at most `MAX_VOICES` (the loudest), a voice per key that glides while it stays and fades out
+and stops when it goes. Paused: only fountains. Thunder (`thunderBetween`, the same cells as `stormFlashAt`) plays near
+or far for every bolt the sky would draw. The recorded park beds (`BED_FILES`: day, crowd, chatter, rides) replace the
+synthesised crowd and machinery once decoded.
+
 ## Crowd flow and neighborhoods (Phase 14)
 
 Readability and a small, threshold-gated feedback on top of the existing path network and guest records: no collision,

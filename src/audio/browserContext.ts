@@ -1,4 +1,4 @@
-import type { AudioContextLike } from './AudioEngine';
+import type { AudioContextLike, SampleSource } from './AudioEngine';
 import type { MusicSource } from './MusicPlayer';
 
 /**
@@ -46,6 +46,19 @@ export const createBrowserMusicSource = (): MusicSource => {
       if (type === undefined) return false;
       probe ??= document.createElement('audio');
       return probe.canPlayType(type) !== '';
+    },
+  };
+};
+
+/** The recorded sound effects, fetched from `sfx/` next to the page (only after the first gesture, like the music). */
+export const createBrowserSampleSource = (): SampleSource => {
+  const base = `${(import.meta.env as Record<string, string | undefined>).BASE_URL ?? '/'}sfx/`;
+  return {
+    load: async (file) => {
+      const response = await fetch(`${base}${file.split('/').map(encodeURIComponent).join('/')}`);
+      // A dev server answers an unknown path with the page itself; that fails to decode and the synthesised cue stays.
+      if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
+      return response.arrayBuffer();
     },
   };
 };

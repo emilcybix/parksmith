@@ -8,13 +8,18 @@
  * component, and the noise bed is cross-faded at the seam).
  */
 
-export type SoundId =
+export type SynthSoundId =
   | 'coin' | 'spend' | 'build' | 'chime' | 'clank' | 'ratchet' | 'happy' | 'unhappy' | 'sale'
-  | 'fanfare' | 'research' | 'fail' | 'click';
+  | 'fanfare' | 'research' | 'fail' | 'click' | 'splash' | 'notify' | 'error';
+/** Cues that exist only as recorded files (public/sfx/): without the file they are not heard. */
+export type RecordedSoundId =
+  | 'launch' | 'boost' | 'scream' | 'crash' | 'puff' | 'flush' | 'splash-big' | 'splash-small' | 'thunder-near' | 'thunder-far';
+export type SoundId = SynthSoundId | RecordedSoundId;
 export type LoopId = 'music' | 'crowd' | 'machinery';
 
-export const SOUND_IDS: readonly SoundId[] = [
+export const SOUND_IDS: readonly SynthSoundId[] = [
   'coin', 'spend', 'build', 'chime', 'clank', 'ratchet', 'happy', 'unhappy', 'sale', 'fanfare', 'research', 'fail', 'click',
+  'splash', 'notify', 'error',
 ];
 export const LOOP_IDS: readonly LoopId[] = ['music', 'crowd', 'machinery'];
 
@@ -101,7 +106,7 @@ const finish = (samples: Float32Array): Float32Array => {
 };
 
 /** One short cue, rendered at `rate` samples a second. */
-export const renderSound = (id: SoundId, rate: number): Float32Array => {
+export const renderSound = (id: SynthSoundId, rate: number): Float32Array => {
   switch (id) {
     case 'coin': return finish(tones(rate, 0.35, [{ at: 0, note: 88, length: 0.08, wave: 'square', gain: 0.5 }, { at: 0.07, note: 93, length: 0.26, wave: 'square', gain: 0.5 }], 0.35));
     case 'sale': return finish(tones(rate, 0.25, [{ at: 0, note: 84, length: 0.2, wave: 'triangle', decay: 0.06 }], 0.35));
@@ -133,6 +138,9 @@ export const renderSound = (id: SoundId, rate: number): Float32Array => {
       { at: 0, note: 67, length: 0.3, wave: 'triangle' }, { at: 0.25, note: 63, length: 0.3, wave: 'triangle' }, { at: 0.5, note: 60, length: 0.6, wave: 'triangle', decay: 0.3 },
     ], 0.35));
     case 'click': return finish(noiseBurst(rate, 0.03, 5000, 0.006, 0.5, 23));
+    case 'splash': return finish(mix(noiseBurst(rate, 0.5, 1200, 0.12, 0.8, 37), tones(rate, 0.3, [{ at: 0.02, note: 72, length: 0.2, glide: 12, decay: 0.05 }], 0.25)));
+    case 'notify': return finish(tones(rate, 0.6, [{ at: 0, note: 81, length: 0.3, decay: 0.1 }, { at: 0.12, note: 88, length: 0.45, decay: 0.18 }], 0.3));
+    case 'error': return finish(tones(rate, 0.35, [{ at: 0, note: 50, length: 0.12, wave: 'square', gain: 0.5 }, { at: 0.14, note: 50, length: 0.18, wave: 'square', gain: 0.5 }], 0.35));
   }
 };
 

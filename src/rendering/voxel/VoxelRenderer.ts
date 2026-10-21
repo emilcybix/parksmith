@@ -843,6 +843,22 @@ export class VoxelRenderer implements RendererPort {
     out.y0 = Math.max(0, Math.floor(Math.min(a.y, b.y)));
     out.x1 = Math.min(world.width - 1, Math.ceil(Math.max(a.x, b.x)));
     out.y1 = Math.min(world.height - 1, Math.ceil(Math.max(a.y, b.y)));
+    // The middle of the screen and the middle of its left and right edges, on the ground plane.
+    const ground = (cssX: number, cssY: number): { x: number; y: number } => {
+      const texel = this.camera.cssToWorld(cssX, cssY);
+      const u = (texel.x / (TILE_WIDTH / 2) + texel.y / (TILE_HEIGHT / 2)) / 2;
+      const v = (texel.y / (TILE_HEIGHT / 2) - texel.x / (TILE_WIDTH / 2)) / 2;
+      return pointFromView(this.viewFrame, u, v, { x: 0, y: 0 });
+    };
+    const centre = ground(size.width / 2, size.height / 2);
+    const left = ground(0, size.height / 2);
+    const right = ground(size.width, size.height / 2);
+    const across = Math.hypot(right.x - left.x, right.y - left.y);
+    out.cx = centre.x;
+    out.cy = centre.y;
+    out.halfWidth = Math.max(1, across / 2);
+    out.rightX = across > 0 ? (right.x - left.x) / across : 1;
+    out.rightY = across > 0 ? (right.y - left.y) / across : 0;
   }
 
   syncWorld(): void {
