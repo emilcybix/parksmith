@@ -27,6 +27,7 @@ ${VX_COMMON}${viewTurn ? VX_VIEW_FORWARD : ''}
 uniform highp sampler2D uLights;
 uniform vec2 uCameraTexel;
 uniform vec2 uLowSize;
+uniform float uTexelScale;
 ${viewTurn ? 'uniform vec4 uView;\n' : ''}uniform float uPresetBit;
 
 flat out vec4 vLight;
@@ -42,7 +43,7 @@ ${viewTurn ? `  // The light pass runs in VIEW space (the G-buffer's space): the
 ` : ''}  bool on = (int(color.w) & int(uPresetBit)) != 0 && place.w > 0.0;
   vec2 extent = vec2(place.w * ${glslFloat(SCREEN_EXTENT_X)} + 1.0, place.w * ${glslFloat(SCREEN_EXTENT_Y)} + 1.0);
   vec2 texel = vxProject(place.xyz) + extent * (vec2(float(corner & 1), float(corner >> 1)) * 2.0 - 1.0);
-  gl_Position = on ? vxClip(texel, uCameraTexel, uLowSize, 0.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  gl_Position = on ? vxClip(texel, uCameraTexel, uLowSize, uTexelScale, 0.0) : vec4(2.0, 2.0, 2.0, 1.0);
   vLight = place;
   vColor = color.rgb;
 }
@@ -55,6 +56,7 @@ uniform highp sampler2D uDepth;
 uniform highp sampler2D uGData;
 uniform vec2 uCameraTexel;
 uniform vec2 uDepthRange;
+uniform float uTexelScale;
 
 flat in vec4 vLight;
 flat in vec3 vColor;
@@ -75,7 +77,7 @@ void main() {
     outLight = vec4(0.0);
     return;
   }
-  vec3 position = vxFromTexelAndDepth(uCameraTexel + vec2(texel) + 0.5, vxDepthKeyFromTexture(depth, uDepthRange));
+  vec3 position = vxFromTexelAndDepth(uCameraTexel + (vec2(texel) + 0.5) * uTexelScale, vxDepthKeyFromTexture(depth, uDepthRange));
   vec3 toLight = vLight.xyz - position;
   float lightDistance = length(toLight);
   float falloff = clamp(1.0 - lightDistance / vLight.w, 0.0, 1.0);

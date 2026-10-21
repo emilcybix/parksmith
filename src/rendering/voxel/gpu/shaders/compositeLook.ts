@@ -129,12 +129,14 @@ int vxContourId(vec4 gdata) {
  * A real silhouette is far by both planes. Rotated faces (FACE_OTHER) compare raw depth keys.
  */
 bool vxFarAcrossEdge(float raw, vec2 step, int faceN, int faceC) {
+  // The plane gradients are per WORLD texel; a low-res step is uTexelScale of them (Phase 55; exact at 1).
+  vec2 world = step * uTexelScale;
   bool farByN = faceN == VX_FACE_OTHER
     ? raw > VX_SILHOUETTE_RAW_OTHER
-    : raw - dot(vxPlaneGradient(faceN), step) > VX_SILHOUETTE_MIN_RESIDUAL;
+    : raw - dot(vxPlaneGradient(faceN), world) > VX_SILHOUETTE_MIN_RESIDUAL;
   bool farByC = faceC == VX_FACE_OTHER
     ? raw > VX_SILHOUETTE_RAW_OTHER
-    : raw - dot(vxPlaneGradient(faceC), step) > VX_SILHOUETTE_MIN_RESIDUAL;
+    : raw - dot(vxPlaneGradient(faceC), world) > VX_SILHOUETTE_MIN_RESIDUAL;
   return farByN && farByC;
 }
 

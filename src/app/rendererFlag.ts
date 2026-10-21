@@ -32,6 +32,8 @@ import type { GraphicsDetail, RendererPreference } from '../settings/schema';
  * - `&voxelTiming=1` — VOXEL_TIMING: per-pass GPU milliseconds (EXT_disjoint_timer_query_webgl2, where the browser
  *   offers it), the zoom and the low-res target size in the performance overlay (the ⌁ button). For measuring
  *   what a zoom level costs on a real GPU (Phase 55).
+ * - `&voxelFar=1` — VOXEL_FAR: offers the far zoom levels (half and quarter scale) while Phase 55 is being built;
+ *   the wheel goes two steps further out than the screen's smallest N.
  * - `&voxelDebug=1` — VOXEL_DEBUG: checks the GL error queue after every WebGL call and logs the first
  *   failing call with its name and arguments. Slow; for finding which call a driver rejects.
  * - `&weather=sunny|hot|cloudy|rain|storm` (+ `&wintensity=0..1`, default 0.8) — WEATHER_FLAGS.pin: pins the
@@ -57,6 +59,8 @@ export interface RendererFlags {
   gpuMin: boolean;
   /** Phase 55: `&voxelTiming=1` shows the GPU time per pass and the low-res target in the performance overlay. */
   timing: boolean;
+  /** Phase 55 (until it is finished): `&voxelFar=1` offers the far zoom levels (half and quarter scale). */
+  far: boolean;
   debug: boolean;
   weather: Readonly<Partial<WeatherLookFlags>>;
   voxelWeather: VoxelWeatherFlag;
@@ -80,6 +84,7 @@ const DEFAULT_FLAGS: RendererFlags = {
   allowSoftware: false,
   gpuMin: false,
   timing: false,
+  far: false,
   debug: false,
   weather: {},
   voxelWeather: null,
@@ -131,6 +136,7 @@ const parseRendererFlags = (search: string): RendererFlags => {
     allowSoftware: parameters.get('voxelAllowSoftware') === '1',
     gpuMin: parameters.get('voxelGpu') === 'min',
     timing: parameters.get('voxelTiming') === '1',
+    far: parameters.get('voxelFar') === '1',
     debug: parameters.get('voxelDebug') === '1',
     weather: parseWeatherFlags(search),
     voxelWeather: parseVoxelWeather(parameters.get('voxelWeather')),
@@ -180,6 +186,7 @@ export const ZOOM_OVERRIDE: number | null = FLAGS.zoom;
 export const ALLOW_SOFTWARE_GPU: boolean = FLAGS.allowSoftware;
 export const VOXEL_GPU_MIN: boolean = FLAGS.gpuMin;
 export const VOXEL_TIMING: boolean = FLAGS.timing;
+export const VOXEL_FAR: boolean = FLAGS.far;
 export const VOXEL_DEBUG: boolean = FLAGS.debug;
 /** Presentation-only weather pins and test aids (reducedMotion is read by the renderer, not the URL). */
 export const WEATHER_FLAGS: Readonly<Partial<WeatherLookFlags>> = FLAGS.weather;

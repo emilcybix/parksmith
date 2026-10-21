@@ -71,12 +71,15 @@ export interface TexelView {
   maxY: number;
 }
 
-/** Writes the view of a low-res target whose texel (0, 0) is world texel (cameraX, cameraY). */
-export const viewOfTarget = (cameraX: number, cameraY: number, width: number, height: number, out: TexelView): TexelView => {
+/**
+ * Writes the view of a low-res target whose texel (0, 0) is world texel (cameraX, cameraY), `scale` world texels per
+ * target texel (Phase 55).
+ */
+export const viewOfTarget = (cameraX: number, cameraY: number, width: number, height: number, out: TexelView, scale = 1): TexelView => {
   out.minX = cameraX;
   out.minY = cameraY;
-  out.maxX = cameraX + width;
-  out.maxY = cameraY + height;
+  out.maxX = cameraX + width * scale;
+  out.maxY = cameraY + height * scale;
   return out;
 };
 

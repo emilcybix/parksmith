@@ -102,6 +102,7 @@ const int VX_FIGURE_FLAG_DESATURATE = ${glslInt(FIGURE_FLAG_DESATURATE)};
 uniform highp sampler2D uEntities;
 uniform highp sampler2D uTemplates;
 uniform vec2 uCameraTexel;
+uniform float uTexelScale;
 uniform vec2 uClipSize;
 uniform vec2 uDepthRange;
 ${viewTurn ? 'uniform vec4 uView;\n' : ''}uniform int uEntityBase;
@@ -164,13 +165,14 @@ ${viewTurn ? `  // The view's quarter turns: uView = (c, s, ...) is (1, 0), (0, 
   vec3 offset = turnedMin + turnedSize * vxFaceCorner(axisIndex, corner, 1.0);
 
   vec2 projected = vxProject(${viewTurn ? 'feet' : 'place.xyz'});
-  vec2 snapped = floor(projected + 0.5);
+  // Whole low-res texels (Phase 55: multiples of uTexelScale world texels), so a walker never shimmers inside one.
+  vec2 snapped = floor(projected / uTexelScale + 0.5) * uTexelScale;
   float key = vxDepthKey(${viewTurn ? 'feet' : 'place.xyz'}) + vxDepthKey(offset) + 2.0 * (snapped.y - projected.y);
 #ifdef VX_DITHER
   key += ${glslFloat(FIGURE_SHADOW_DEPTH_BIAS)};
   vOrigin = snapped;
 #endif
-  gl_Position = vxClip(snapped + vxProject(offset), uCameraTexel, uClipSize, vxDepthNdc(key, uDepthRange));
+  gl_Position = vxClip(snapped + vxProject(offset), uCameraTexel, uClipSize, uTexelScale, vxDepthNdc(key, uDepthRange));
 
   int paletteWord = int(look.z);
   int paletteCode = int(extent.w);
@@ -203,6 +205,7 @@ uniform float uTime;
 uniform float uGrid;
 #ifdef VX_DITHER
 uniform vec2 uCameraTexel;
+uniform float uTexelScale;
 #endif
 
 flat in int vMaterial;
@@ -222,7 +225,7 @@ layout(location = 1) out vec4 outGData;
 
 void main() {
 #ifdef VX_DITHER
-  ivec2 anchor = ivec2(gl_FragCoord.xy) + ivec2(uCameraTexel) - ivec2(vOrigin) + ${glslIvec2(DITHER_OFFSET_SHADOW)};
+  ivec2 anchor = ivec2(gl_FragCoord.xy) + ivec2((uCameraTexel - vOrigin) / uTexelScale) + ${glslIvec2(DITHER_OFFSET_SHADOW)};
   if (${glslFloat(FIGURE_SHADOW_COVERAGE)} <= vxBayer4(anchor)) discard;
 #endif
   // Template boxes carry no pattern: figures are flat-coloured (PATTERN.PLAIN).

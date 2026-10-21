@@ -2,7 +2,7 @@ import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from
 import { lowPassCamera, orbitCamera } from './cameraOrbit';
 import { flatRideView, trainRideView } from './rideCamera';
 import { VIEW_TURN_MS, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
-import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, VOXEL_TIMING, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
+import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_FAR, VOXEL_GPU_MIN, VOXEL_TIMING, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
 import type { CinematicView } from '../RendererPort';
 import type { CoasterPiece } from '../../game/coaster/design';
 import { BUILD_BY_ID } from '../../game/content/catalog';
@@ -213,7 +213,7 @@ export class VoxelRenderer implements RendererPort {
   private gpu: VoxelGpu | null = null;
   private host: HTMLElement | null = null;
   private maxTargetSize = 0;
-  private readonly camera = new VoxelCamera({ zoomOverride: ZOOM_OVERRIDE });
+  private readonly camera = new VoxelCamera({ zoomOverride: ZOOM_OVERRIDE, farLevels: VOXEL_FAR });
   private readonly palette: Palette;
   private readonly scene: VoxelScene;
   /** World-texel overlays, never on the stage: rendered into the GPU's overlay target. */
@@ -261,6 +261,7 @@ export class VoxelRenderer implements RendererPort {
   private overlayCameraY = Number.NaN;
   private overlayWidth = 0;
   private overlayHeight = 0;
+  private overlayScale = 1;
   private overlayShown = false;
   /** The preview the overlays last drew; GameApp repeats it on every pointermove inside a cell. */
   private previewKey: string | null = null;
@@ -744,11 +745,12 @@ export class VoxelRenderer implements RendererPort {
     const camera = this.frame.camera;
     if (!instant && this.mounted && this.gpu?.perspectiveOk === true && camera !== undefined && camera.lowHeight > 0) {
       this.viewTurn = {
-        target: groundAtCentre(this.viewFrame, camera.cameraTexelX, camera.cameraTexelY, camera.lowWidth, camera.lowHeight),
+        // Phase 55: in world texels (the target holds texelScale of them per texel).
+        target: groundAtCentre(this.viewFrame, camera.cameraTexelX, camera.cameraTexelY, camera.lowWidth * camera.texelScale, camera.lowHeight * camera.texelScale),
         from: viewAzimuth(this.viewFrame.rotation),
         to: viewAzimuth(rotation),
         startMs: this.lastElapsedMs,
-        lowHeight: camera.lowHeight,
+        lowHeight: camera.lowHeight * camera.texelScale,
       };
     }
     try {
@@ -1285,10 +1287,13 @@ export class VoxelRenderer implements RendererPort {
    * FIGURE_CULL_MARGIN cells (a figure stands about half a tile tall and walks between frames). No allocation.
    */
   private cullFigures(snap: SnappedCamera): void {
+    // Phase 55: the target spans texelScale world texels per texel.
+    const width = snap.lowWidth * snap.texelScale;
+    const height = snap.lowHeight * snap.texelScale;
     const u0 = (snap.texelX / (TILE_WIDTH / 2) + snap.texelY / (TILE_HEIGHT / 2)) / 2;
-    const v0 = (snap.texelY / (TILE_HEIGHT / 2) - (snap.texelX + snap.lowWidth) / (TILE_WIDTH / 2)) / 2;
-    const u1 = ((snap.texelX + snap.lowWidth) / (TILE_WIDTH / 2) + (snap.texelY + snap.lowHeight) / (TILE_HEIGHT / 2)) / 2;
-    const v1 = ((snap.texelY + snap.lowHeight) / (TILE_HEIGHT / 2) - snap.texelX / (TILE_WIDTH / 2)) / 2;
+    const v0 = (snap.texelY / (TILE_HEIGHT / 2) - (snap.texelX + width) / (TILE_WIDTH / 2)) / 2;
+    const u1 = ((snap.texelX + width) / (TILE_WIDTH / 2) + (snap.texelY + height) / (TILE_HEIGHT / 2)) / 2;
+    const v1 = ((snap.texelY + height) / (TILE_HEIGHT / 2) - snap.texelX / (TILE_WIDTH / 2)) / 2;
     pointFromView(this.viewFrame, u0, v0, this.cullA);
     pointFromView(this.viewFrame, u1, v1, this.cullB);
     const margin = FIGURE_CULL_MARGIN;
@@ -1416,17 +1421,21 @@ export class VoxelRenderer implements RendererPort {
       || snap.cameraTexelX !== this.overlayCameraX
       || snap.cameraTexelY !== this.overlayCameraY
       || snap.lowWidth !== this.overlayWidth
-      || snap.lowHeight !== this.overlayHeight;
+      || snap.lowHeight !== this.overlayHeight
+      || snap.texelScale !== this.overlayScale;
     if (!changed && this.overlayShown === !empty) return;
     this.overlayVersion = version;
     this.overlayCameraX = snap.cameraTexelX;
     this.overlayCameraY = snap.cameraTexelY;
     this.overlayWidth = snap.lowWidth;
     this.overlayHeight = snap.lowHeight;
+    this.overlayScale = snap.texelScale;
     this.overlayShown = !empty;
     gpu.setOverlayVisible(!empty);
     if (empty) return;
-    this.overlayRoot.position.set(-snap.cameraTexelX, -snap.cameraTexelY);
+    // Phase 55: world texels to target texels (1 / texelScale; at 1 exactly the old placement).
+    this.overlayRoot.scale.set(1 / snap.texelScale);
+    this.overlayRoot.position.set(-snap.cameraTexelX / snap.texelScale, -snap.cameraTexelY / snap.texelScale);
     gpu.renderOverlay(this.overlayRoot);
   }
 

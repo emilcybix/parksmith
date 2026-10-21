@@ -239,7 +239,8 @@ describe('the worldCut program', () => {
   });
 
   it('computes the same decision as seeThroughCoverage, from the window position and depth alone', () => {
-    expect(fragment).toContain('vec2 seeTexel = gl_FragCoord.xy + uCameraTexel;');
+    // Phase 55: the window position in world texels (uTexelScale of them per low-res texel).
+    expect(fragment).toContain('vec2 seeTexel = gl_FragCoord.xy * uTexelScale + uCameraTexel;');
     expect(fragment).toContain('length(max(abs(seeTexel - uSeeA.xy) - uSeeA.zw, vec2(0.0)))');
     expect(fragment).toContain('float seeKey = vxDepthKeyFromTexture(gl_FragCoord.z, uDepthRange);');
     expect(fragment).toContain('float seeZ = (seeKey - 2.0 * seeTexel.y) / 3.0;');
@@ -247,7 +248,7 @@ describe('the worldCut program', () => {
     expect(fragment).toContain('uSeeB.w * (1.0 - smoothstep(0.4 * uSeeB.z, uSeeB.z, seeDistance))');
     // Dither rung: a world-anchored door (the fragment texel plus the camera texel, like the ghost's); translucent
     // rung (uSeeC.z > 0): threshold 0, so every fragment with coverage leaves the buffer for the front layer.
-    expect(fragment).toMatch(/float seeThreshold = uSeeC\.z > 0\.0 \? 0\.0 : vxBayer4\(ivec2\(gl_FragCoord\.xy\) \+ ivec2\(uCameraTexel\) \+ ivec2\(3, 1\)\);/);
+    expect(fragment).toMatch(/float seeThreshold = uSeeC\.z > 0\.0 \? 0\.0 : vxBayer4\(ivec2\(gl_FragCoord\.xy\) \+ ivec2\(uCameraTexel \/ uTexelScale\) \+ ivec2\(3, 1\)\);/);
     expect(fragment).toContain('if (seeCut > seeThreshold) discard;');
   });
 

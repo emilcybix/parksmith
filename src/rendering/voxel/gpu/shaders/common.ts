@@ -28,8 +28,9 @@ import {
  * - Shared uniform names (Pixi UniformGroup `frameUniforms`, all vec2<f32>/f32 holding integers
  *   where noted): uCameraTexel (low-res texel (0,0) in world texels, guard band included),
  *   uLowSize, uClipSize (power-of-two viewport the geometry programs map through, so rotated edges
- *   stay put on 1-texel pans), uDepthRange (min, max depth key), uTime (seconds, wrapped on the
- *   CPU), uGrid (0/1).
+ *   stay put on 1-texel pans), uTexelScale (Phase 55: world texels per low-res texel, 1, 2 or 4;
+ *   uCameraTexel is a multiple of it), uDepthRange (min, max depth key), uTime (seconds, wrapped on
+ *   the CPU), uGrid (0/1).
  * - Samplers are `highp sampler2D`; data is fetched with texelFetch only.
  * - No program used for an opaque draw contains `discard` (it disables early-Z / hidden-surface
  *   removal on Mali, Adreno and Apple GPUs). Dithered draws use a separate DITHER variant.
@@ -101,9 +102,12 @@ vec3 vxFromTexelAndDepth(vec2 t, float key) {
   return vec3((sum + t.x) * 0.5, (sum - t.x) * 0.5, key - sum);
 }
 
-/** Clip-space position of a world texel in a low-res target whose texel (0,0) is at \`cameraTexel\`. */
-vec4 vxClip(vec2 worldTexel, vec2 cameraTexel, vec2 lowSize, float ndcZ) {
-  vec2 p = (worldTexel - cameraTexel) / lowSize * 2.0 - 1.0;
+/**
+ * Clip-space position of a world texel in a low-res target whose texel (0,0) is at \`cameraTexel\`, holding \`scale\`
+ * world texels per texel (Phase 55; dividing by 1.0 is exact, so k = 1 maps as before).
+ */
+vec4 vxClip(vec2 worldTexel, vec2 cameraTexel, vec2 lowSize, float scale, float ndcZ) {
+  vec2 p = (worldTexel - cameraTexel) / scale / lowSize * 2.0 - 1.0;
   return vec4(p, ndcZ, 1.0);
 }
 

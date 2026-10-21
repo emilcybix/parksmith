@@ -28,8 +28,8 @@ const int VX_MATERIAL_FLAG_NO_OUTLINE = ${glslInt(MATERIAL_FLAG_NO_OUTLINE)};
 const int VX_MATERIAL_FLAG_SHADOW = ${glslInt(MATERIAL_FLAG_SHADOW)};
 
 /**
- * Projected vertex positions snap to 1/VX_SUBTEXEL_STEPS texel in WORLD texels, before the camera
- * is subtracted. Together with the power-of-two clip size the geometry passes map through
+ * Projected vertex positions snap to 1/VX_SUBTEXEL_STEPS of a low-res texel (\`scale\` world texels; Phase 55),
+ * in world coordinates, before the camera is subtracted. Together with the power-of-two clip size the geometry passes map through
  * (uClipSize, see VoxelGpu), this makes every window coordinate an exact translate of the world
  * position: world − camera is exact, ×2/size and −1 are exact for values on this grid, and so is the
  * viewport transform back. A rotated edge that passes close to a texel centre — a spinning ride part —
@@ -39,8 +39,8 @@ const int VX_MATERIAL_FLAG_SHADOW = ${glslInt(MATERIAL_FLAG_SHADOW)};
  */
 const float VX_SUBTEXEL_STEPS = ${glslFloat(SUBTEXEL_STEPS)};
 
-vec2 vxSnapSubtexel(vec2 texel) {
-  return floor(texel * VX_SUBTEXEL_STEPS + 0.5) / VX_SUBTEXEL_STEPS;
+vec2 vxSnapSubtexel(vec2 texel, float scale) {
+  return floor(texel / scale * VX_SUBTEXEL_STEPS + 0.5) / VX_SUBTEXEL_STEPS * scale;
 }
 
 /** One-hot vector of local axis k (0 = x, 1 = y, 2 = z). */

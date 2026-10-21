@@ -34,32 +34,36 @@ const hash53 = (text: string): string => {
  * Hashes of the vertex + fragment text of every program with `viewTurn: false`, taken from the sources before
  * Phase 26 (verified byte for byte against SHA-256 of the pre-change output). This is the `no-view-rotation`
  * rung: if a hash moves, the fallback is no longer today's shader, which is the whole point of having it.
+ *
+ * Phase 55 re-pinned every program that reads the camera: a uTexelScale uniform (world texels per low-res texel)
+ * divides the clip mapping and the sub-texel snap and scales the texel-to-world steps and the outline's plane steps.
+ * At 1 every expression is exact, so the view-off picture is unchanged.
  */
 const PRE_ROTATION_HASHES: Readonly<Record<string, string>> = {
-  'worldOpaque': '167fca9ead9721',
-  'worldDither': 'b648960cdfcd3',
-  'worldCut': 'c905151b1218a',
-  'worldFront': '11bf3e81ecdb94',
+  'worldOpaque': '1ec0cf7b566ad',
+  'worldDither': '1e26dbe8d2ec14',
+  'worldCut': 'f72440a88ad7d',
+  'worldFront': 'c8ed2fb409cc5',
   // Phase 29: both figure programs re-pinned once, for the keyframe table's new pose columns (sit, hunch, cheer, wave
   // ...); no view code.
-  'figureOpaque': '21d953c960eb1',
-  'figureDither': '37e92fcdc93f5',
-  'lightPass': 'a6d5ab361f035',
-  'composite/full/full/plain': '1aeec7cc794b0c',
-  'composite/full/full/translucent': '16486593637df9',
-  'composite/full/rain/plain': '15c0ee072d0540',
-  'composite/full/rain/translucent': '16b078a4c50bf8',
-  'composite/full/none/plain': '1741a8905d9263',
-  'composite/full/none/translucent': 'ab833d6d8d06b',
-  'composite/lite/full/plain': '1d5f87b096d6b',
-  'composite/lite/full/translucent': '1d5f87b096d6b',
-  'composite/lite/rain/plain': '1ea5c54bdc4867',
-  'composite/lite/rain/translucent': '1ea5c54bdc4867',
-  'composite/lite/none/plain': '1eb8f4adb34cfa',
-  'composite/lite/none/translucent': '1eb8f4adb34cfa',
-  'compositeFront/full': 'ca3c7a0841654',
-  'compositeFront/rain': 'b5954ff04d0db',
-  'compositeFront/none': '1671987acd8e35',
+  'figureOpaque': '4b1be35c3be89',
+  'figureDither': 'e57689d9238af',
+  'lightPass': '9a5be3619b012',
+  'composite/full/full/plain': '619eedba8bb34',
+  'composite/full/full/translucent': '105b0de14fefa',
+  'composite/full/rain/plain': 'ac3d88686a316',
+  'composite/full/rain/translucent': 'c308aeabc9afe',
+  'composite/full/none/plain': 'ba8638d353f99',
+  'composite/full/none/translucent': '8db1838e90265',
+  'composite/lite/full/plain': '1bbccc968dc895',
+  'composite/lite/full/translucent': '1bbccc968dc895',
+  'composite/lite/rain/plain': '177dd33fc97b2',
+  'composite/lite/rain/translucent': '177dd33fc97b2',
+  'composite/lite/none/plain': 'f50f347541cbe',
+  'composite/lite/none/translucent': 'f50f347541cbe',
+  'compositeFront/full': '761de3ac033ea',
+  'compositeFront/rain': 'b106ab6fbcf5f',
+  'compositeFront/none': '10f68dc1978e09',
   'upscale': '1e689b1eae22f9',
 };
 
@@ -190,7 +194,7 @@ describe('the view-on sources (design section 4)', () => {
       }
     }
     const world = preprocessGlsl(voxelProgramSource('worldDither').fragment);
-    expect(world).toMatch(/ivec2 anchor = ivec2\(gl_FragCoord\.xy\) \+ ivec2\(uCameraTexel\)/);
+    expect(world).toMatch(/ivec2 anchor = ivec2\(gl_FragCoord\.xy\) \+ ivec2\(uCameraTexel \/ uTexelScale\)/);
   });
 
   it('map the texel point back to the world once, in the ground hook only (cloud shadows and puddles are world-anchored)', () => {

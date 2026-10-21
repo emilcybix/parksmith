@@ -461,6 +461,8 @@ class PixiVoxelGpu implements VoxelGpu {
     uLowSize: { value: vec2(), type: 'vec2<f32>' },
     /** The G-buffer pass's power-of-two viewport, which the geometry programs map through (clipSizeFor). */
     uClipSize: { value: vec2(), type: 'vec2<f32>' },
+    /** Phase 55: world texels per low-res texel (1, or 2 and 4 at the far zoom levels). */
+    uTexelScale: { value: 1, type: 'f32' },
     uDepthRange: { value: vec2(), type: 'vec2<f32>' },
     uTime: { value: 0, type: 'f32' },
     uGrid: { value: 0, type: 'f32' },
@@ -564,6 +566,7 @@ class PixiVoxelGpu implements VoxelGpu {
     uCameraTexel: { value: vec2(), type: 'vec2<f32>' },
     uLowSize: { value: vec2(), type: 'vec2<f32>' },
     uClipSize: { value: vec2(), type: 'vec2<f32>' },
+    uTexelScale: { value: 1, type: 'f32' },
     uDepthRange: { value: vec2(), type: 'vec2<f32>' },
     uTime: { value: 0, type: 'f32' },
     uGrid: { value: 0, type: 'f32' },
@@ -980,6 +983,7 @@ class PixiVoxelGpu implements VoxelGpu {
     const uniforms = this.frameUniforms.uniforms;
     uniforms.uCameraTexel[0] = camera.cameraTexelX;
     uniforms.uCameraTexel[1] = camera.cameraTexelY;
+    uniforms.uTexelScale = camera.texelScale;
     uniforms.uDepthRange[0] = frame.depthRange.min;
     uniforms.uDepthRange[1] = frame.depthRange.max;
     uniforms.uTime = wrapShaderSeconds(frame.elapsedMs);
@@ -989,7 +993,7 @@ class PixiVoxelGpu implements VoxelGpu {
     this.offsetY = camera.offsetY;
     // The camera's own view, not the target: under gpuMin the target shrinks to 64×64 while the draw
     // sequence must stay what the real frame would draw.
-    viewOfTarget(camera.cameraTexelX, camera.cameraTexelY, camera.lowWidth, camera.lowHeight, this.view);
+    viewOfTarget(camera.cameraTexelX, camera.cameraTexelY, camera.lowWidth, camera.lowHeight, this.view, camera.texelScale);
     if (frame.lookRevision !== this.appliedLookRevision || frame.look !== this.appliedLook) {
       this.applyLook(frame.look, frame.lightBits);
       this.appliedLookRevision = frame.lookRevision;
@@ -1025,7 +1029,7 @@ class PixiVoxelGpu implements VoxelGpu {
     let active = false;
     if (this.translucent && !this.frontFailed && this.seeThroughStrength > 0 && this.cutCount > 0) {
       const frame = this.frameUniforms.uniforms;
-      active = frontRectFor(input, frame.uCameraTexel[0], frame.uCameraTexel[1], frame.uLowSize[0], frame.uLowSize[1], FRONT_CAPACITY, this.frontRect)
+      active = frontRectFor(input, frame.uCameraTexel[0], frame.uCameraTexel[1], frame.uLowSize[0], frame.uLowSize[1], FRONT_CAPACITY, this.frontRect, frame.uTexelScale)
         && this.frontRect.width > 0;
     }
     if (this.seeThroughSync.sync(this.seeThroughUniforms.uniforms, input, active ? this.frontRect : null)) this.stats.seeThroughWrites += 1;
@@ -1572,8 +1576,10 @@ class PixiVoxelGpu implements VoxelGpu {
   private syncFrontFrame(originX: number, originY: number): void {
     const main = this.frameUniforms.uniforms;
     const front = this.frontFrameUniforms.uniforms;
-    front.uCameraTexel[0] = main.uCameraTexel[0] + originX;
-    front.uCameraTexel[1] = main.uCameraTexel[1] + originY;
+    // The rectangle's origin is in target texels; the camera is in world texels (Phase 55: uTexelScale apart).
+    front.uCameraTexel[0] = main.uCameraTexel[0] + originX * main.uTexelScale;
+    front.uCameraTexel[1] = main.uCameraTexel[1] + originY * main.uTexelScale;
+    front.uTexelScale = main.uTexelScale;
     front.uLowSize[0] = FRONT_CAPACITY.width;
     front.uLowSize[1] = FRONT_CAPACITY.height;
     front.uClipSize[0] = main.uClipSize[0];

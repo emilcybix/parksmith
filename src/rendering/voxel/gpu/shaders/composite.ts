@@ -153,6 +153,7 @@ uniform highp sampler2D uOverlay;
 uniform highp sampler2D uFront;
 uniform vec2 uCameraTexel;
 uniform vec2 uLowSize;
+uniform float uTexelScale;
 uniform vec2 uDepthRange;
 uniform float uTime;
 uniform float uGrid;
@@ -238,7 +239,7 @@ float vxDepthKeyAt(float depth) {
 }
 
 vec3 vxPositionAt(ivec2 texel, float key) {
-  return vxFromTexelAndDepth(uCameraTexel + vec2(texel) + 0.5, key);
+  return vxFromTexelAndDepth(uCameraTexel + (vec2(texel) + 0.5) * uTexelScale, key);
 }
 
 bool vxIsOccluder(vec4 gdata) {
@@ -252,9 +253,12 @@ vec2 vxPlaneGradient(int face) {
   return VX_PLANE_GRADIENT_TOP;
 }
 
-/** The texel's world anchor for dithers: low-res texel + camera texel. */
+/**
+ * The texel's world anchor for dithers: low-res texel + camera texel, in low-res texels (Phase 55: the camera is a
+ * multiple of uTexelScale world texels, so the anchor stays put on the ground at every scale).
+ */
 ivec2 vxWorldTexel(ivec2 texel) {
-  return texel + ivec2(uCameraTexel);
+  return texel + ivec2(uCameraTexel / uTexelScale);
 }
 
 /**
@@ -285,7 +289,7 @@ const seeCoverage = `
  * true by construction for every texel of the front layer, so it is not repeated here.
  */
 float vxSeeCoverage(ivec2 texel) {
-  vec2 centre = vec2(vxWorldTexel(texel)) + 0.5;
+  vec2 centre = uCameraTexel + (vec2(texel) + 0.5) * uTexelScale;
   float distanceToHole = length(max(abs(centre - uSeeA.xy) - uSeeA.zw, vec2(0.0)));
   return uSeeB.w * (1.0 - smoothstep(0.4 * uSeeB.z, uSeeB.z, distanceToHole));
 }

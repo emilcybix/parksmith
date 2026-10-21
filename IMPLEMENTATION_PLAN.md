@@ -3396,7 +3396,31 @@ browsers offer.
      the list per screen, a 64 × 64 map fitting at k = 4, the snapped invariants and the upscale inverse, the wheel,
      the drag, Q × 4 round trips and resizes.
    - `&voxelTiming=1` shows N/k.
-2. Projection and culling with k (the far levels draw).
+2. [x] Projection and culling with k (the far levels draw). Built 2026-10-21, behind `&voxelFar=1`:
+   - A frame uniform `uTexelScale`. `vxClip` and `vxSnapSubtexel` take it, and figures snap to whole low-res
+     texels.
+   - Every low-res texel turned back into the world steps k world texels: positions for the light pass, the
+     contact shadow and the weather, and the see-through cut and coverage.
+   - The Bayer anchors are low-res texel + camera / k (16 sites), so dithers stay whole and stay put on the
+     ground.
+   - The outline's plane steps are scaled by k.
+   - Chunk and figure culling, the view-turn camera, the see-through front rectangle and the overlay root
+     (scaled 1 / k) take k.
+   - At k = 1 every expression is exact. The pre-rotation source hashes were re-pinned for the new uniform; every
+     other test passes unchanged. `texelScale.test.ts` checks the sources.
+   - Not yet: overlay art is drawn at 1 / k (step 4). Patterns, the contact shadow's reach and rain are as they
+     fall (step 3).
+   - **Measured (owner, 2026-10-21):** the same dev park, about 900 guests, night, 1920 × 958, `&voxelFar=1`. The
+     owner's verdict: it looks good. The whole 64 × 64 map fits at 1/4 with room around it.
+
+     | level | GPU total | G-buffer | light | composite | upscale |
+     | --- | --- | --- | --- | --- | --- |
+     | 1 (today's furthest) | 4.1-4.9 ms | 2.7-3.7 | 0.3-0.5 | 0.5-0.8 | 0.2-0.5 |
+     | 1/2 | 3.90 ms | 2.95 | 0.40 | 0.51 | 0.04 |
+     | 1/4 | 2.21 ms | 1.48 | 0.59 | 0.13 | 0.01 |
+
+     The far levels cost less than today's furthest, not more: the extra geometry costs less than the texels the
+     park no longer covers (grass and the background behind the map are cheap). There is no frame-budget concern.
 3. Composite: Bayer anchors, outlines, patterns, contact shadow, weather.
 4. Overlays and figures.
 5. The owner looks in the browser at k = 2 and 4: panning without shimmer, outlines, the dev park at 1,000 guests,

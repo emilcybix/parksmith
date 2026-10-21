@@ -97,7 +97,7 @@ export const perspectiveFigureShaderSource = (): ShaderSource => {
     `  vec3 centre = place.xyz + turnedMin + turnedSize * 0.5;
   float side = dot(vxAxis(axisIndex), uEye - vec3(centre.xy, centre.z * uZScale)) >= 0.0 ? 1.0 : -1.0;
   vec3 offset = turnedMin + turnedSize * vxFaceCorner(axisIndex, corner, side > 0.0 ? 1.0 : 0.0);`);
-  vertex = replace(vertex, '  gl_Position = vxClip(snapped + vxProject(offset), uCameraTexel, uClipSize, vxDepthNdc(key, uDepthRange));',
+  vertex = replace(vertex, '  gl_Position = vxClip(snapped + vxProject(offset), uCameraTexel, uClipSize, uTexelScale, vxDepthNdc(key, uDepthRange));',
     `  vec3 placed = place.xyz + offset;
   gl_Position = uViewProj * vec4(placed.xy, placed.z * uZScale, 1.0);
   gl_Position.y = -gl_Position.y;

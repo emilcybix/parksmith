@@ -122,7 +122,8 @@ export const createFrontRect = (): FrontRect => ({ x: 0, y: 0, width: 0, height:
  * Writes the rectangle of the target the front layer covers: the hole grown by its margin and the ink
  * ring, relative to the camera, clamped to the target. Returns whether it fits `capacity`; an empty
  * result (the hole is off screen) has width 0 and fits. Allocation-free; a camera pan by whole texels moves
- * the origin by the same whole number (the rectangle is a pure function of world texels and camera).
+ * the origin by the same whole number (the rectangle is a pure function of world texels and camera). The hole is in
+ * world texels and the rectangle in target texels: Phase 55's `texelScale` (world texels per target texel) converts.
  */
 export const frontRectFor = (
   frame: Readonly<SeeThroughUniformValues>,
@@ -132,11 +133,13 @@ export const frontRectFor = (
   lowHeight: number,
   capacity: Readonly<{ width: number; height: number }>,
   out: FrontRect,
+  texelScale = 1,
 ): boolean => {
-  const minX = Math.max(0, Math.floor(frame.ax - frame.aw - frame.margin - cameraTexelX) - FRONT_INK_TEXELS);
-  const maxX = Math.min(lowWidth, Math.ceil(frame.ax + frame.aw + frame.margin - cameraTexelX) + FRONT_INK_TEXELS);
-  const minY = Math.max(0, Math.floor(frame.ay - frame.ah - frame.margin - cameraTexelY) - FRONT_INK_TEXELS);
-  const maxY = Math.min(lowHeight, Math.ceil(frame.ay + frame.ah + frame.margin - cameraTexelY) + FRONT_INK_TEXELS);
+  const k = texelScale;
+  const minX = Math.max(0, Math.floor((frame.ax - frame.aw - frame.margin - cameraTexelX) / k) - FRONT_INK_TEXELS);
+  const maxX = Math.min(lowWidth, Math.ceil((frame.ax + frame.aw + frame.margin - cameraTexelX) / k) + FRONT_INK_TEXELS);
+  const minY = Math.max(0, Math.floor((frame.ay - frame.ah - frame.margin - cameraTexelY) / k) - FRONT_INK_TEXELS);
+  const maxY = Math.min(lowHeight, Math.ceil((frame.ay + frame.ah + frame.margin - cameraTexelY) / k) + FRONT_INK_TEXELS);
   const width = maxX - minX;
   const height = maxY - minY;
   if (!(width > 0) || !(height > 0)) {

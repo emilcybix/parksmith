@@ -78,6 +78,7 @@ uniform highp sampler2D uBoxes;
 uniform highp sampler2D uTransforms;
 uniform vec2 uCameraTexel;
 uniform vec2 uClipSize;
+uniform float uTexelScale;
 uniform vec2 uDepthRange;
 ${viewTurn ? 'uniform vec4 uView;\n' : ''}#ifdef VX_DITHER
 uniform vec3 uGhostOrigin;
@@ -127,7 +128,7 @@ ${viewTurn ? `  // The identity quaternion rotates exactly (every cross product 
 #ifdef VX_DITHER
   key += uGhostDepthBias;
 #endif
-  gl_Position = vxClip(vxSnapSubtexel(vxProject(view)), uCameraTexel, uClipSize, vxDepthNdc(key, uDepthRange));
+  gl_Position = vxClip(vxSnapSubtexel(vxProject(view), uTexelScale), uCameraTexel, uClipSize, uTexelScale, vxDepthNdc(key, uDepthRange));
 
 ` : `  // The identity quaternion rotates exactly (every cross product is zero), so static boxes keep
   // their integer corners bit for bit.
@@ -143,7 +144,7 @@ ${viewTurn ? `  // The identity quaternion rotates exactly (every cross product 
 #ifdef VX_DITHER
   key += uGhostDepthBias;
 #endif
-  gl_Position = vxClip(vxSnapSubtexel(vxProject(world)), uCameraTexel, uClipSize, vxDepthNdc(key, uDepthRange));
+  gl_Position = vxClip(vxSnapSubtexel(vxProject(world), uTexelScale), uCameraTexel, uClipSize, uTexelScale, vxDepthNdc(key, uDepthRange));
 
 `}  vMaterial = word & 255;
   vGroup = (word >> 8) & 255;
@@ -173,12 +174,14 @@ uniform float uTime;
 uniform float uGrid;
 #ifdef VX_DITHER
 uniform vec2 uCameraTexel;
+uniform float uTexelScale;
 uniform float uCoverage;
 uniform vec3 uGhostTint;
 uniform float uGhostMix;
 #endif
 #ifdef VX_CUT
 uniform vec2 uCameraTexel;
+uniform float uTexelScale;
 uniform vec2 uDepthRange;
 uniform vec4 uSeeA;
 uniform vec4 uSeeB;
@@ -206,12 +209,12 @@ layout(location = 1) out vec4 outGData;
 void main() {
 #ifdef VX_DITHER
   // World-anchored: the ghost's screen door stays put on the ground while the camera pans.
-  ivec2 anchor = ivec2(gl_FragCoord.xy) + ivec2(uCameraTexel) + ${glslIvec2(DITHER_OFFSET_GHOST)};
+  ivec2 anchor = ivec2(gl_FragCoord.xy) + ivec2(uCameraTexel / uTexelScale) + ${glslIvec2(DITHER_OFFSET_GHOST)};
   if (uCoverage <= vxBayer4(anchor)) discard;
 #endif
 #ifdef VX_CUT
   // uSeeA: hole rectangle centre and half size (world texels); uSeeB: cut key, floor z, margin, strength.
-  vec2 seeTexel = gl_FragCoord.xy + uCameraTexel;
+  vec2 seeTexel = gl_FragCoord.xy * uTexelScale + uCameraTexel;
   float seeDistance = length(max(abs(seeTexel - uSeeA.xy) - uSeeA.zw, vec2(0.0)));
   float seeKey = vxDepthKeyFromTexture(gl_FragCoord.z, uDepthRange);
   float seeZ = (seeKey - 2.0 * seeTexel.y) / 3.0;
@@ -225,7 +228,7 @@ void main() {
 #else
   // uSeeC.z > 0: the translucent rung, every occluder fragment leaves this buffer (the front layer holds
   // it); 0: the dither rung, the world-anchored screen door.
-  float seeThreshold = uSeeC.z > 0.0 ? 0.0 : vxBayer4(ivec2(gl_FragCoord.xy) + ivec2(uCameraTexel) + ${glslIvec2(DITHER_OFFSET_SEE)});
+  float seeThreshold = uSeeC.z > 0.0 ? 0.0 : vxBayer4(ivec2(gl_FragCoord.xy) + ivec2(uCameraTexel / uTexelScale) + ${glslIvec2(DITHER_OFFSET_SEE)});
   if (seeCut > seeThreshold) discard;
 #endif
 #endif

@@ -97,7 +97,8 @@ describe('voxel GLSL programs', () => {
       expect(clip?.[1], name).not.toContain('uLowSize');
     }
     // The world program projects the VIEW point (Phase 26); viewTransform.test.ts pins the pre-rotation text.
-    expect(stagesOf('worldOpaque').vertex).toContain('vxClip(vxSnapSubtexel(vxProject(view))');
+    // Phase 55: both the snap and the clip mapping take the texel scale.
+    expect(stagesOf('worldOpaque').vertex).toContain('vxClip(vxSnapSubtexel(vxProject(view), uTexelScale), uCameraTexel, uClipSize, uTexelScale,');
   });
 
   it('call the look exactly once and stay within the composite fetch budget, counted from the call sites', () => {
