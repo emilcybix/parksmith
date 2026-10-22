@@ -406,7 +406,9 @@ describe('surface pattern GLSL chunk', () => {
     // Bands and tiles use the voxel: ROOF's tabs and STRIPES' bands, and the lawn's tiles and grid line.
     expect(flat.match(/vxPatternPlane\(voxel,/g)?.length, 'ROOF and STRIPES read the voxel plane').toBe(2);
     expect(flat, 'lawn tiles').toContain('color = (((voxel.x >> 5) + (voxel.y >> 5)) & 1) == 0 ? base : second;');
-    expect(flat, 'grid line').toContain('bool border = (voxel.x & 31) == 0 || (voxel.y & 31) == 0;');
+    // Phase 55: `grid` is the line's width in voxels (the texel scale), so the line stays one texel wide at every zoom.
+    expect(flat, 'grid line').toContain('int line = int(grid);');
+    expect(flat, 'grid line').toContain('bool border = (voxel.x & 31) < line || (voxel.y & 31) < line;');
   });
 
   it('offsets cells by a multiple of every period, and mirrors model x so lattices survive a quarter turn', () => {

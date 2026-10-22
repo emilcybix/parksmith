@@ -152,7 +152,18 @@ export class VoxelBadges {
 
   /** True when no badge is showing. */
   get isEmpty(): boolean {
-    return this.visibleCount === 0;
+    return this.visibleCount === 0 || !this.layer.visible;
+  }
+
+  /**
+   * Phase 55: hidden at the far zoom levels, where the badges (pixel art at one texel per texel) would shrink to
+   * specks: an overview. They keep updating, so they are where they belong when shown again. One `version` bump on a
+   * change.
+   */
+  setHidden(hidden: boolean): void {
+    if (this.layer.visible === !hidden) return;
+    this.layer.visible = !hidden;
+    this.version += 1;
   }
 
   /**

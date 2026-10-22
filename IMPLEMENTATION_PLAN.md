@@ -3421,10 +3421,27 @@ browsers offer.
 
      The far levels cost less than today's furthest, not more: the extra geometry costs less than the texels the
      park no longer covers (grass and the background behind the map are cheap). There is no frame-budget concern.
-3. Composite: Bayer anchors, outlines, patterns, contact shadow, weather.
-4. Overlays and figures.
+3. [x] Composite (2026-10-22). Bayer anchors and outlines were done in step 2. What was left:
+   - **The lawn's grid line** (`#`) is drawn k voxels wide, so it stays one texel on screen. Before, it would break
+     into dashes.
+   - **Patterns, the contact shadow and rain stay as they fall.** In the owner's look at 1/2 and 1/4 (step 2) the
+     patterns read as texture, not noise. The contact shadow keeps its taps in screen texels, so it reaches 4k and
+     6k world texels and mostly finds nothing to shade: at those distances that is right. Rain is anchored per
+     screen texel and keeps its look on screen.
+4. [x] Overlays and figures (2026-10-22). Figures were done in step 2. For the overlays:
+   - **Strokes:** every stroke is drawn k times as wide in world texels (`overlayStrokeWidth`;
+     `VoxelOverlays.setTexelScale` redraws the retained layers, `VoxelHints.restroke` the ring). Outlines stay 1 and
+     2 texels on screen: build and bulldoze previews, the coaster draft, selection, influence, crowd, the land fence
+     and the hint ring.
+   - **Fills** (tile diamonds) scale with the world, as they should.
+   - **Badges and effects** (money pops, reactions, bin and alert badges) are hidden at k ≥ 2 (`setHidden`): pixel
+     art at one texel per texel would be specks. They keep updating, so they are right when shown again.
+   - **Not done:** the for-sale signs on the land layer are world-sized pixel art and shrink with the map.
+   - Tests: `overlay/texelScale.test.ts`.
 5. The owner looks in the browser at k = 2 and 4: panning without shimmer, outlines, the dev park at 1,000 guests,
-   and the overlay numbers.
+   and the overlay numbers. The picture and the numbers were checked after step 2 (good, cheaper than today). Still to
+   check (`&voxelFar=1`): the overlays at 1/2 and 1/4 (a build preview, a path drag, the bulldozer, the grid `#`,
+   the land fence on an estate, a First Day hint ring). Then `farLevels` becomes the default and the flag goes.
 
 Steps 2-4 change shaders whose output only a browser shows. Node tests cover the math and the GLSL source, not the
 picture, so step 5 is the owner's.
@@ -3467,6 +3484,16 @@ the licence table. SOUND.md is the guide.
   cue replacing its synthesised one, variants in turn, the playback rate, the voice budget, proximity and pan, the
   crests of the fixture layouts, a lap's bell, whoosh, screams and brakes once each, inversions, boosts and launches,
   fewer screams on a gentle ride, and nothing while paused.
+- [ ] **At most two coasters heard at once (owner, 2026-10-21).** With more than two coasters on screen, only two
+  play their sounds; the rest are silent. More is tiring to listen to.
+  - Which two: the loudest by `proximity` (nearest the middle of the screen, at this zoom). A small hysteresis keeps
+    a coaster from flickering in and out as two trains pass each other.
+  - It covers everything a coaster plays: the roll and chain loops and the one-shots (bell, whoosh, screams, boost,
+    launch, brakes, crash). Flat rides, fountains and the beds are not counted.
+  - Where: `RideSounds.update` picks the two coasters before it emits, so `MAX_VOICES` still caps all positional
+    loops together. One constant, for example `MAX_AUDIBLE_COASTERS = 2`.
+  - Tests: three coasters in view emit for two only (the nearest two), a third comes in when one leaves the screen,
+    and one-shots of a silent coaster are not played.
 
 ### Phase 57 — Step-by-Step Tutorial (owner request 2026-10-20)
 

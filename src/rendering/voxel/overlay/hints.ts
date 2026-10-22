@@ -88,6 +88,15 @@ export class VoxelHints {
     this.version += 1;
   }
 
+  /** Phase 55: the texel scale changed (`VoxelOverlays.setTexelScale` sets the stroke width): repaints the ring. */
+  restroke(): void {
+    if (this.bright === null) return;
+    const phase = this.phase;
+    this.clear();
+    this.build(phase);
+    this.version += 1;
+  }
+
   private build(phase: number): void {
     const cells = viewCells(this.frame, this.worldCells);
     this.bright = this.paint(cells, BRIGHT_FILL_ALPHA, 2, true);

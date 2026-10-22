@@ -162,7 +162,18 @@ export class VoxelEffects {
   }
 
   get isEmpty(): boolean {
-    return this.activeCount === 0;
+    return this.activeCount === 0 || !this.layer.visible;
+  }
+
+  /**
+   * Phase 55: hidden at the far zoom levels, where the money pops and reactions (pixel art at one texel per texel) would shrink to
+   * specks: an overview. They keep updating, so they are where they belong when shown again. One `version` bump on a
+   * change.
+   */
+  setHidden(hidden: boolean): void {
+    if (this.layer.visible === !hidden) return;
+    this.layer.visible = !hidden;
+    this.version += 1;
   }
 
   /** How many effects are running (for tests and the performance readout). */

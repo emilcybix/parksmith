@@ -1410,6 +1410,13 @@ export class VoxelRenderer implements RendererPort {
     if (!gpu) return;
     const overlays = this.overlays;
     const badges = this.badges;
+    if (snap.texelScale !== this.overlayScale) {
+      // Phase 55: strokes keep their width on screen; badges and effects wait for a nearer level.
+      overlays.setTexelScale(snap.texelScale);
+      this.hints.restroke();
+      badges.setHidden(snap.texelScale > 1);
+      this.effects.setHidden(snap.texelScale > 1);
+    }
     badges.update(this.frame.elapsedMs);
     this.hints.update(this.frame.elapsedMs);
     this.effects.update(this.frame.elapsedMs);

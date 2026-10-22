@@ -172,16 +172,15 @@ ${vxPatternsSource(viewTurn)}
 uniform highp sampler2D uPalette;
 uniform float uTime;
 uniform float uGrid;
+uniform float uTexelScale;
 #ifdef VX_DITHER
 uniform vec2 uCameraTexel;
-uniform float uTexelScale;
 uniform float uCoverage;
 uniform vec3 uGhostTint;
 uniform float uGhostMix;
 #endif
 #ifdef VX_CUT
 uniform vec2 uCameraTexel;
-uniform float uTexelScale;
 uniform vec2 uDepthRange;
 uniform vec4 uSeeA;
 uniform vec4 uSeeB;
@@ -233,7 +232,7 @@ void main() {
 #endif
 #endif
   vec3 color = vxSurfaceColor(uPalette, vMaterial, vPattern, vQuarterTurn, vPatternFace,
-                              vPatternPosition, vPatternNormal, ${viewTurn ? 'vCellShift, ' : ''}uTime, uGrid);
+                              vPatternPosition, vPatternNormal, ${viewTurn ? 'vCellShift, ' : ''}uTime, uGrid * uTexelScale);
   vec4 props = vxMaterialProps(uPalette, vMaterial);
   int materialFlags = int(props.x);
   int faceAndFlags = vFaceCode | vxGFlagsOfMaterial(materialFlags);

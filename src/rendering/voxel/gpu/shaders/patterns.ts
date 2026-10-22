@@ -14,7 +14,8 @@ import type { PatternName } from '../../contracts/palette';
  *                  part-local for rigid parts and figures), interpolated
  *     normal       unit normal in the same space
  *     time         seconds, wrapped on the CPU
- *     grid         1.0 when the tile grid is shown (GRASS draws it), else 0.0
+ *     grid         when the tile grid is shown (GRASS draws it), the line's width in voxels: the texel scale (Phase 55:
+ *                  1, or 2 and 4 at the far zoom levels, so the line stays one texel wide), else 0.0
  *   returns the UNLIT sRGB colour of that point.
  * Cell addressing: top faces use floor(pos + vec3(0.5, 0.0, -0.5)) (one texel pair per voxel);
  * other faces floor(pos - 0.5 * normal). Refined here (see below): bands and tiles (STRIPES, ROOF,
@@ -227,7 +228,8 @@ vec3 vxSurfaceColor(highp sampler2D palette, int material, int pattern, int quar
     // pair would straddle two tiles' shades and draw a seam at tile column 0: keep those pairs plain.
     int speckPair = (plane.x >> 1) & 15;
     if (speckPair != 0 && speckPair != 15) color *= 1.0 + amplitude * vxPatternSpeck(plane, depth);
-    bool border = (voxel.x & 31) == 0 || (voxel.y & 31) == 0;
+    int line = int(grid);
+    bool border = (voxel.x & 31) < line || (voxel.y & 31) < line;
     if (grid > 0.5 && face == VX_FACE_TOP && border) color = mix(color, VX_GRID_LINE, VX_GRID_LINE_MIX);
   } else if (pattern == VX_PATTERN_PAVING) {
     int course = plane.y >> 2;

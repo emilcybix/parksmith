@@ -36,18 +36,18 @@ const hash53 = (text: string): string => {
  * rung: if a hash moves, the fallback is no longer today's shader, which is the whole point of having it.
  *
  * Phase 55 re-pinned every program that reads the camera: a uTexelScale uniform (world texels per low-res texel)
- * divides the clip mapping and the sub-texel snap and scales the texel-to-world steps and the outline's plane steps.
- * At 1 every expression is exact, so the view-off picture is unchanged.
+ * divides the clip mapping and the sub-texel snap and scales the texel-to-world steps, the outline's plane steps and
+ * the lawn's grid line width. At 1 every expression is exact, so the view-off picture is unchanged.
  */
 const PRE_ROTATION_HASHES: Readonly<Record<string, string>> = {
-  'worldOpaque': '1ec0cf7b566ad',
-  'worldDither': '1e26dbe8d2ec14',
-  'worldCut': 'f72440a88ad7d',
-  'worldFront': 'c8ed2fb409cc5',
+  'worldOpaque': 'e10e7ecafd6e7',
+  'worldDither': '11a3dcd24d3aed',
+  'worldCut': '1c18ccef57e82f',
+  'worldFront': '136c4b87fa2d5a',
   // Phase 29: both figure programs re-pinned once, for the keyframe table's new pose columns (sit, hunch, cheer, wave
   // ...); no view code.
-  'figureOpaque': '4b1be35c3be89',
-  'figureDither': 'e57689d9238af',
+  'figureOpaque': '459e7e2ecb60e',
+  'figureDither': '1b768f89d6ea64',
   'lightPass': '9a5be3619b012',
   'composite/full/full/plain': '619eedba8bb34',
   'composite/full/full/translucent': '105b0de14fefa',

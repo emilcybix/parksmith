@@ -131,6 +131,17 @@ const influenceColor = (score: number): number =>
   score >= 50 ? 0xff9f45 : score >= 20 ? 0xffd166 : 0x5fe0b6;
 
 /**
+ * Phase 55: world texels per overlay-target texel. The overlays are drawn in world texels and the root is scaled by
+ * 1 / k, so a stroke of `width` would shrink to width / k target texels; every stroke is drawn `width × k` wide instead,
+ * keeping lines 1 or 2 texels on screen at the far zoom levels. Set by `VoxelOverlays.setTexelScale` (1 at every other
+ * level, where every width is what it was).
+ */
+let lineScale = 1;
+
+/** A stroke `width` texels wide on screen, in the world texels the overlays are drawn in. */
+export const overlayStrokeWidth = (width: number): number => width * lineScale;
+
+/**
  * Strokes the diamond sides that face outside `cells` (one path, one stroke), so a group of cells
  * gets one clean outline rather than a lattice. Edges are whole-texel diagonals of slope ½.
  */
@@ -147,7 +158,7 @@ export const strokeOutline = (graphic: Graphics, cells: readonly Cell[], color: 
       any = true;
     });
   }
-  if (any) graphic.stroke({ color, alpha: 1, width });
+  if (any) graphic.stroke({ color, alpha: 1, width: overlayStrokeWidth(width) });
 };
 
 /** Score-coloured diamonds, then a bright 1-texel rim around the covered set so the exact radius reads. */
@@ -355,6 +366,21 @@ export class VoxelOverlays {
     this.frame.width = frame.width;
     this.frame.height = frame.height;
     if (same) return;
+    this.redrawAll();
+  }
+
+  /**
+   * Phase 55: the overlay target's texel scale (world texels per texel; 2 and 4 at the far zoom levels). Every stroke
+   * is redrawn at the new width (`overlayStrokeWidth`), with one `version` bump; the same scale again is free.
+   */
+  setTexelScale(scale: number): void {
+    if (scale === lineScale) return;
+    lineScale = scale;
+    this.redrawAll();
+  }
+
+  /** Redraws every retained layer in the current view, bumping `version` once. */
+  private redrawAll(): void {
     const before = this.version;
     this.landDirty = true;
     this.drawLand();
@@ -474,7 +500,7 @@ export class VoxelOverlays {
       const world = cells[index];
       const lift = paths.has(`${world.x},${world.y}`) ? PATH_PREVIEW_LIFT : 0;
       const color = blockedKeys?.has(`${world.x},${world.y}`) ? refused : fill;
-      graphic.poly(texelDiamond(point.x, point.y - lift, 1)).fill({ color, alpha: fillAlpha }).stroke({ color: OUTLINE_WHITE, alpha: 1, width: 1 });
+      graphic.poly(texelDiamond(point.x, point.y - lift, 1)).fill({ color, alpha: fillAlpha }).stroke({ color: OUTLINE_WHITE, alpha: 1, width: overlayStrokeWidth(1) });
     });
     // Phase 40: a small marker on each cell in front of the building's front edge: where its front (counter, seat,
     // entrance) faces. The anchor is the footprint's minimum cell.
@@ -570,7 +596,7 @@ export class VoxelOverlays {
       // A guide back to the station reminds the player the loop must close.
       const from = coasterPoint(last, this.frame);
       const to = coasterPoint(first, this.frame);
-      graphic.moveTo(from.x, from.y).lineTo(to.x, to.y).stroke({ color: OUTLINE_WHITE, width: 1, alpha: GUIDE_ALPHA });
+      graphic.moveTo(from.x, from.y).lineTo(to.x, to.y).stroke({ color: OUTLINE_WHITE, width: overlayStrokeWidth(1), alpha: GUIDE_ALPHA });
     }
     this.draftLayer.addChild(graphic);
     this.changed();
