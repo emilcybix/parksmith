@@ -28,7 +28,7 @@ import { GUARD_BAND_TEXELS, LOW_RES_TEXEL_BUDGET, MAX_ZOOM_CSS_PER_TEXEL } from 
  * Phase 55: a zoom LEVEL is a pair (texel scale k, zoom N): the low-res target holds k world texels per texel (k = 1
  * at every level but the far ones), each drawn as N × N device px, so a device px shows k / N world texels. The far
  * levels (k = 2 and 4 at the smallest N) draw the scene at half and quarter scale into a target of the same size
- * (`farLevels`; off until the renderer draws them). The origin snaps to whole low-res texels (multiples of k world
+ * (`farLevels`; the voxel renderer turns them on). The origin snaps to whole low-res texels (multiples of k world
  * texels), and with k = 1 every expression below is bit for bit what it was before levels had a k.
  */
 
@@ -171,7 +171,7 @@ const snapOffset = (origin: number, texel: number, zoom: number, scale: number):
 export interface VoxelCameraOptions {
   /** `&zoom=N`: the starting zoom instead of the per-screen default, clamped into the levels. */
   zoomOverride?: number | null;
-  /** Phase 55: offer the far levels (half and quarter scale). Off until the renderer draws them. */
+  /** Phase 55: offer the far levels (half and quarter scale). The voxel renderer does; off by default for the tests. */
   farLevels?: boolean;
 }
 

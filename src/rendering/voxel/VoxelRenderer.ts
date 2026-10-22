@@ -2,7 +2,7 @@ import { Container, UPDATE_PRIORITY, type Application, type WebGLRenderer } from
 import { lowPassCamera, orbitCamera } from './cameraOrbit';
 import { flatRideView, trainRideView } from './rideCamera';
 import { VIEW_TURN_MS, groundAtCentre, turnAzimuth, turnView, viewAzimuth } from './viewTurnCamera';
-import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_FAR, VOXEL_GPU_MIN, VOXEL_TIMING, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
+import { ALLOW_SOFTWARE_GPU, CAMERA_3D, LIGHT_OVERRIDE, LIGHT_PRESET, VOXEL_DEBUG, VOXEL_GPU_MIN, VOXEL_TIMING, WEATHER_FLAGS, ZOOM_OVERRIDE } from '../../app/rendererFlag';
 import type { CinematicView } from '../RendererPort';
 import type { CoasterPiece } from '../../game/coaster/design';
 import { BUILD_BY_ID } from '../../game/content/catalog';
@@ -213,7 +213,8 @@ export class VoxelRenderer implements RendererPort {
   private gpu: VoxelGpu | null = null;
   private host: HTMLElement | null = null;
   private maxTargetSize = 0;
-  private readonly camera = new VoxelCamera({ zoomOverride: ZOOM_OVERRIDE, farLevels: VOXEL_FAR });
+  /** Phase 55: with the far levels (half and quarter scale), two wheel steps further out than the screen's smallest N. */
+  private readonly camera = new VoxelCamera({ zoomOverride: ZOOM_OVERRIDE, farLevels: true });
   private readonly palette: Palette;
   private readonly scene: VoxelScene;
   /** World-texel overlays, never on the stage: rendered into the GPU's overlay target. */

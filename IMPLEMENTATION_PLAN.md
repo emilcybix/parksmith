@@ -3150,7 +3150,7 @@ later).
 - [x] Tests: `audio/music.test.ts`.
 - [ ] Not built: several tracks per context (playlist), stingers (scenario won, ride opened), ride-local music.
 
-## Owner Feedback 2026-10-19 (Phases 48–58; 48, 49, 56 and 58 built, the rest not started)
+## Owner Feedback 2026-10-19 (Phases 48–58; 48, 49, 55, 56 and 58 built, the rest not started)
 
 Twelve points from the owner's playtest on 2026-10-19, grouped into phases. They are in priority order: the bug
 first, then questions to answer from the numbers, then new systems. Three points are questions ("is this
@@ -3289,9 +3289,9 @@ Replaces "Terrain elevation" and "Water as buildable terrain" under Future Candi
   behaviour (Phase 20: soaked guests). These are rides in a theme park, not the "water park" (pools and slides)
   listed under Explicitly not now.
 
-### Phase 55 — Zoom Out Further
+### Phase 55 — Zoom Out Further (built 2026-10-22)
 
-- [ ] Raise the maximum zoom-out. Today the voxel camera's zoom is a whole number of device pixels per texel, and the
+- [x] Raise the maximum zoom-out. Today the voxel camera's zoom is a whole number of device pixels per texel, and the
   furthest-out level is the smallest one whose low-res target fits `LOW_RES_TEXEL_BUDGET` (2.2 M texels,
   `zoomLevelsFor` in `voxel/camera.ts`). There are two ways to go further: raise the budget (costs fill rate, so
   re-measure the frame budget at 1,000 guests), or add fractional zoom levels below 1 texel per pixel by rendering
@@ -3442,6 +3442,11 @@ browsers offer.
    and the overlay numbers. The picture and the numbers were checked after step 2 (good, cheaper than today). Still to
    check (`&voxelFar=1`): the overlays at 1/2 and 1/4 (a build preview, a path drag, the bulldozer, the grid `#`,
    the land fence on an estate, a First Day hint ring). Then `farLevels` becomes the default and the flag goes.
+   - [x] **Done (owner, 2026-10-22):** the overlays look good. The far levels are on for everyone and `&voxelFar=1`
+     is gone.
+   - **Side effect, on purpose:** the audio zoom mix (`readViewInfo().zoom`, Phase 56) runs over the whole list
+     now. Today's furthest level (N = 1 at 1080p) was 0, all music. It is now 0.4 of the way in, a mix of music and
+     park. All music is at 1/4.
 
 Steps 2-4 change shaders whose output only a browser shows. Node tests cover the math and the GLSL source, not the
 picture, so step 5 is the owner's.
@@ -3484,7 +3489,7 @@ the licence table. SOUND.md is the guide.
   cue replacing its synthesised one, variants in turn, the playback rate, the voice budget, proximity and pan, the
   crests of the fixture layouts, a lap's bell, whoosh, screams and brakes once each, inversions, boosts and launches,
   fewer screams on a gentle ride, and nothing while paused.
-- [ ] **At most two coasters heard at once (owner, 2026-10-21).** With more than two coasters on screen, only two
+- [x] **At most two coasters heard at once (owner, 2026-10-21; built 2026-10-22).** With more than two coasters on screen, only two
   play their sounds; the rest are silent. More is tiring to listen to.
   - Which two: the loudest by `proximity` (nearest the middle of the screen, at this zoom). A small hysteresis keeps
     a coaster from flickering in and out as two trains pass each other.
@@ -3494,6 +3499,11 @@ the licence table. SOUND.md is the guide.
     loops together. One constant, for example `MAX_AUDIBLE_COASTERS = 2`.
   - Tests: three coasters in view emit for two only (the nearest two), a third comes in when one leaves the screen,
     and one-shots of a silent coaster are not played.
+  - **Built:** `RideSounds.chooseAudible` picks the running coasters by the proximity of their trains (a heard one
+    counted 1.25 times louder, `AUDIBLE_COASTER_HYSTERESIS`). The others keep their marks silently, so they neither
+    ring nor launch when they come in. The feedback cues of a coaster on the Rides bus (its cycle chime, a breakdown
+    crash, a repair) go through `coasterAudible`; while fewer than two are heard, any coaster's cue plays. Tests in
+    `rideSounds.test.ts`.
 
 ### Phase 57 — Step-by-Step Tutorial (owner request 2026-10-20)
 
