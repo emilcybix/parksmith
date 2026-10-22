@@ -82,6 +82,9 @@ chance is a hash of the ride, the lap and the piece, so the same lap always scre
   cross-fade). The music keeps playing underneath, so zooming out picks it up where it was. The start screen is all
   music. The UI sounds are never scaled.
 - **Voice budget:** at most 10 positional loops play at once (`MAX_VOICES`); the loudest win.
+- **Two coasters at most:** with more coasters on screen, only the two whose trains are nearest the middle are heard
+  (`MAX_AUDIBLE_COASTERS`), everything they play included. A coaster that is heard keeps its place until another is
+  clearly nearer, so two trains passing each other do not swap back and forth.
 - **Paused:** coasters and rides are silent and fire no events; only the fountains keep splashing.
 - **Buses:** coaster and ride sounds are on the Rides bus, the beds and thunder on Ambience, the toilet on Guests, the
   interface on UI. The Settings sliders and the mute key (M) cover them all.

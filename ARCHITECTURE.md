@@ -563,7 +563,9 @@ rattles its chain on a chained segment; a shuttle launches (and screams) as it l
 dispatch, and as the train enters each piece: a whoosh over every crest (`dropsOf`, louder the deeper), boost and launch
 pieces, the brakes on the station's first piece, and screams on drops of 2 levels or more and on inversions, by a
 chance and level from the ride's intensity (`hash32` of ride, lap and piece: deterministic, never the simulation's
-random). No one-shots while paused. The Bumble Coach puffs steam,
+random). No one-shots while paused. Only `MAX_AUDIBLE_COASTERS` (2) running coasters are heard, the nearest by the
+proximity of their trains with a little hysteresis (`chooseAudible`); the rest keep their marks silently, and GameApp
+drops a silent coaster's Rides-bus cues (`coasterAudible`). The Bumble Coach puffs steam,
 Temple Trek's carts run an engine, every other running ride hums a motor, a Ripple Fountain splashes. The loops go to
 `AudioEngine.setEmitters`: at most `MAX_VOICES` (the loudest), a voice per key that glides while it stays and fades out
 and stops when it goes. Paused: only fountains. Thunder (`thunderBetween`, the same cells as `stormFlashAt`) plays near

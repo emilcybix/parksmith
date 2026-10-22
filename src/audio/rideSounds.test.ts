@@ -6,7 +6,9 @@ import { deriveCoasterStats } from '../game/coaster/design';
 import type { CoasterPiece } from '../game/coaster/design';
 import { hillDipLayout, launchOvalLayout, loopOvalLayout, ovalLayout } from '../game/coaster/testLayouts';
 import { GAME_CONFIG } from '../game/config';
-import { RideSounds, dispatchScreamChance, dropsOf, screamChance, screamLevel } from './rideSounds';
+import { centreLineFor, centreLineIndexToDistance, createCentreLineSample, sampleCentreLine } from '../game/coaster/centreLine';
+import { coasterHeadIndex } from '../rendering/coasterTrain';
+import { MAX_AUDIBLE_COASTERS, RideSounds, dispatchScreamChance, dropsOf, screamChance, screamLevel } from './rideSounds';
 import type { SoundId } from './synth';
 
 /** Just the live maps RideSounds reads: one coaster (the oval unless given), a carousel and a fountain. */
@@ -131,5 +133,64 @@ describe('ride sounds', () => {
     expect(stats.durationSeconds).toBeGreaterThan(10);
     sounds.update(session, view(), false, (sound) => { played.push(sound); });
     expect(played).toEqual([]);
+  });
+
+  describe('at most two coasters heard (owner, 2026-10-21)', () => {
+    /** Three ovals stacked down the map (y 4, 14 and 24), all running at the same point of their cycle. */
+    const three = () => {
+      const stats = deriveCoasterStats(ovalLayout(), COASTER_TYPE_BY_ID.get('comet-trail')!);
+      const coasters = new Map<number, { objectId: number; pieces: ReturnType<typeof ovalLayout>; stats: typeof stats }>();
+      const objects = new Map<number, { id: number; definitionId: string; anchor: { x: number; y: number }; rotation: number }>();
+      const rides = new Map<number, { status: string; objectId: number; cycleRemainingSeconds: number }>();
+      for (const [index, y] of [4, 14, 24].entries()) {
+        const id = index + 1;
+        const pieces = ovalLayout({ x: 4, y });
+        coasters.set(id, { objectId: id, pieces, stats });
+        objects.set(id, { id, definitionId: 'comet-trail', anchor: { ...pieces[0].cell }, rotation: 0 });
+        rides.set(id, { status: 'running', objectId: id, cycleRemainingSeconds: stats.durationSeconds });
+      }
+      const world = { tick: 0, coasters, objects };
+      const session = { world, rides: { rides } } as unknown as ParkSession;
+      return { session, world, rides, stats };
+    };
+    const heardIds = (emitters: readonly { key: number }[]): number[] => [...new Set(emitters.map((emitter) => emitter.key >> 2))].sort();
+
+    it('three coasters in view: only the two nearest the middle roll, ring and scream', () => {
+      const { session, world, rides, stats } = three();
+      const sounds = new RideSounds();
+      const played: number[] = [];
+      const ids = new Set<number>();
+      let seconds = 0;
+      for (let into = 0; into < stats.durationSeconds; into += 0.25, seconds += 0.25) {
+        for (const ride of rides.values()) ride.cycleRemainingSeconds = stats.durationSeconds - into;
+        world.tick = Math.round((seconds * 1_000) / GAME_CONFIG.fixedStepMs);
+        // The middle of the screen between the first two ovals, the third further down.
+        const emitters = sounds.update(session, view({ cx: 8, cy: 10, halfWidth: 16 }), false, () => { played.push(1); });
+        for (const id of heardIds(emitters)) ids.add(id);
+      }
+      expect(MAX_AUDIBLE_COASTERS).toBe(2);
+      expect([...ids].sort()).toEqual([1, 2]);
+      // Two bells and two brakes a lap: two coasters, not three.
+      expect(played.length).toBeGreaterThanOrEqual(4);
+      expect(sounds.coasterAudible(3)).toBe(false);
+      expect(sounds.coasterAudible(1)).toBe(true);
+    });
+
+    it('the third comes in when one leaves the screen, and a heard coaster is not swapped for a barely louder one', () => {
+      const { session, rides, stats } = three();
+      for (const ride of rides.values()) ride.cycleRemainingSeconds = stats.durationSeconds - GAME_CONFIG.coaster.stationLoadSeconds - 2;
+      const sounds = new RideSounds();
+      expect(heardIds(sounds.update(session, view({ cx: 8, cy: 10, halfWidth: 16 }), false, () => undefined))).toEqual([1, 2]);
+      // Down the map: the first oval is now the furthest, so the third takes its place.
+      expect(heardIds(sounds.update(session, view({ cx: 8, cy: 20, halfWidth: 16 }), false, () => undefined))).toEqual([2, 3]);
+      // Where the first train is a touch nearer than the third (the trains are 20 cells apart in y), the heard 3 stays;
+      // clearly nearer, 1 comes back.
+      const record = session.world.coasters.get(1)!;
+      const line = centreLineFor(record.pieces);
+      const train = sampleCentreLine(line, centreLineIndexToDistance(line, coasterHeadIndex(record, rides.get(1)!.cycleRemainingSeconds)), createCentreLineSample());
+      const middle = train.y + 10;
+      expect(heardIds(sounds.update(session, view({ cx: train.x, cy: middle - 0.3, halfWidth: 16 }), false, () => undefined))).toEqual([2, 3]);
+      expect(heardIds(sounds.update(session, view({ cx: train.x, cy: middle - 6, halfWidth: 16 }), false, () => undefined))).toEqual([1, 2]);
+    });
   });
 });

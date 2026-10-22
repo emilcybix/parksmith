@@ -94,7 +94,7 @@ import { buildFeedbackReport, type FeedbackReport } from './alpha/feedbackReport
 import { consumeRecoverOnBoot } from './alpha/bootFlags';
 import { degradationNotice } from './alpha/degradationNotice';
 import { GAME_VERSION } from '../ui/aboutModel';
-import { AudioEngine } from '../audio/AudioEngine';
+import { AudioEngine, SOUND_BUS } from '../audio/AudioEngine';
 import type { SoundId } from '../audio/synth';
 import { createBrowserAudioContext, createBrowserMusicSource, createBrowserSampleSource } from '../audio/browserContext';
 import {
@@ -478,7 +478,11 @@ export class GameApp implements GameCommands, RunCommands {
   private readonly feedback = new FeedbackTracker((effect) => {
     this.renderer?.showEffect?.(effect);
     const voice = cueVoice(effect, this.viewInfo, this.session, this.cueScratch);
-    if (voice !== null) this.audio.play(voice.sound, voice.gain, voice.pan);
+    if (voice === null) return;
+    // A coaster's own sounds (its cycle, a breakdown) only from the coasters being heard (MAX_AUDIBLE_COASTERS).
+    const coaster = effect.objectId !== null && this.world.coasters.has(effect.objectId);
+    if (coaster && SOUND_BUS[voice.sound] === 'rides' && !this.rideSounds.coasterAudible(effect.objectId as number)) return;
+    this.audio.play(voice.sound, voice.gain, voice.pan);
   });
   private readonly cueScratch: CueVoice = { sound: 'click', gain: 0, pan: 0 };
   /** The rides' and fountains' positional sounds (loops and one-shots), read at the 4 Hz cadence. */

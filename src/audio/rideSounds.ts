@@ -32,6 +32,14 @@ import { objectPoint, panFor, proximity } from './audioDirector';
  * the other side of the map is not heard.
  */
 
+/**
+ * At most this many coasters are heard at once (owner, 2026-10-21): the ones nearest the middle of the screen. More
+ * is tiring to listen to.
+ */
+export const MAX_AUDIBLE_COASTERS = 2;
+/** A coaster that is heard keeps its place until another is this many times louder (no flicker as trains pass). */
+export const AUDIBLE_COASTER_HYSTERESIS = 1.25;
+
 /** A circuit's riders may scream over a crest when the drop after it is at least this many levels. */
 export const MIN_SCREAM_DROP = 2;
 /** Cells a second at which a rolling train is at full level. */
@@ -90,6 +98,8 @@ const screams = (objectId: number, lap: number, index: number, chance: number): 
 
 export type PlaySound = (sound: SoundId, gain: number, pan: number) => void;
 
+const silent: PlaySound = () => undefined;
+
 export class RideSounds {
   private readonly emitters: Emitter[] = [];
   private readonly pool: Emitter[] = [];
@@ -97,10 +107,61 @@ export class RideSounds {
   private readonly sample = createCentreLineSample();
   private readonly point = { x: 0, y: 0 };
   private looks = 0;
+  /** The coasters heard this look (MAX_AUDIBLE_COASTERS at most), and the scratch the choice is made in. */
+  private readonly audible = new Set<number>();
+  private readonly chosen = new Set<number>();
+  private readonly candidates: Array<{ id: number; score: number }> = [];
 
   /** A new park, a load or a rewind: nothing that was moving is "just launched". */
   reset(): void {
     this.trains.clear();
+    this.audible.clear();
+  }
+
+  /**
+   * Whether a coaster's sounds are heard: one of the MAX_AUDIBLE_COASTERS chosen at the last look, or any coaster
+   * while fewer are (a breakdown's crash comes from the feedback cues, not from here).
+   */
+  coasterAudible(objectId: number): boolean {
+    return this.audible.has(objectId) || this.audible.size < MAX_AUDIBLE_COASTERS;
+  }
+
+  /**
+   * Chooses the running coasters to hear: the loudest by the proximity of their trains, a coaster already heard
+   * counted AUDIBLE_COASTER_HYSTERESIS times louder. Allocation-free once the scratch has grown.
+   */
+  private chooseAudible(session: ParkSession, view: Readonly<ViewInfo>): void {
+    const candidates = this.candidates;
+    let count = 0;
+    for (const ride of session.rides.rides.values()) {
+      if (ride.status !== 'running') continue;
+      const record = session.world.coasters.get(ride.objectId);
+      if (record === undefined) continue;
+      const line = centreLineFor(record.pieces);
+      const head = coasterHeadIndex(record, ride.cycleRemainingSeconds);
+      const sample = sampleCentreLine(line, centreLineIndexToDistance(line, head), this.sample);
+      const level = proximity(view, sample.x, sample.y);
+      if (level <= 0) continue;
+      const entry = candidates[count] ?? { id: 0, score: 0 };
+      entry.id = ride.objectId;
+      entry.score = this.audible.has(ride.objectId) ? level * AUDIBLE_COASTER_HYSTERESIS : level;
+      candidates[count] = entry;
+      count += 1;
+    }
+    const chosen = this.chosen;
+    chosen.clear();
+    for (let pick = 0; pick < MAX_AUDIBLE_COASTERS; pick += 1) {
+      let best = -1;
+      for (let index = 0; index < count; index += 1) {
+        const entry = candidates[index];
+        if (chosen.has(entry.id)) continue;
+        if (best < 0 || entry.score > candidates[best].score || (entry.score === candidates[best].score && entry.id < candidates[best].id)) best = index;
+      }
+      if (best < 0) break;
+      chosen.add(candidates[best].id);
+    }
+    this.audible.clear();
+    for (const id of chosen) this.audible.add(id);
   }
 
   /** The loops to play now (a reused array) after playing this look's one-shots through `play`. */
@@ -110,11 +171,14 @@ export class RideSounds {
     emitters.length = 0;
     const world = session.world;
     const point = this.point;
+    this.chooseAudible(session, view);
     for (const ride of session.rides.rides.values()) {
       const record = world.coasters.get(ride.objectId);
       const running = ride.status === 'running';
       if (record !== undefined) {
-        this.coaster(session, view, paused, play, ride.objectId, record, running ? ride.cycleRemainingSeconds : null);
+        // A coaster not chosen keeps its marks (so it does not launch or ring when it is chosen later), silently.
+        const heard = this.audible.has(ride.objectId);
+        this.coaster(session, view, paused || !heard, heard ? play : silent, ride.objectId, record, running ? ride.cycleRemainingSeconds : null);
         continue;
       }
       const mark = this.mark(ride.objectId, world.tick);
